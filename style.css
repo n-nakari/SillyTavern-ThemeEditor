@@ -1,0 +1,33 @@
+/* 扩展UI的容器样式 */
+#theme-editor-container {
+    padding: 10px;
+    border: 1px solid var(--border-color, #555);
+    border-radius: 5px;
+    margin-top: 15px;
+    max-height: 400px; /* 限制最大高度，超出则滚动 */
+    overflow-y: auto;
+}
+
+/* 每个颜色选择器条目的样式 */
+.theme-editor-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+/* 颜色选择器前面的标题标签 */
+.theme-editor-label {
+    font-family: 'NotoSansMono', monospace;
+    font-size: 0.9em;
+    color: var(--main-text-color, #ccc);
+    min-width: 150px; /* 保证对齐 */
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* 调色盘组件本身 */
+.theme-editor-item toolcool-color-picker {
+    width: 30px;
+    height: 30px;
+}
