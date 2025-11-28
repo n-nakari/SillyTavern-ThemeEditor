@@ -17,40 +17,40 @@
 
         customCssBlock.parentNode.insertBefore(title, customCssBlock.nextSibling);
         title.parentNode.insertBefore(editorContainer, title.nextSibling);
-
+        
         // 我们不再需要自己的 <style> 标签了
-        // let liveStyleTag = document.getElementById('theme-editor-live-styles'); ...
 
-        // 存储所有解析出的颜色信息，这次包含位置信息
         let colorEntries = [];
-        let originalCssText = '';
 
         const cssColorNames = [
-            'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitespoke', 'yellow', 'yellowgreen'
+            'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
         
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
-        const colorPropertiesRegex = new RegExp(`(${colorProperties.join('|')})\\s*:([^;]+)`, 'gi');
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'g');
         
-        // 核心函数：构建新的CSS字符串并更新文本框
+        // 核心：直接修改文本框并触发事件
         function applyChangesToTextarea() {
-            let newCssText = originalCssText;
+            let newCssText = customCssTextarea.value;
             
-            // 从后往前替换，以避免索引错乱
+            // 为了处理文本长度变化，我们需要从后往前替换
             const sortedEntries = [...colorEntries].sort((a, b) => b.startIndex - a.startIndex);
 
             for (const entry of sortedEntries) {
-                newCssText = newCssText.substring(0, entry.startIndex) + entry.current + newCssText.substring(entry.endIndex);
+                // 只替换已更改的颜色
+                if (entry.current !== entry.original) {
+                    newCssText = newCssText.substring(0, entry.startIndex) + entry.current + newCssText.substring(entry.endIndex);
+                }
             }
             
             customCssTextarea.value = newCssText;
-            // 关键：触发SillyTavern的内置更新机制
-            customCssTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            customCssTextarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
         }
 
+        let isUpdatingByPicker = false; // 标志位，防止循环触发
+
         function parseAndBuildUI() {
-            originalCssText = customCssTextarea.value;
+            const cssText = customCssTextarea.value;
             editorContainer.innerHTML = '';
             colorEntries = [];
             let uniqueId = 0;
@@ -58,105 +58,124 @@
             const ruleRegex = /([^{}]+)\s*\{\s*([^}]+)\s*}/g;
             let ruleMatch;
 
-            while ((ruleMatch = ruleRegex.exec(originalCssText)) !== null) {
+            while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
                 const selector = ruleMatch[1].trim();
                 const declarationsText = ruleMatch[2];
                 const ruleStartIndex = ruleMatch.index;
 
-                colorPropertiesRegex.lastIndex = 0;
-                let declarationMatch;
+                const declarationEntries = declarationsText.split(';').filter(d => d.trim());
                 
-                while((declarationMatch = colorPropertiesRegex.exec(declarationsText)) !== null) {
-                    const property = declarationMatch[1].trim();
-                    const value = declarationMatch[2].trim();
-                    const declarationStartIndex = ruleStartIndex + ruleMatch[1].length + 1 + declarationMatch.index;
-                    
-                    let colorMatch;
-                    colorValueRegex.lastIndex = 0;
-                    
-                    const foundColors = [];
-                    while ((colorMatch = colorValueRegex.exec(value)) !== null) {
-                        foundColors.push({
-                            text: colorMatch[0],
-                            index: colorMatch.index
-                        });
-                    }
+                let currentDeclarationOffset = ruleStartIndex + ruleMatch[1].length + 1;
 
-                    if (foundColors.length > 0) {
-                        // 为这个声明（如 box-shadow）创建一个主标题
-                        if (foundColors.length > 1) {
-                            const mainLabel = document.createElement('div');
-                            mainLabel.className = 'theme-editor-main-label';
-                            mainLabel.textContent = `${selector} ${property}`;
-                            editorContainer.appendChild(mainLabel);
+                declarationEntries.forEach(declStr => {
+                    const parts = declStr.split(':');
+                    if (parts.length < 2) {
+                        currentDeclarationOffset += declStr.length + 1; // 移动偏移量
+                        return;
+                    }
+                    const property = parts[0].trim();
+                    const value = parts.slice(1).join(':').trim();
+                    
+                    if (colorProperties.includes(property.toLowerCase())) {
+                        let colorMatch;
+                        colorValueRegex.lastIndex = 0;
+                        const foundColors = [];
+                        
+                        while ((colorMatch = colorValueRegex.exec(value)) !== null) {
+                            foundColors.push({
+                                text: colorMatch[0],
+                                index: colorMatch.index
+                            });
                         }
                         
-                        foundColors.forEach((colorData, index) => {
-                            const entry = {
-                                id: uniqueId++,
-                                selector: selector,
-                                property: property,
-                                original: colorData.text,
-                                current: colorData.text,
-                                // 计算颜色在整个CSS文本中的精确位置
-                                startIndex: declarationStartIndex + value.indexOf(colorData.text, colorData.index),
-                                endIndex: declarationStartIndex + value.indexOf(colorData.text, colorData.index) + colorData.text.length
-                            };
-                            colorEntries.push(entry);
+                        if (foundColors.length > 0) {
+                            if (foundColors.length > 1) {
+                                const mainLabel = document.createElement('div');
+                                mainLabel.className = 'theme-editor-main-label';
+                                mainLabel.textContent = `${selector} ${property}`;
+                                editorContainer.appendChild(mainLabel);
+                            }
 
-                            const item = document.createElement('div');
-                            item.className = 'theme-editor-item';
-                            if(foundColors.length > 1) item.classList.add('multi-color');
+                            foundColors.forEach((colorData, index) => {
+                                const entry = {
+                                    id: uniqueId++,
+                                    original: colorData.text,
+                                    current: colorData.text,
+                                    startIndex: currentDeclarationOffset + declStr.indexOf(value) + colorData.index,
+                                    endIndex: currentDeclarationOffset + declStr.indexOf(value) + colorData.index + colorData.text.length
+                                };
+                                colorEntries.push(entry);
 
-                            const label = document.createElement('div');
-                            label.className = 'theme-editor-label';
-                            label.textContent = foundColors.length > 1 ? `Color #${index + 1}` : `${selector} ${property}`;
-                            label.title = `${selector} { ${property}: ${value} }`;
+                                const item = document.createElement('div');
+                                item.className = 'theme-editor-item';
+                                if (foundColors.length > 1) item.classList.add('multi-color');
+                                
+                                const label = document.createElement('div');
+                                label.className = 'theme-editor-label';
+                                label.textContent = foundColors.length > 1 ? `Color #${index + 1}` : `${selector} ${property}`;
+                                label.title = `${selector} { ${property}: ${value} }`;
 
-                            const colorPicker = document.createElement('toolcool-color-picker');
-                            colorPicker.dataset.id = entry.id;
+                                const colorPicker = document.createElement('toolcool-color-picker');
+                                colorPicker.dataset.id = entry.id;
 
-                            setTimeout(() => {
-                                if (entry.original.toLowerCase() === 'transparent') {
-                                    colorPicker.color = 'rgba(0, 0, 0, 0)';
-                                } else {
-                                    colorPicker.color = entry.original;
-                                }
-                            }, 0);
+                                setTimeout(() => {
+                                    colorPicker.color = entry.original.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : entry.original;
+                                }, 0);
 
-                            colorPicker.addEventListener('input', (event) => {
-                                const pickerId = parseInt(event.target.dataset.id);
-                                const targetEntry = colorEntries.find(e => e.id === pickerId);
-                                if (targetEntry) {
-                                    targetEntry.current = event.detail.rgba || event.detail.hex;
-                                    applyChangesToTextarea();
-                                }
-                            });
+                                colorPicker.addEventListener('input', (event) => {
+                                    if (isUpdatingByPicker) return; // 防止循环
+                                    isUpdatingByPicker = true;
+                                    
+                                    const pickerId = parseInt(event.target.dataset.id);
+                                    const targetEntry = colorEntries.find(e => e.id === pickerId);
+                                    if (targetEntry) {
+                                        targetEntry.current = event.detail.rgba || event.detail.hex;
+                                        applyChangesToTextarea();
+                                    }
+                                    
+                                    // 在短暂停顿后重置标志位
+                                    setTimeout(() => { isUpdatingByPicker = false; }, 50); 
+                                });
                             
-                            item.appendChild(label);
-                            item.appendChild(colorPicker);
-                            editorContainer.appendChild(item);
-                        });
+                                item.appendChild(label);
+                                item.appendChild(colorPicker);
+                                editorContainer.appendChild(item);
+                            });
+                        }
                     }
-                }
+                    currentDeclarationOffset += declStr.length + 1; // 更新到下一个声明的开始位置
+                });
             }
         }
 
         let debounceTimer;
         function debouncedParse() {
             clearTimeout(debounceTimer);
-            // 只有当用户停止输入时才重新解析UI
             debounceTimer = setTimeout(parseAndBuildUI, 500);
         }
 
-        // 初始运行并监听输入
         parseAndBuildUI();
-        customCssTextarea.addEventListener('input', (event) => {
-            // 如果事件不是由我们的扩展触发的（即是用户手动输入），则重新解析
-            if (!event.isTrusted) return;
+
+        customCssTextarea.addEventListener('input', () => {
+            // 如果是我们的扩展正在更新，则不要重新解析UI，避免死循环
+            if (isUpdatingByPicker) {
+                // 更新完成后，我们需要重新计算所有颜色条目的位置
+                // 因为文本长度可能已经改变
+                const currentCss = customCssTextarea.value;
+                for (const entry of colorEntries) {
+                    const newIndex = currentCss.indexOf(entry.current, entry.startIndex - 5); // 在旧位置附近搜索新颜色
+                    if (newIndex !== -1) {
+                        entry.startIndex = newIndex;
+                        entry.endIndex = newIndex + entry.current.length;
+                        entry.original = entry.current; // 将当前颜色设为新的“原始”颜色
+                    }
+                }
+                return;
+            }
+            // 如果是用户手动输入，则重新构建整个UI
             debouncedParse();
         });
 
-        console.log("Theme Editor extension (v6 - Direct Input Simulation) loaded successfully.");
+        console.log("Theme Editor extension (v7 - Final Simulation) loaded successfully.");
     });
 })();
