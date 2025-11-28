@@ -1,9 +1,9 @@
 [
     {
-        "name": "Theme Editor",
-        "url": "https://raw.githubusercontent.com/n-nakari/SillyTavern-ThemeEditor/main/config.json",
+        "name": "SillyTavern-ThemeEditor",
+        "url": "https://github.com/n-nakari/SillyTavern-ThemeEditor",
         "description": "Dynamically generates a color palette by extracting colors from the Custom CSS box. Makes theme editing much more efficient.",
-        "author": "Nakari",
+        "author": "n-nakari",
         "version": "1.0.0"
     }
 ]
