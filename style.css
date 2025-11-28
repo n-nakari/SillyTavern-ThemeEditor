@@ -4,8 +4,9 @@
     border: 1px solid var(--border-color, #555);
     border-radius: 5px;
     margin-top: 15px;
-    max-height: 400px; /* 限制最大高度，超出则滚动 */
+    max-height: 450px; /* 增加一点最大高度 */
     overflow-y: auto;
+    background-color: var(--blur-tint-color, rgba(30, 30, 30, 0.7)); /* 添加背景色 */
 }
 
 /* 每个颜色选择器条目的样式 */
@@ -13,21 +14,44 @@
     display: flex;
     align-items: center;
     margin-bottom: 8px;
-    gap: 10px;
+    padding-left: 10px;
+    gap: 15px;
 }
 
-/* 颜色选择器前面的标题标签 */
+/* 标题标签 */
 .theme-editor-label {
     font-family: 'NotoSansMono', monospace;
     font-size: 0.9em;
     color: var(--main-text-color, #ccc);
-    min-width: 150px; /* 保证对齐 */
+    min-width: 220px; /* 增加宽度以容纳更长的标题 */
     text-align: right;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 调色盘组件本身 */
 .theme-editor-item toolcool-color-picker {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
+}
+
+/* 多颜色条目的缩进 */
+.theme-editor-item.multi-color {
+    padding-left: 30px; /* 缩进以表示从属关系 */
+}
+
+.theme-editor-item.multi-color .theme-editor-label {
+    min-width: 200px;
+}
+
+/* 多颜色属性的主标题 */
+.theme-editor-main-label {
+    font-family: 'NotoSans', sans-serif;
+    font-weight: bold;
+    color: var(--main-text-color, #fff);
+    margin-top: 10px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid var(--border-color, #444);
+    padding-bottom: 3px;
 }
