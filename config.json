@@ -1,0 +1,8 @@
+{
+    "name": "Theme Editor",
+    "script": "script.js",
+    "style": "style.css",
+    "description": "Dynamically generates a color palette by extracting colors from the Custom CSS box. Makes theme editing much more efficient.",
+    "author": "Nakari",
+    "version": "1.0.0"
+}
