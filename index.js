@@ -25,7 +25,7 @@
             document.head.appendChild(liveStyleTag);
         }
         
-        // 禁用SillyTavern的原生CSS注入
+        // 禁用SillyTavern原生的自定义CSS注入
         const sillyTavernStyleTag = document.getElementById('custom-css');
         if (sillyTavernStyleTag) {
             sillyTavernStyleTag.disabled = true;
@@ -38,9 +38,13 @@
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
 
+        // ====================================================================
+        // 关键修复：移除了 setProperty 中的第三个参数 'important'
+        // ====================================================================
         function updateLiveCssVariable(variableName, newColor) {
-            // 在这里使用 !important 来确保我们的变量更新具有最高优先级
-            document.documentElement.style.setProperty(variableName, newColor, 'important');
+            // 添加console.log用于调试，你可以在F12中看到这个输出
+            console.log(`Updating CSS Variable: ${variableName} -> ${newColor}`);
+            document.documentElement.style.setProperty(variableName, newColor);
         }
 
         function parseAndBuildUI() {
@@ -56,7 +60,8 @@
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
                 const selector = ruleMatch[1].trim();
-                let declarationsText = ruleMatch[2];
+                const declarationsText = ruleMatch[2];
+                let processedDeclarations = declarationsText;
 
                 const allDeclarations = declarationsText.split(';').filter(d => d.trim() !== '');
 
@@ -72,67 +77,57 @@
                         const foundColors = [...value.matchAll(colorValueRegex)].map(m => m[0]);
                         
                         if (foundColors.length > 0) {
-                            let replacementMadeInThisDeclaration = false;
+                            let replacementMade = false;
                             
                             foundColors.forEach((colorStr, index) => {
-                                const variableName = `--theme-editor-color-${uniqueId++}`;
+                                const variableName = `--theme-editor-color-${uniqueId}`;
+                                uniqueId++;
                                 
-                                // 只替换第一个匹配项
-                                if (tempValue.includes(colorStr)) {
-                                    tempValue = tempValue.replace(colorStr, `var(${variableName})`);
-                                    replacementMadeInThisDeclaration = true;
+                                tempValue = tempValue.replace(colorStr, `var(${variableName})`);
+                                replacementMade = true;
 
-                                    let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
-                                    updateLiveCssVariable(variableName, initialColor);
+                                let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
+                                document.documentElement.style.setProperty(variableName, initialColor);
 
-                                    const item = document.createElement('div');
-                                    item.className = 'theme-editor-item';
-                                    if(foundColors.length > 1) item.classList.add('multi-color');
+                                const item = document.createElement('div');
+                                item.className = 'theme-editor-item';
+                                if(foundColors.length > 1) item.classList.add('multi-color');
 
-                                    const label = document.createElement('div');
-                                    label.className = 'theme-editor-label';
-                                    label.textContent = foundColors.length > 1 ? `Color #${index + 1}` : `${selector} ${property}`;
-                                    label.title = `${selector} { ${property}: ${value} }`;
+                                const label = document.createElement('div');
+                                label.className = 'theme-editor-label';
+                                label.textContent = foundColors.length > 1 ? `Color #${index + 1}` : `${selector} ${property}`;
+                                label.title = `${selector} { ${property}: ${value} }`;
 
-                                    const colorPicker = document.createElement('toolcool-color-picker');
-                                    
-                                    // 关键修复 A: 将变量名绑定到元素上
-                                    colorPicker.dataset.variableName = variableName;
-                                    
-                                    setTimeout(() => {
-                                        colorPicker.color = initialColor;
-                                    }, 0);
+                                const colorPicker = document.createElement('toolcool-color-picker');
+                                
+                                setTimeout(() => { colorPicker.color = initialColor; }, 0);
 
-                                    // 关键修复 B: 从元素的dataset中读取正确的变量名
-                                    colorPicker.addEventListener('input', (event) => {
-                                        const varName = event.target.dataset.variableName;
-                                        const newColor = event.detail.rgba || event.detail.hex;
-                                        if (varName) {
-                                            updateLiveCssVariable(varName, newColor);
-                                        }
-                                    });
-                                    
-                                    item.appendChild(label);
-                                    item.appendChild(colorPicker);
-                                    
-                                    if (foundColors.length > 1 && index === 0) {
-                                        const mainLabel = document.createElement('div');
-                                        mainLabel.className = 'theme-editor-main-label';
-                                        mainLabel.textContent = `${selector} ${property}`;
-                                        editorContainer.appendChild(mainLabel);
-                                    }
-                                    editorContainer.appendChild(item);
+                                colorPicker.addEventListener('input', (event) => {
+                                    const newColor = event.detail.rgba || event.detail.hex;
+                                    updateLiveCssVariable(variableName, newColor);
+                                });
+                                
+                                item.appendChild(label);
+                                item.appendChild(colorPicker);
+                                
+                                if (foundColors.length > 1 && index === 0) {
+                                    const mainLabel = document.createElement('div');
+                                    mainLabel.className = 'theme-editor-main-label';
+                                    mainLabel.textContent = `${selector} ${property}`;
+                                    editorContainer.appendChild(mainLabel);
                                 }
+                                editorContainer.appendChild(item);
                             });
 
-                            if (replacementMadeInThisDeclaration) {
-                                declarationsText = declarationsText.replace(declarationString, ` ${property}: ${tempValue} `);
+                            if (replacementMade) {
+                                // 确保我们的规则拥有最高优先级
+                                processedDeclarations = processedDeclarations.replace(declarationString, ` ${property}: ${tempValue} !important `);
                             }
                         }
                     }
                 });
                 
-                finalCssRules += `${selector} { ${declarationsText} }\n`;
+                finalCssRules += `${selector} { ${processedDeclarations} }\n`;
             }
             
             liveStyleTag.textContent = finalCssRules;
@@ -141,13 +136,7 @@
         let debounceTimer;
         function debouncedParse() {
             clearTimeout(debounceTimer);
-            setTimeout(() => {
-                const sillyTavernStyle = document.getElementById('custom-css');
-                if (sillyTavernStyle) {
-                    sillyTavernStyle.disabled = true;
-                }
-                parseAndBuildUI();
-            }, 500);
+            debounceTimer = setTimeout(parseAndBuildUI, 500);
         }
 
         parseAndBuildUI();
