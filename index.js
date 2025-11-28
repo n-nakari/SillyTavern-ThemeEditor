@@ -1,7 +1,5 @@
 (function () {
-    // 等待SillyTavern完全加载
     $(document).ready(function () {
-        // 获取关键的DOM元素
         const customCssTextarea = document.getElementById('customCSS');
         const customCssBlock = document.getElementById('CustomCSS-block');
 
@@ -10,20 +8,16 @@
             return;
         }
 
-        // 创建用于存放我们动态UI的容器
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
         
-        // 创建一个标题
         const title = document.createElement('h4');
         title.textContent = 'Live Theme Editor';
         title.style.marginTop = '15px';
 
-        // 将我们的容器和标题插入到“自定义CSS”框之后
         customCssBlock.parentNode.insertBefore(title, customCssBlock.nextSibling);
         title.parentNode.insertBefore(editorContainer, title.nextSibling);
 
-        // 创建一个style标签用于实时注入覆盖样式
         let liveStyleTag = document.getElementById('theme-editor-live-styles');
         if (!liveStyleTag) {
             liveStyleTag = document.createElement('style');
@@ -31,91 +25,117 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        // 用来存储解析出的颜色信息
-        let colorEntries = [];
+        // 存储解析出的声明
+        let declarationsWithColors = [];
+        
+        // CSS颜色名称列表 (用于精确匹配)
+        const cssColorNames = [
+            'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
+        ];
 
-        // 更新实时样式的函数
+        // 只查找这些属性
+        const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
+        const colorPropertiesRegex = new RegExp(`(?:^|;)\\s*(${colorProperties.join('|')})\\s*:([^;]+)`, 'gi');
+        const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
+
         function updateLiveStyles() {
-            const newCssRules = colorEntries.map(entry => {
-                // 为每个选择器和属性生成一个新的CSS规则
-                return `${entry.selector} { ${entry.property}: ${entry.currentColor} !important; }`;
+            const newCssRules = declarationsWithColors.map(declaration => {
+                let finalValue = declaration.originalValue;
+                declaration.colors.forEach(color => {
+                    // 顺序替换，确保如果多个颜色相同，它们能被正确地逐个替换
+                    finalValue = finalValue.replace(color.original, color.current);
+                });
+                return `${declaration.selector} { ${declaration.property}: ${finalValue} !important; }`;
             }).join('\n');
             liveStyleTag.textContent = newCssRules;
         }
 
-        // 解析CSS并构建UI的核心函数
         function parseAndBuildUI() {
             const cssText = customCssTextarea.value;
-            editorContainer.innerHTML = ''; // 清空旧的UI
-            colorEntries = [];
+            editorContainer.innerHTML = '';
+            declarationsWithColors = [];
 
-            // 正则表达式来匹配CSS规则 (选择器 + { ... })
-            // 这是一个简化的版本，对于复杂的CSS可能不完美，但对大多数情况有效
             const ruleRegex = /([^{}]+)\s*\{\s*([^}]+)\s*}/g;
-            let match;
+            let ruleMatch;
 
-            while ((match = ruleRegex.exec(cssText)) !== null) {
-                const selector = match[1].trim();
-                const declarations = match[2];
+            while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
+                const selector = ruleMatch[1].trim();
+                const declarationsText = ruleMatch[2];
 
-                // 正则表达式来匹配颜色属性和值
-                const colorRegex = /([a-zA-Z-]+)\s*:\s*([^;]+(rgba?\(.+?\)|#([0-9a-fA-F]{3}){1,2}|[a-zA-Z]+))/g;
                 let declarationMatch;
-
-                while ((declarationMatch = colorRegex.exec(declarations)) !== null) {
+                colorPropertiesRegex.lastIndex = 0; // 重置正则索引
+                
+                while((declarationMatch = colorPropertiesRegex.exec(';' + declarationsText)) !== null) {
                     const property = declarationMatch[1].trim();
                     const value = declarationMatch[2].trim();
                     
-                    // 过滤掉不是纯颜色的值 (例如包含 url() 的)
-                    if (value.includes('url(')) continue;
+                    const foundColors = value.match(colorValueRegex);
 
-                    const entry = {
-                        id: `theme-editor-${colorEntries.length}`,
-                        selector: selector,
-                        property: property,
-                        originalColor: value,
-                        currentColor: value
-                    };
-                    colorEntries.push(entry);
+                    if (foundColors && foundColors.length > 0) {
+                        const declaration = {
+                            selector: selector,
+                            property: property,
+                            originalValue: value,
+                            colors: foundColors.map(color => ({
+                                original: color,
+                                current: color
+                            }))
+                        };
+                        declarationsWithColors.push(declaration);
 
-                    // 创建UI元素
-                    const item = document.createElement('div');
-                    item.className = 'theme-editor-item';
+                        // 如果一个属性有多个颜色，先显示一个主标题
+                        if (declaration.colors.length > 1) {
+                            const mainLabel = document.createElement('div');
+                            mainLabel.className = 'theme-editor-main-label';
+                            mainLabel.textContent = `${selector} ${property}`;
+                            editorContainer.appendChild(mainLabel);
+                        }
 
-                    const label = document.createElement('div');
-                    label.className = 'theme-editor-label';
-                    label.textContent = `${selector} ${property}`;
-                    label.title = `${selector} { ${property}: ${value} }`;
+                        // 为每个颜色创建调色盘
+                        declaration.colors.forEach((color, index) => {
+                            const item = document.createElement('div');
+                            item.className = 'theme-editor-item';
+                            if(declaration.colors.length > 1) item.classList.add('multi-color');
 
-                    const colorPicker = document.createElement('toolcool-color-picker');
-                    colorPicker.color = entry.originalColor;
+                            const label = document.createElement('div');
+                            label.className = 'theme-editor-label';
+                            
+                            if (declaration.colors.length > 1) {
+                                label.textContent = `Color #${index + 1}`;
+                            } else {
+                                label.textContent = `${selector} ${property}`;
+                            }
+                            label.title = `${selector} { ${property}: ${value} }`;
 
-                    // 监听颜色变化事件
-                    colorPicker.addEventListener('change', (event) => {
-                        entry.currentColor = event.detail.hex;
-                        updateLiveStyles();
-                    });
+                            const colorPicker = document.createElement('toolcool-color-picker');
+                            colorPicker.color = color.original;
 
-                    item.appendChild(label);
-                    item.appendChild(colorPicker);
-                    editorContainer.appendChild(item);
+                            // 关键：使用 'input' 事件进行实时更新
+                            colorPicker.addEventListener('input', (event) => {
+                                const newColor = event.detail.rgba || event.detail.hex; // 优先使用rgba
+                                color.current = newColor;
+                                updateLiveStyles();
+                            });
+                            
+                            item.appendChild(label);
+                            item.appendChild(colorPicker);
+                            editorContainer.appendChild(item);
+                        });
+                    }
                 }
             }
-            // 初始应用一次样式
             updateLiveStyles();
         }
 
-        // 使用debounce来防止过于频繁地解析CSS
         let debounceTimer;
         function debouncedParse() {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(parseAndBuildUI, 500); // 延迟500毫秒执行
+            debounceTimer = setTimeout(parseAndBuildUI, 500);
         }
 
-        // 当页面加载时和“自定义CSS”框内容改变时，触发解析
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension loaded successfully.");
+        console.log("Theme Editor extension (v2) loaded successfully.");
     });
 })();
