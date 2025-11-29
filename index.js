@@ -25,18 +25,16 @@
             document.head.appendChild(liveStyleTag);
         }
         
-        // 禁用SillyTavern的原生CSS注入，由我们完全接管
         let sillyTavernStyleTag = document.getElementById('custom-css');
         if (sillyTavernStyleTag) {
             sillyTavernStyleTag.disabled = true;
         } else {
-            // 如果SillyTavern还没创建它，我们监听一下，一旦创建就禁用
             const observer = new MutationObserver((mutations) => {
                 for (const mutation of mutations) {
                     for (const node of mutation.addedNodes) {
                         if (node.id === 'custom-css') {
                             node.disabled = true;
-                            observer.disconnect(); // 完成任务后断开观察
+                            observer.disconnect();
                             return;
                         }
                     }
@@ -50,6 +48,7 @@
         ];
         
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
+        const colorPropertiesRegex = new RegExp(`(?:^|;)\\s*(${colorProperties.join('|')})\\s*:([^;]+)`, 'gi');
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
 
         function updateLiveCssVariable(variableName, newColor) {
@@ -104,8 +103,16 @@
                                     if(foundColors.length > 1) item.classList.add('multi-color');
 
                                     const label = document.createElement('div');
-                                    label.className = 'theme-editor-label';
-                                    label.textContent = foundColors.length > 1 ? `Color #${index + 1}` : `${selector} ${property}`;
+                                    
+                                    // [关键修改]：区分单颜色和多颜色的类名
+                                    if (foundColors.length > 1) {
+                                        label.className = 'theme-editor-sub-label'; // 子标签类名
+                                        label.textContent = `Color #${index + 1}`;
+                                    } else {
+                                        label.className = 'theme-editor-label';     // 主标签类名
+                                        label.textContent = `${selector} ${property}`;
+                                    }
+                                    
                                     label.title = `${selector} { ${property}: ${value} }`;
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
@@ -114,11 +121,7 @@
                                         colorPicker.color = initialColor;
                                     }, 0);
 
-                                    // ### KEY CHANGE ###
-                                    // Switched to the 'change' event and using jQuery's .on() method,
-                                    // exactly like in power-user.js.
                                     $(colorPicker).on('change', (evt) => {
-                                        // Use evt.detail.rgba, which is guaranteed to be present on 'change'.
                                         const newColor = evt.detail.rgba; 
                                         updateLiveCssVariable(variableName, newColor);
                                     });
@@ -158,6 +161,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v7 - Final Takeover) loaded successfully.");
+        console.log("Theme Editor extension (v8 - Class separation) loaded successfully.");
     });
 })();
