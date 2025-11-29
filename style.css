@@ -9,7 +9,7 @@
 }
 
 /* 颜色条目 */
-.theme-editor-item, .theme-editor-item.multi-color {
+.theme-editor-item.multi-color {
     display: flex;
     flex-direction: column; /* 垂直排列 */
     align-items: flex-start; /* 靠左对齐 */
@@ -44,17 +44,13 @@
     padding: 0;
 }
 
-/* 按钮部分 */
-.button {
-    border: 1px solid white !important;
-}
-
 .theme-editor-sub-label {
     font-weight: bold;
     font-size: 0.85em;
     color: #ddd;
+    padding-top: 5px;
 }
 
-.theme-editor-item toolcool-color-picker::part(button) {
-    border: 1px solid white !important;
+:root {
+    --tool-cool-color-picker-btn-border-color-inner: white;
 }
