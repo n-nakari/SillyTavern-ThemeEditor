@@ -55,6 +55,30 @@
             document.documentElement.style.setProperty(variableName, newColor);
         }
 
+        // [新增] 格式化标签函数：提取注释，构建 HTML
+        function formatLabel(rawSelector, property) {
+            // 匹配 /* ... */
+            const commentRegex = /\/\*\s*(.*?)\s*\*\//;
+            const match = rawSelector.match(commentRegex);
+            
+            // 移除注释并清理空白
+            let cleanSelector = rawSelector.replace(commentRegex, '').trim().replace(/\s+/g, ' '); 
+            let comment = match ? match[1].trim() : '';
+
+            let titleHtml = '';
+            if (comment) {
+                titleHtml = `【 ${comment} | ${cleanSelector} 】`;
+            } else {
+                titleHtml = `【 ${cleanSelector} 】`;
+            }
+
+            // 返回两行 HTML：上面是选择器/注释，下面是属性
+            return `
+                <div class="te-title-part">${titleHtml}</div>
+                <div class="te-prop-part">--${property}</div>
+            `;
+        }
+
         function parseAndBuildUI() {
             if (sillyTavernStyleTag) sillyTavernStyleTag.disabled = true;
 
@@ -67,7 +91,8 @@
             let ruleMatch;
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
-                const selector = ruleMatch[1].trim();
+                // 此时 selector 包含注释
+                const rawSelector = ruleMatch[1].trim(); 
                 const declarationsText = ruleMatch[2];
                 let processedDeclarations = declarationsText;
 
@@ -98,22 +123,25 @@
                                     let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                     updateLiveCssVariable(variableName, initialColor);
 
+                                    // 创建UI
                                     const item = document.createElement('div');
                                     item.className = 'theme-editor-item';
                                     if(foundColors.length > 1) item.classList.add('multi-color');
 
                                     const label = document.createElement('div');
                                     
-                                    // [关键修改]：区分单颜色和多颜色的类名
+                                    // 多颜色情况
                                     if (foundColors.length > 1) {
-                                        label.className = 'theme-editor-sub-label'; // 子标签类名
+                                        label.className = 'theme-editor-sub-label';
                                         label.textContent = `Color #${index + 1}`;
                                     } else {
-                                        label.className = 'theme-editor-label';     // 主标签类名
-                                        label.textContent = `${selector} ${property}`;
+                                        // 单颜色情况：应用新格式
+                                        label.className = 'theme-editor-label';
+                                        label.innerHTML = formatLabel(rawSelector, property);
                                     }
                                     
-                                    label.title = `${selector} { ${property}: ${value} }`;
+                                    // 鼠标悬停显示完整原始信息
+                                    label.title = `${rawSelector} { ${property}: ${value} }`;
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     
@@ -129,10 +157,12 @@
                                     item.appendChild(label);
                                     item.appendChild(colorPicker);
                                     
+                                    // 多颜色组的主标题
                                     if (foundColors.length > 1 && index === 0) {
                                         const mainLabel = document.createElement('div');
                                         mainLabel.className = 'theme-editor-main-label';
-                                        mainLabel.textContent = `${selector} ${property}`;
+                                        // 主标题也应用新格式
+                                        mainLabel.innerHTML = formatLabel(rawSelector, property);
                                         editorContainer.appendChild(mainLabel);
                                     }
                                     editorContainer.appendChild(item);
@@ -146,7 +176,7 @@
                     }
                 });
                 
-                finalCssRules += `${selector} { ${processedDeclarations} }\n`;
+                finalCssRules += `${rawSelector} { ${processedDeclarations} }\n`;
             }
             
             liveStyleTag.textContent = finalCssRules;
@@ -161,6 +191,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v8 - Class separation) loaded successfully.");
+        console.log("Theme Editor extension (v9 - Comments formatted) loaded successfully.");
     });
 })();
