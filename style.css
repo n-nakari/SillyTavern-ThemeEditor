@@ -1,94 +1,56 @@
-/* 扩展UI的容器样式 */
+/* 扩展样式 */
 #theme-editor-container {
     padding: 10px;
-    border: 1px solid var(--border-color, #555);
     border-radius: 5px;
-    margin-top: 15px;
+    margin: 10px 0px;
     max-height: 500px;
     overflow-y: auto;
-    background-color: var(--blur-tint-color, rgba(30, 30, 30, 0.7));
+    background-color: rgba(30, 30, 30, 0.7);
 }
 
-/* 每个颜色选择器条目 */
-.theme-editor-item {
+/* 颜色条目 */
+.theme-editor-item, .theme-editor-item.multi-color {
     display: flex;
     flex-direction: column; /* 垂直排列 */
     align-items: flex-start; /* 靠左对齐 */
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+    border-left: 3px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.1);
+    padding-top: 5px;
+    padding-left: 15px;
+    margin-bottom: 10px;
     gap: 5px;
+    border-radius: 0 5px 5px 0;
 }
 
-.theme-editor-item:last-child {
-    border-bottom: none;
-}
-
-/* 标题标签 - 粗体 */
-.theme-editor-label {
-    font-family: 'NotoSansMono', monospace;
-    font-size: 0.9em;
-    font-weight: bold;
-    color: var(--main-text-color, #eee);
+/* 标题标签 */
+.theme-editor-label, .theme-editor-main-label {
     width: 100%;
     text-align: left;
     white-space: normal;
     word-break: break-all;
     line-height: 1.4;
     opacity: 1.0;
+    font-weight: 900;
+    font-size: 1.0em;
+    color: #fff;
+    margin-top: 20px;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-bottom: 2px solid #aaa;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 }
 
-/* 调色盘组件容器 - 清除容器本身的背景和边框 */
+/* 清除调色盘本身的背景和边框 */
 .theme-editor-item toolcool-color-picker {
     width: 100%;
     height: 40px;
-    cursor: pointer;
-    /* [关键改动] 移除容器上的背景和边框，防止“整个一行”都变成格子 */
     background: none;
     border: none;
     padding: 0;
 }
 
-/* [新增] 专门修饰组件内部的按钮部分 (Shadow DOM Part) */
-.theme-editor-item toolcool-color-picker::part(button) {
-    width: 100%;
-    height: 100%;
-    border-radius: 6px;
-    
-    /* 边框加在这里 */
-    border: 2px solid var(--border-color, rgba(128, 128, 128, 0.5));
-    
-    /* 棋盘格背景加在这里 */
-    background-color: #fff;
-    background-image:
-        linear-gradient(45deg, #ccc 25%, transparent 25%),
-        linear-gradient(-45deg, #ccc 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #ccc 75%),
-        linear-gradient(-45deg, transparent 75%, #ccc 75%);
-    background-size: 20px 20px;
-    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-}
-
-/* 多颜色条目的样式 */
-.theme-editor-item.multi-color {
-    padding-left: 15px;
-    border-left: 3px solid var(--border-color, #666);
-    margin-left: 5px;
-    background-color: rgba(0, 0, 0, 0.1);
-    padding-top: 5px;
-    border-radius: 0 5px 5px 0;
-}
-
-/* 多颜色属性的主标题 */
-.theme-editor-main-label {
-    font-family: 'NotoSans', sans-serif;
-    font-weight: 900;
-    font-size: 1.0em;
-    color: var(--main-text-color, #fff);
-    margin-top: 20px;
-    margin-bottom: 5px;
-    padding: 8px;
-    border-bottom: 2px solid var(--border-color, #aaa);
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+/* 按钮部分 */
+.button {
+    border: 1px solid white !important;
 }
