@@ -4,7 +4,7 @@
     border: 1px solid var(--border-color, #555);
     border-radius: 5px;
     margin-top: 15px;
-    max-height: 500px; /* 稍微增加高度，因为竖排占空间更多 */
+    max-height: 500px;
     overflow-y: auto;
     background-color: var(--blur-tint-color, rgba(30, 30, 30, 0.7));
 }
@@ -12,57 +12,77 @@
 /* 每个颜色选择器条目的样式 */
 .theme-editor-item {
     display: flex;
-    flex-direction: column; /* 关键改动：垂直排列 */
-    align-items: flex-start; /* 关键改动：靠左对齐 */
-    margin-bottom: 12px;     /* 增加条目间的间距 */
-    padding-bottom: 8px;     /* 内部间距 */
-    border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.1)); /* 添加淡淡的分隔线，便于区分 */
-    gap: 8px;                /* 标题和调色盘之间的间距 */
+    flex-direction: column; /* 垂直排列 */
+    align-items: flex-start; /* 靠左对齐 */
+    margin-bottom: 15px;     /* 增加间距 */
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+    gap: 5px;
 }
 
-/* 最后一个条目去掉底部分隔线 */
 .theme-editor-item:last-child {
     border-bottom: none;
 }
 
-/* 标题标签 */
+/* 标题标签 - 现在全部加粗 */
 .theme-editor-label {
     font-family: 'NotoSansMono', monospace;
-    font-size: 0.85em;
-    color: var(--main-text-color, #ccc);
-    width: 100%;             /* 占满宽度 */
-    text-align: left;        /* 靠左对齐 */
-    white-space: normal;     /* 允许换行，防止长标题显示不全 */
-    word-break: break-all;   /* 如果单词太长，允许打断 */
+    font-size: 0.9em;
+    font-weight: bold;       /* [新增] 加粗 */
+    color: var(--main-text-color, #eee); /*稍微调亮一点字体颜色配合粗体*/
+    width: 100%;
+    text-align: left;
+    white-space: normal;
+    word-break: break-all;
     line-height: 1.4;
-    opacity: 0.9;
+    opacity: 1.0;            /* 提高不透明度 */
 }
 
-/* 调色盘组件本身 */
+/* 调色盘组件 - 增加透明度背景和边框 */
 .theme-editor-item toolcool-color-picker {
-    width: 100%;             /* 让点击区域更宽，或者你可以设置为固定宽度如 50px */
-    height: 35px;            /* 稍微加高一点 */
+    width: 100%;
+    height: 40px;            /* 稍微再加高一点，更容易点 */
     cursor: pointer;
+    
+    /* [新增] 边框，确保透明时能看到轮廓 */
+    border: 2px solid var(--border-color, rgba(128, 128, 128, 0.5));
+    border-radius: 6px;      /* 圆角 */
+    
+    /* [新增] 棋盘格背景：这是表示透明的标准方式 */
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    
+    /* 确保内部没有任何padding导致点击偏移 */
+    padding: 0;
+    overflow: hidden; 
 }
 
 /* 多颜色条目的样式 */
 .theme-editor-item.multi-color {
-    padding-left: 15px;      /* 缩进 */
-    border-left: 2px solid var(--border-color, #555); /* 左侧加一条竖线表示从属关系 */
+    padding-left: 15px;
+    border-left: 3px solid var(--border-color, #666); /* 加粗左侧线条 */
     margin-left: 5px;
+    background-color: rgba(0, 0, 0, 0.1); /* 稍微加深背景区分 */
+    padding-top: 5px;
+    border-radius: 0 5px 5px 0;
 }
 
-/* 多颜色属性的主标题（比如 box-shadow 这一行字） */
+/* 多颜色属性的主标题 */
 .theme-editor-main-label {
     font-family: 'NotoSans', sans-serif;
-    font-weight: bold;
-    font-size: 0.95em;
+    font-weight: 900; /* 特别粗 */
+    font-size: 1.0em;
     color: var(--main-text-color, #fff);
-    margin-top: 15px;
-    margin-bottom: 8px;
-    padding-bottom: 4px;
-    border-bottom: 2px solid var(--border-color, #666); /* 更明显的分隔线 */
-    background-color: rgba(0, 0, 0, 0.2); /* 稍微深一点的背景 */
-    padding: 5px;
+    margin-top: 20px;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-bottom: 2px solid var(--border-color, #aaa);
+    background-color: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
 }
