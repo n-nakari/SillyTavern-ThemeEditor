@@ -55,28 +55,29 @@
             document.documentElement.style.setProperty(variableName, newColor);
         }
 
-        // [新增] 格式化标签函数：提取注释，构建 HTML
-        function formatLabel(rawSelector, property) {
-            // 匹配 /* ... */
-            const commentRegex = /\/\*\s*(.*?)\s*\*\//;
-            const match = rawSelector.match(commentRegex);
-            
-            // 移除注释并清理空白
-            let cleanSelector = rawSelector.replace(commentRegex, '').trim().replace(/\s+/g, ' '); 
-            let comment = match ? match[1].trim() : '';
+        // [新增] 辅助函数：生成美化后的标签HTML内容
+        function createFormattedLabelContent(rawSelector, property) {
+            let commentText = "";
+            let cleanSelector = rawSelector.trim();
 
-            let titleHtml = '';
-            if (comment) {
-                titleHtml = `【 ${comment} | ${cleanSelector} 】`;
-            } else {
-                titleHtml = `【 ${cleanSelector} 】`;
+            // 尝试提取 /* ... */ 注释
+            // 匹配模式：非贪婪匹配 /* 内容 */
+            const commentMatch = rawSelector.match(/\/\*([\s\S]*?)\*\//);
+            
+            if (commentMatch) {
+                // 提取注释内容并去除首尾空格
+                commentText = commentMatch[1].trim();
+                // 从选择器中移除注释部分
+                cleanSelector = rawSelector.replace(commentMatch[0], '').trim();
             }
 
-            // 返回两行 HTML：上面是选择器/注释，下面是属性
-            return `
-                <div class="te-title-part">${titleHtml}</div>
-                <div class="te-prop-part">--${property}</div>
-            `;
+            // 构建第一行：如果有注释，显示 "注释 / 选择器"，否则只显示 "选择器"
+            const line1 = commentText ? `<span class="label-highlight">${commentText}</span> / ${cleanSelector}` : cleanSelector;
+            
+            // 构建第二行：--属性名
+            const line2 = `--${property}`;
+
+            return `<div class="label-line-1">${line1}</div><div class="label-line-2">${line2}</div>`;
         }
 
         function parseAndBuildUI() {
@@ -91,8 +92,13 @@
             let ruleMatch;
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
-                // 此时 selector 包含注释
-                const rawSelector = ruleMatch[1].trim(); 
+                // 获取原始选择器字符串（包含可能的注释）
+                const rawSelectorString = ruleMatch[1]; 
+                // 为了CSS规则生成，我们需要一个干净的选择器（浏览器可能无法解析带注释的选择器作为Key）
+                // 但这里我们把带有CSS变量的内容重新拼回去，所以保持原样或者清理都可以。
+                // 简单起见，我们保留原始字符串用于替换，但清理它用于生成的CSS规则。
+                const selector = rawSelectorString.trim(); 
+                
                 const declarationsText = ruleMatch[2];
                 let processedDeclarations = declarationsText;
 
@@ -123,25 +129,22 @@
                                     let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                     updateLiveCssVariable(variableName, initialColor);
 
-                                    // 创建UI
                                     const item = document.createElement('div');
                                     item.className = 'theme-editor-item';
                                     if(foundColors.length > 1) item.classList.add('multi-color');
 
                                     const label = document.createElement('div');
                                     
-                                    // 多颜色情况
                                     if (foundColors.length > 1) {
                                         label.className = 'theme-editor-sub-label';
                                         label.textContent = `Color #${index + 1}`;
                                     } else {
-                                        // 单颜色情况：应用新格式
                                         label.className = 'theme-editor-label';
-                                        label.innerHTML = formatLabel(rawSelector, property);
+                                        // [修改] 使用 innerHTML 插入双行结构
+                                        label.innerHTML = createFormattedLabelContent(rawSelectorString, property);
                                     }
                                     
-                                    // 鼠标悬停显示完整原始信息
-                                    label.title = `${rawSelector} { ${property}: ${value} }`;
+                                    label.title = `${selector} { ${property}: ${value} }`;
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     
@@ -157,12 +160,11 @@
                                     item.appendChild(label);
                                     item.appendChild(colorPicker);
                                     
-                                    // 多颜色组的主标题
                                     if (foundColors.length > 1 && index === 0) {
                                         const mainLabel = document.createElement('div');
                                         mainLabel.className = 'theme-editor-main-label';
-                                        // 主标题也应用新格式
-                                        mainLabel.innerHTML = formatLabel(rawSelector, property);
+                                        // [修改] 主标题也支持双行结构
+                                        mainLabel.innerHTML = createFormattedLabelContent(rawSelectorString, property);
                                         editorContainer.appendChild(mainLabel);
                                     }
                                     editorContainer.appendChild(item);
@@ -176,7 +178,7 @@
                     }
                 });
                 
-                finalCssRules += `${rawSelector} { ${processedDeclarations} }\n`;
+                finalCssRules += `${selector} { ${processedDeclarations} }\n`;
             }
             
             liveStyleTag.textContent = finalCssRules;
@@ -191,6 +193,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v9 - Comments formatted) loaded successfully.");
+        console.log("Theme Editor extension (v9 - Comments support) loaded successfully.");
     });
 })();
