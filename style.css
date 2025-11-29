@@ -4,54 +4,65 @@
     border: 1px solid var(--border-color, #555);
     border-radius: 5px;
     margin-top: 15px;
-    max-height: 450px; /* 增加一点最大高度 */
+    max-height: 500px; /* 稍微增加高度，因为竖排占空间更多 */
     overflow-y: auto;
-    background-color: var(--blur-tint-color, rgba(30, 30, 30, 0.7)); /* 添加背景色 */
+    background-color: var(--blur-tint-color, rgba(30, 30, 30, 0.7));
 }
 
 /* 每个颜色选择器条目的样式 */
 .theme-editor-item {
     display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    padding-left: 10px;
-    gap: 15px;
+    flex-direction: column; /* 关键改动：垂直排列 */
+    align-items: flex-start; /* 关键改动：靠左对齐 */
+    margin-bottom: 12px;     /* 增加条目间的间距 */
+    padding-bottom: 8px;     /* 内部间距 */
+    border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.1)); /* 添加淡淡的分隔线，便于区分 */
+    gap: 8px;                /* 标题和调色盘之间的间距 */
+}
+
+/* 最后一个条目去掉底部分隔线 */
+.theme-editor-item:last-child {
+    border-bottom: none;
 }
 
 /* 标题标签 */
 .theme-editor-label {
     font-family: 'NotoSansMono', monospace;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: var(--main-text-color, #ccc);
-    min-width: 220px; /* 增加宽度以容纳更长的标题 */
-    text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    width: 100%;             /* 占满宽度 */
+    text-align: left;        /* 靠左对齐 */
+    white-space: normal;     /* 允许换行，防止长标题显示不全 */
+    word-break: break-all;   /* 如果单词太长，允许打断 */
+    line-height: 1.4;
+    opacity: 0.9;
 }
 
 /* 调色盘组件本身 */
 .theme-editor-item toolcool-color-picker {
-    width: 28px;
-    height: 28px;
+    width: 100%;             /* 让点击区域更宽，或者你可以设置为固定宽度如 50px */
+    height: 35px;            /* 稍微加高一点 */
+    cursor: pointer;
 }
 
-/* 多颜色条目的缩进 */
+/* 多颜色条目的样式 */
 .theme-editor-item.multi-color {
-    padding-left: 30px; /* 缩进以表示从属关系 */
+    padding-left: 15px;      /* 缩进 */
+    border-left: 2px solid var(--border-color, #555); /* 左侧加一条竖线表示从属关系 */
+    margin-left: 5px;
 }
 
-.theme-editor-item.multi-color .theme-editor-label {
-    min-width: 200px;
-}
-
-/* 多颜色属性的主标题 */
+/* 多颜色属性的主标题（比如 box-shadow 这一行字） */
 .theme-editor-main-label {
     font-family: 'NotoSans', sans-serif;
     font-weight: bold;
+    font-size: 0.95em;
     color: var(--main-text-color, #fff);
-    margin-top: 10px;
-    margin-bottom: 5px;
-    border-bottom: 1px solid var(--border-color, #444);
-    padding-bottom: 3px;
+    margin-top: 15px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--border-color, #666); /* 更明显的分隔线 */
+    background-color: rgba(0, 0, 0, 0.2); /* 稍微深一点的背景 */
+    padding: 5px;
+    border-radius: 4px;
 }
