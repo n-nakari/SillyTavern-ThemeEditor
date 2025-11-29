@@ -24,12 +24,6 @@
 
 /* 标题标签 */
 .theme-editor-label, .theme-editor-main-label {
-    width: 100%;
-    text-align: left;
-    white-space: normal;
-    word-break: break-all;
-    line-height: 1.4;
-    opacity: 1.0;
     font-weight: 900;
     font-size: 1.0em;
     color: #fff;
