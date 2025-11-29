@@ -48,3 +48,13 @@
 .button {
     border: 1px solid white !important;
 }
+
+.theme-editor-sub-label {
+    font-weight: bold;
+    font-size: 0.85em;
+    color: #ddd;
+}
+
+.theme-editor-item toolcool-color-picker::part(button) {
+    border: 1px solid white !important;
+}
