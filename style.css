@@ -122,9 +122,6 @@ toolcool-color-picker {
     padding: 5px;
     border-radius: 4px;
     font-size: 0.9em;
-    flex: 1;
-    min-width: 0;
-    text-align: center;
 }
 
 .layout-input:focus {
