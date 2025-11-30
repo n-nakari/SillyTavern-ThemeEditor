@@ -11,7 +11,6 @@
         // --- 状态变量 ---
         let isExtensionActive = true;
         
-        // [修改] 分离颜色和布局的标题库，实现隔离搜索
         let colorTitles = new Set();
         let layoutTitles = new Set();
         
@@ -27,12 +26,9 @@
         let isAutoSyncing = false; 
 
         // --- UI 初始化 ---
-        
-        // 顶部工具栏容器
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
-        // Tabs
         const tabColors = document.createElement('div');
         tabColors.className = 'theme-editor-tab active';
         tabColors.textContent = 'Colors';
@@ -43,7 +39,6 @@
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
 
-        // 搜索框区域
         const searchWrapper = document.createElement('div');
         searchWrapper.className = 'theme-editor-search-wrapper';
 
@@ -58,7 +53,6 @@
         searchWrapper.appendChild(searchInput);
         searchWrapper.appendChild(autocompleteList);
 
-        // 按钮组
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
 
@@ -88,7 +82,6 @@
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
 
-        // 组装顶部栏
         tabsContainer.appendChild(tabColors);
         tabsContainer.appendChild(tabLayout);
         tabsContainer.appendChild(searchWrapper);
@@ -97,7 +90,6 @@
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
 
-        // 插入到页面
         customCssBlock.parentNode.insertBefore(tabsContainer, customCssBlock.nextSibling);
         tabsContainer.parentNode.insertBefore(editorContainer, tabsContainer.nextSibling);
 
@@ -111,7 +103,6 @@
         panelLayout.className = 'theme-editor-content-panel';
         editorContainer.appendChild(panelLayout);
 
-        // Tab 切换逻辑
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
@@ -120,18 +111,15 @@
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.target).classList.add('active');
                 
-                // [修复] 切换 Tab 时立即刷新搜索结果，确保只显示当前面板的内容
                 const currentSearch = searchInput.value;
                 if (currentSearch) {
                     filterPanels(currentSearch.toLowerCase());
-                    showAutocomplete(currentSearch); // 刷新下拉框建议
+                    showAutocomplete(currentSearch); 
                 } else {
                      autocompleteList.style.display = 'none';
                 }
             });
         });
-
-        // --- 搜索逻辑 ---
 
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value;
@@ -143,24 +131,19 @@
             if (e.target.value) showAutocomplete(e.target.value);
         });
 
-        // [修复] 增加 stopPropagation，防止 document 点击事件立即关闭下拉框
         searchInput.addEventListener('click', (e) => {
             e.stopPropagation();
             if (e.target.value) {
-                // 强制刷新一次建议列表，确保点击时总是弹出
                 showAutocomplete(e.target.value);
             }
         });
 
-        // 点击外部隐藏
         document.addEventListener('click', (e) => {
-            // 如果点击的不是搜索框区域，则关闭
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
             }
         });
 
-        // [修改] 过滤面板：只过滤当前激活的面板
         function filterPanels(text) {
             const activePanel = document.querySelector('.theme-editor-content-panel.active');
             if (!activePanel) return;
@@ -176,7 +159,6 @@
             });
         }
 
-        // [修改] 显示自动补全：根据当前 Tab 选择对应的数据源
         function showAutocomplete(text) {
             autocompleteList.innerHTML = '';
             if (!text) {
@@ -184,9 +166,7 @@
                 return;
             }
             
-            // 判断当前激活的是哪个 Tab
             const isColorTab = tabColors.classList.contains('active');
-            // 根据 Tab 选择对应的标题集合
             const sourceSet = isColorTab ? colorTitles : layoutTitles;
 
             const matches = Array.from(sourceSet).filter(t => t.toLowerCase().includes(text.toLowerCase()));
@@ -203,7 +183,7 @@
                 item.innerHTML = match.replace(regex, '<span class="match">$1</span>');
                 
                 item.addEventListener('click', (e) => {
-                    e.stopPropagation(); // 防止点击项时冒泡关闭
+                    e.stopPropagation(); 
                     searchInput.value = match;
                     filterPanels(match.toLowerCase());
                     autocompleteList.style.display = 'none';
@@ -256,7 +236,6 @@
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
-        // [修改] 辅助函数现在返回对象 {html, text}，方便分别存入 Set
         function createFormattedSelectorLabelInfo(rawSelector) {
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             let commentText = "";
@@ -279,7 +258,6 @@
             cleanSelector = cleanSelector.replace(/\s+/g, ' ');
             const titleText = commentText ? `${commentText}/${cleanSelector}` : cleanSelector;
             
-            // 返回纯文本和HTML
             let html = "";
             if (commentText) {
                 html = `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
@@ -363,10 +341,8 @@
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
             replacementTasks = []; 
-            // [修改] 重置分类标题集合
             colorTitles.clear();
             layoutTitles.clear();
-
             const activeVariables = new Set(); 
 
             const cssText = customCssTextarea.value;
@@ -420,7 +396,6 @@
                         if (foundColors.length > 0) {
                             currentStructureSignature += `C:${property}:${foundColors.length}|`;
                             
-                            // [修改] 添加到颜色标题库
                             const labelInfo = createFormattedSelectorLabelInfo(rawSelector);
                             colorTitles.add(labelInfo.text);
 
@@ -483,12 +458,14 @@
                                 }
                             });
 
+                            // [重要修复] 使用 var(...) !important 替换原值
                             colorReplacements.sort((a, b) => b.index - a.index);
                             let liveValue = originalValue;
                             colorReplacements.forEach(rep => {
                                 liveValue = liveValue.substring(0, rep.index) + rep.var + liveValue.substring(rep.index + rep.length);
                             });
-                            processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
+                            // 确保每次替换都带上 !important，防止优先级丢失
+                            processedDeclarations = processedDeclarations.replace(originalValue, liveValue + ' !important');
                             
                             if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector, labelHtml: labelInfo.html, labelText: labelInfo.text});
                         }
@@ -501,7 +478,6 @@
                         if (values.length > 0) {
                             currentStructureSignature += `L:${property}:${values.length}|`;
                             
-                            // [修改] 添加到布局标题库
                             const labelInfo = createFormattedSelectorLabelInfo(rawSelector);
                             layoutTitles.add(labelInfo.text);
 
@@ -525,7 +501,8 @@
                             
                             cssVariablesBlock += `${variableName}: ${initValue};`;
                             
-                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
+                            // [重要修复] 在替换时直接加入 !important
+                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName}) !important`);
 
                             let currentSplitValues = splitCSSValue(initValue);
 
@@ -567,7 +544,8 @@
                     }
                 } 
 
-                finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
+                // [重要修复] 移除末尾的 !important，因为它已经在 property 级别添加了
+                finalCssRules += `${selector} { ${processedDeclarations} }\n`;
 
             } 
             
@@ -589,12 +567,10 @@
                             if (item.rawSelector !== lastSelector || !currentGroup) {
                                 currentGroup = document.createElement('div');
                                 currentGroup.className = 'theme-group';
-                                // [修改] 使用 labelText 进行搜索过滤
                                 currentGroup.dataset.filterText = item.labelText.toLowerCase().trim();
 
                                 const mainLabel = document.createElement('div');
                                 mainLabel.className = 'theme-editor-main-label';
-                                // [修改] 直接使用 labelHtml
                                 mainLabel.innerHTML = item.labelHtml;
                                 currentGroup.appendChild(mainLabel);
                                 
@@ -672,6 +648,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v27 - Scoped Search) loaded successfully.");
+        console.log("Theme Editor extension (v28 - Layout Fix) loaded successfully.");
     });
 })();
