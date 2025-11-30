@@ -14,10 +14,9 @@
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
-        // 计时器 & 锁
         let debounceTimer; 
         let syncTextareaTimer;
-        let isAutoSyncing = false; // 标记是否正在进行自动同步
+        let isAutoSyncing = false; 
 
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
@@ -44,7 +43,7 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                debouncedParse(true); // 开启时强制重绘 UI
+                debouncedParse(true);
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
@@ -130,7 +129,8 @@
         });
 
         function filterPanels(text) {
-            const groups = document.querySelectorAll('.theme-group');
+            // 需要同时搜索两个面板里的 group
+            const groups = editorContainer.querySelectorAll('.theme-group');
             groups.forEach(group => {
                 const filterText = group.dataset.filterText || '';
                 if (filterText.includes(text)) {
@@ -174,7 +174,7 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        // --- 核心配置 ---
+        // --- 配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -189,29 +189,23 @@
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
-        function cleanupOldVariables() {
+        // [优化] 垃圾回收式变量清理，不再暴力重置
+        function garbageCollectVariables(activeVariableSet) {
             const rootStyle = document.documentElement.style;
             const varsToRemove = [];
             for (let i = 0; i < rootStyle.length; i++) {
                 const prop = rootStyle[i];
-                if (prop.startsWith('--theme-editor-')) {
+                if (prop.startsWith('--theme-editor-') && !activeVariableSet.has(prop)) {
                     varsToRemove.push(prop);
                 }
             }
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
-            replacementTasks = [];
-            currentValuesMap = {};
-            uniqueTitles.clear();
         }
 
-        // [优化] 使用 RAF 优化变量更新，避免高频操作导致的卡顿
         function updateLiveCssVariable(variableName, newValue) {
+            document.documentElement.style.setProperty(variableName, newValue, 'important');
             currentValuesMap[variableName] = newValue;
-            requestAnimationFrame(() => {
-                document.documentElement.style.setProperty(variableName, newValue, 'important');
-            });
 
-            // 0.8秒后自动写入文本框
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -224,7 +218,6 @@
                 commentText = commentMatch[1].trim();
                 cleanSelector = rawSelector.replace(commentMatch[0], '').trim();
             }
-            
             const titleText = commentText ? `${commentText} ${cleanSelector}` : cleanSelector;
             uniqueTitles.add(titleText);
 
@@ -244,18 +237,16 @@
             return trimmed;
         }
 
-        // [新功能] 括号感知分割 (Split values respecting parenthesis)
-        // 解决 calc() 被错误拆分的问题
+        // 括号感知分割 (处理 calc)
         function splitCSSValue(value) {
             const parts = [];
             let current = '';
-            let depth = 0; // 括号深度
+            let depth = 0;
 
             for (let char of value) {
                 if (char === '(') depth++;
                 else if (char === ')') depth--;
 
-                // 只有在括号外面的空格才算分隔符
                 if (depth === 0 && /\s/.test(char)) {
                     if (current) {
                         parts.push(current);
@@ -270,12 +261,10 @@
         }
 
         function writeChangesToTextarea() {
-            // [核心] 标记正在自动同步，防止 parseAndBuildUI 重绘 UI 导致黑屏
             isAutoSyncing = true;
 
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
-            
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
             tasks.forEach(task => {
@@ -313,37 +302,40 @@
             }, 100);
         }
 
-        // [核心修正] 解析函数：增加了 rebuildUI 参数
-        // rebuildUI = true: 完整重绘 (用于初始化、手动修改CSS、切换主题)
-        // rebuildUI = false: 静默解析 (用于自动回写后更新索引，不碰 DOM)
         function parseAndBuildUI(rebuildUI = true) {
             if (!isExtensionActive) return;
 
-            // 如果是自动同步触发的，我们不重绘 UI，但需要重新解析以更新索引
-            // 实际上，如果 rebuildUI 为 false，我们只更新 replacementTasks 和变量
-            
+            // [性能] 保存滚动位置
             const scrollTop = editorContainer.scrollTop;
 
-            if (rebuildUI) {
-                cleanupOldVariables();
-                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
-                
-                panelColors.innerHTML = '';
-                panelLayout.innerHTML = '';
-                liveStyleTag.textContent = '';
-                replacementTasks = []; // 重置任务
-                // 注意：currentValuesMap 在这里也被重置了，因为是全新的解析
-            } else {
-                // 静默模式：只清空任务，不清空 map (保留用户正在输入的值)
-                replacementTasks = [];
+            // 如果是静默更新，直接返回，避免重绘导致闪烁
+            if (!rebuildUI) {
+                // 静默更新时，我们通常不需要做任何事，
+                // 因为 writeChangesToTextarea 已经更新了 CSS 文本框，
+                // 而 updateLiveCssVariable 已经处理了样式。
+                // 唯一需要注意的是 replacementTasks 的索引是否因为文本长度变化而失效？
+                // 如果用户手动改了CSS，rebuildUI 会是 true，重新计算索引。
+                // 如果是 autoSync 触发的，文本长度可能会变，但因为我们是基于新文本重新解析，
+                // 所以我们必须重新计算索引，但不能清空 UI。
+                // *修正策略*：AutoSync 时，我们在后台重新解析获取新索引，但不操作 DOM。
             }
+
+            // 禁用原生样式
+            if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
             
+            // [性能] 后台构建 DocumentFragment
             const colorFragment = document.createDocumentFragment();
             const layoutFragment = document.createDocumentFragment();
             
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
+            
+            // 重置数据集，准备重新收集
+            const newReplacementTasks = [];
+            // 注意：不要清空 currentValuesMap，保留用户当前的输入值
+            const activeVariableSet = new Set(); // 用于垃圾回收
+            uniqueTitles.clear();
 
             const ruleRegex = /([^{]+)\{([^}]+)\}/g;
             let ruleMatch;
@@ -390,18 +382,24 @@
                                 const colorStr = colorMatch[0];
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
+                                activeVariableSet.add(variableName);
 
-                                replacementTasks.push({
+                                newReplacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
                                     end: valueAbsoluteStart + colorMatch.index + colorStr.length,
                                     variableName: variableName
                                 });
 
-                                // 如果 Map 里有值（说明是静默更新），用 Map 的；否则用 CSS 里的
-                                let initialColor = currentValuesMap[variableName] || (colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr);
-                                
-                                // 始终更新 CSS 变量以保持同步
-                                updateLiveCssVariable(variableName, initialColor);
+                                // 如果 Map 里没有值（新规则），则使用解析出的值；否则保留 Map 里的值（用户正在修改的值）
+                                let currentValue = currentValuesMap[variableName];
+                                if (currentValue === undefined) {
+                                    currentValue = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
+                                    // 仅当是新变量时才设置 CSS 变量，避免覆盖动画中的值
+                                    updateLiveCssVariable(variableName, currentValue);
+                                } else {
+                                    // 确保 CSS 变量存在 (针对主题切换场景)
+                                    document.documentElement.style.setProperty(variableName, currentValue, 'important');
+                                }
 
                                 colorReplacements.push({
                                     str: colorStr,
@@ -419,8 +417,8 @@
                                     }
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
-                                    // 延迟设置颜色避免 Web Component 初始化问题
-                                    setTimeout(() => { colorPicker.color = initialColor; }, 0);
+                                    // 延迟设置颜色，使用 Map 中的值
+                                    setTimeout(() => { colorPicker.color = currentValue; }, 0);
                                     
                                     $(colorPicker).on('change', (evt) => {
                                         updateLiveCssVariable(variableName, evt.detail.rgba);
@@ -443,24 +441,27 @@
                     // --- 布局 ---
                     else if (layoutProperties.includes(lowerProp)) {
                         const cleanValue = originalValue.replace('!important', '').trim();
-                        
-                        // [核心修正] 使用新函数 splitCSSValue 替代简单的 split
                         const values = splitCSSValue(cleanValue);
                         
                         if (values.length > 0) {
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
+                            activeVariableSet.add(variableName);
 
-                            replacementTasks.push({
+                            newReplacementTasks.push({
                                 start: valueAbsoluteStart, 
                                 end: valueAbsoluteEnd,
                                 variableName: variableName
                             });
 
-                            // 优先使用内存中的值，否则使用解析值
-                            let initValue = currentValuesMap[variableName] || cleanValue;
-                            updateLiveCssVariable(variableName, initValue);
-                            
+                            let currentValue = currentValuesMap[variableName];
+                            if (currentValue === undefined) {
+                                currentValue = cleanValue;
+                                updateLiveCssVariable(variableName, currentValue);
+                            } else {
+                                document.documentElement.style.setProperty(variableName, currentValue, 'important');
+                            }
+
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
 
                             if (rebuildUI) {
@@ -474,9 +475,8 @@
                                 const inputsContainer = document.createElement('div');
                                 inputsContainer.className = 'layout-inputs-container';
 
-                                // 这里我们不能简单用 currentValues，因为它是字符串。
-                                // 我们需要基于 splitCSSValue(initValue) 来填充输入框
-                                let currentSplitValues = splitCSSValue(initValue);
+                                // 使用当前值重新分割，以保持输入框同步
+                                let currentSplitValues = splitCSSValue(currentValue);
 
                                 currentSplitValues.forEach((val, index) => {
                                     const input = document.createElement('input');
@@ -498,11 +498,12 @@
                             }
                         }
                     }
-                } // end declarations
+                } // end declarations loop
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
                 if (rebuildUI) {
+                    // 构建 Group
                     if (colorUIBlocks.length > 0) {
                         const group = document.createElement('div');
                         group.className = 'theme-group';
@@ -539,29 +540,40 @@
                 }
             } // end rules loop
             
+            // 更新任务列表和样式
+            replacementTasks = newReplacementTasks;
             liveStyleTag.textContent = finalCssRules;
             
-            if (rebuildUI) {
-                panelColors.appendChild(colorFragment);
-                panelLayout.appendChild(layoutFragment);
+            // [性能] 垃圾回收：清除不再使用的旧变量
+            garbageCollectVariables(activeVariableSet);
 
-                const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
-                if (currentSearch) filterPanels(currentSearch);
-                editorContainer.scrollTop = scrollTop;
+            // [核心] 只有在全量重构时才操作 DOM
+            if (rebuildUI) {
+                // 使用 RAF 确保在同一帧内完成 DOM 替换，消除闪烁
+                requestAnimationFrame(() => {
+                    panelColors.innerHTML = '';
+                    panelColors.appendChild(colorFragment);
+                    panelLayout.innerHTML = '';
+                    panelLayout.appendChild(layoutFragment);
+
+                    const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
+                    if (currentSearch) filterPanels(currentSearch);
+                    
+                    editorContainer.scrollTop = scrollTop;
+                });
             }
         }
 
-        // 解析入口
         function debouncedParse(forceRebuild = false) {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                // 如果是因为自动同步触发的 Input 事件，则只进行静默解析（不重绘UI）
-                // 否则（用户打字、切换主题），进行完整重绘
+                // 如果是自动同步，不重绘 UI (forceRebuild = false)
+                // 如果是用户手动修改 CSS 或切换主题，forceRebuild = true
                 if (isAutoSyncing && !forceRebuild) {
                     isAutoSyncing = false;
-                    parseAndBuildUI(false); // Silent update
+                    parseAndBuildUI(false); // Silent Parse
                 } else {
-                    parseAndBuildUI(true);  // Full rebuild
+                    parseAndBuildUI(true);  // Full Rebuild
                 }
             }, 500);
         }
@@ -577,9 +589,10 @@
             }
         });
 
+        // 初始完全加载
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v21 - Smooth & Smart) loaded successfully.");
+        console.log("Theme Editor extension (v22 - Double Buffering) loaded successfully.");
     });
 })();
