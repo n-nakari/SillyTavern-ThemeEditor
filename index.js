@@ -14,13 +14,12 @@
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
-        // 结构签名，用于检测是否需要重建 DOM
         let lastStructureSignature = "";
         
         // 计时器 & 锁
         let debounceTimer; 
         let syncTextareaTimer;
-        let isAutoSyncing = false; // 标记是否正在进行自动同步（拖动滑块/输入数值）
+        let isAutoSyncing = false; 
 
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
@@ -41,19 +40,29 @@
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
         toggleBtn.title = 'Enable/Disable Theme Editor';
+        
+        // [修复] 开关逻辑：关闭时必须还原原生样式，否则页面会乱
         toggleBtn.addEventListener('click', () => {
             isExtensionActive = !isExtensionActive;
+            const originalStyleTag = document.getElementById('custom-css');
+
             if (isExtensionActive) {
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                // 开启时强制完整重绘
+                
+                // 开启：禁用原生tag，强制重绘我的tag
+                if (originalStyleTag) originalStyleTag.disabled = true;
                 lastStructureSignature = ""; 
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
                 editorContainer.classList.add('theme-editor-hidden');
+                
+                // 关闭：清空我的tag，启用原生tag
+                if (liveStyleTag) liveStyleTag.textContent = '';
+                if (originalStyleTag) originalStyleTag.disabled = false;
             }
         });
 
@@ -119,7 +128,6 @@
             });
         });
 
-        // 搜索
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
@@ -194,7 +202,6 @@
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
-        // 只清除不再使用的变量
         function cleanupUnusedVariables(activeVariables) {
             const rootStyle = document.documentElement.style;
             const varsToRemove = [];
@@ -210,31 +217,22 @@
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
-
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
-        // [优化] 标题格式化逻辑：更严格的清洗，防止出现 "} .mes"
         function createFormattedSelectorLabel(rawSelector) {
             let commentText = "";
-            
-            // 1. 去除前面残留的 } 或空白
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             
-            // 2. 提取注释
             const commentMatch = cleanSelector.match(/\/\*([\s\S]*?)\*\//);
             if (commentMatch) {
-                commentText = commentMatch[1].trim(); // 注释内容
-                cleanSelector = cleanSelector.replace(commentMatch[0], '').trim(); // 移除注释后的选择器
+                commentText = commentMatch[1].trim(); 
+                cleanSelector = cleanSelector.replace(commentMatch[0], '').trim(); 
             }
-            
-            // 3. 压缩空白字符 (把换行和多余空格变成单个空格)
             cleanSelector = cleanSelector.replace(/\s+/g, ' ');
 
-            // 4. 拼接：注释/选择器 (无空格)
             const titleText = commentText ? `${commentText}/${cleanSelector}` : cleanSelector;
-            
             uniqueTitles.add(titleText);
 
             if (commentText) {
@@ -318,6 +316,7 @@
         function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
             
+            // 确保禁用 SillyTavern 的默认 CSS 处理，防止冲突
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
             replacementTasks = []; 
@@ -335,24 +334,21 @@
             const colorFragment = document.createDocumentFragment();
             const layoutFragment = document.createDocumentFragment();
 
-            // [优化] 预编译正则，循环外定义
             const ruleRegex = /([^{]+)\{([^}]+)\}/g;
             const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;\}]+)/g;
 
             let ruleMatch;
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
-                const rawSelector = ruleMatch[1]; // 不在这里trim，交给专门的Label处理函数清洗
+                const rawSelector = ruleMatch[1]; 
                 const selector = rawSelector.trim();
                 const declarationsText = ruleMatch[2];
                 const ruleBodyOffset = ruleMatch.index + ruleMatch[0].indexOf('{') + 1;
                 
                 let processedDeclarations = declarationsText;
                 
-                // 签名只需记录粗略结构，保证速度
                 currentStructureSignature += selector.length + "|";
 
                 let declMatch;
-                // 重置 lastIndex 确保正则从头开始匹配新字符串
                 declarationRegex.lastIndex = 0;
 
                 while ((declMatch = declarationRegex.exec(declarationsText)) !== null) {
@@ -361,7 +357,6 @@
                     const originalValue = declMatch[2]; 
                     const lowerProp = property.toLowerCase();
 
-                    // 快速跳过不相关的属性，大幅提升循环速度
                     const isColor = colorProperties.includes(lowerProp);
                     const isLayout = !isColor && layoutProperties.includes(lowerProp);
 
@@ -400,23 +395,24 @@
                                     variableName: variableName
                                 });
 
-                                // [核心修复] 初始值逻辑
-                                // 1. 如果正在自动同步(拖拽中)，优先用 Map 里的值，保证流畅
-                                // 2. 如果不是自动同步(比如换了主题/手改了代码)，必须用 colorStr (文件里的新颜色)
                                 let initialColor;
                                 if (isAutoSyncing && currentValuesMap.hasOwnProperty(variableName)) {
                                      initialColor = currentValuesMap[variableName];
                                 } else {
                                      initialColor = (colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr);
-                                     // 强制更新 Map，确保切回 Map 模式时值是新的
                                      currentValuesMap[variableName] = initialColor;
                                 }
 
                                 document.documentElement.style.setProperty(variableName, initialColor, 'important');
 
+                                // [关键修复] 添加 Fallback (备用值)
+                                // 生成类似 var(--v, #fff) 的代码，防止变量未加载时变黑
+                                const fallback = colorStr; // 原始值即为最佳备胎
+                                const varStr = `var(${variableName}, ${fallback})`;
+
                                 colorReplacements.push({
                                     str: colorStr,
-                                    var: `var(${variableName})`,
+                                    var: varStr,
                                     index: colorMatch.index,
                                     length: colorStr.length
                                 });
@@ -431,7 +427,6 @@
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     colorPicker.dataset.varName = variableName;
-                                    // 延迟设值
                                     setTimeout(() => { colorPicker.color = initialColor; }, 0);
                                     
                                     $(colorPicker).on('change', (evt) => {
@@ -480,7 +475,8 @@
                             
                             document.documentElement.style.setProperty(variableName, initValue, 'important');
                             
-                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
+                            // [关键修复] 布局也添加 Fallback
+                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName}, ${cleanValue})`);
 
                             let currentSplitValues = splitCSSValue(initValue);
 
@@ -532,16 +528,13 @@
             if (allowDomRebuild) {
                 const structureChanged = (currentStructureSignature !== lastStructureSignature);
                 
-                // 如果结构变了，或者不是自动同步（即换主题了），重建 DOM
                 if (structureChanged && !isAutoSyncing) {
                     
-                    // 辅助函数：批量构建
                     const buildFragment = (items, fragment) => {
                         let currentGroup = null;
                         let lastSelector = null;
                         
                         items.forEach(item => {
-                            // 简单的分组逻辑：如果选择器一样，放在同一个组
                             if (item.rawSelector !== lastSelector || !currentGroup) {
                                 currentGroup = document.createElement('div');
                                 currentGroup.className = 'theme-group';
@@ -579,7 +572,7 @@
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
-                    // 结构没变但数据变了（从文件读取），更新 UI 显示
+                    // 结构没变，只更新数据
                     const allPickers = document.querySelectorAll('toolcool-color-picker');
                     for (let picker of allPickers) {
                         const vName = picker.dataset.varName;
@@ -607,7 +600,6 @@
 
         function debouncedParse(forceRebuild = false) {
             clearTimeout(debounceTimer);
-            // [优化] 极速响应：从 300ms 降至 60ms
             debounceTimer = setTimeout(() => {
                 if (isAutoSyncing && !forceRebuild) {
                     isAutoSyncing = false;
@@ -633,6 +625,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v23 - Fast & Clean) loaded successfully.");
+        console.log("Theme Editor extension (v24 - Fallback Fix) loaded successfully.");
     });
 })();
