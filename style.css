@@ -157,17 +157,17 @@
     color: #fff !important;
 }
 
-/* Webkit浏览器 (Chrome/Edge) 原生清除按钮样式 */
+/* 清除按钮样式 */
 #theme-editor-container .theme-editor-search-input::-webkit-search-cancel-button {
     cursor: pointer;
-    filter: invert(0.5);
-    transition: filter 0.2s;
+    color: rgba(255, 255, 255, 0.5) !important;
+    transition: color 0.2s;
 }
 
 /* 聚焦或悬停时：完全变白 */
 #theme-editor-container .theme-editor-search-input:focus::-webkit-search-cancel-button,
 #theme-editor-container .theme-editor-search-input:hover::-webkit-search-cancel-button {
-    filter: invert(1); /* 反转颜色，通常黑色图标会变成白色 */
+    color: rgba(255, 255, 255, 1) !important;
 }
 
 /* 自动补全列表 */
@@ -293,7 +293,7 @@
 
 /* 覆盖颜色选择器变量 */
 :root {
-    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.3) !important;
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5) !important;
 }
 
 toolcool-color-picker {
