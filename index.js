@@ -25,24 +25,18 @@
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
-        // [核心] 首次渲染标记，用于判断是刷新页面还是切换主题
-        let isFirstRender = true;
-
-        // [状态保存]
+        // [状态保存] 
         const STATE_KEY = 'theme_editor_state';
-        let savedState = {};
-        try {
-            savedState = JSON.parse(localStorage.getItem(STATE_KEY)) || {};
-        } catch (e) {
-            savedState = {};
-        }
-
-        // 默认值
-        if (!savedState.tab) savedState.tab = 'panel-colors';
-        if (!savedState.scrollTop) savedState.scrollTop = 0;
+        // 读取记忆，默认在 Colors 面板，滚动为 0
+        let savedState = JSON.parse(localStorage.getItem(STATE_KEY) || '{"tab": "panel-colors", "scrollTop": 0}');
+        // [核心修复] 标记是否已完成首次有效渲染，防止加载时的空状态覆盖记忆
+        let hasRenderedContent = false; 
 
         function saveState() {
-            localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
+            // 只有当真正渲染过内容后，才允许保存，防止覆盖
+            if (hasRenderedContent) {
+                localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
+            }
         }
 
         // --- UI 初始化 ---
@@ -60,7 +54,7 @@
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
 
-        // 恢复 Tab 状态
+        // 恢复 Tab 选择
         if (savedState.tab === 'panel-layout') {
             tabLayout.classList.add('active');
         } else {
@@ -98,10 +92,7 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                // 开启时强制重置结构签名，触发重绘
                 lastStructureSignature = ""; 
-                // 如果是重新开启，视为一次“新渲染”，尝试恢复位置
-                isFirstRender = true;
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
@@ -146,10 +137,10 @@
                 const targetId = tab.dataset.target;
                 document.getElementById(targetId).classList.add('active');
                 
-                // 保存 Tab 状态
                 savedState.tab = targetId;
-                saveState();
+                saveState(); // 立即保存 Tab 状态
 
+                // 切换 Tab 时刷新搜索
                 const currentSearch = searchInput.value;
                 if (currentSearch) {
                     showAutocomplete(currentSearch);
@@ -159,20 +150,24 @@
             });
         });
 
-        // 监听滚动保存 (防抖 100ms)
+        // [核心修复] 滚动位置保存逻辑
         let scrollTimeout;
         editorContainer.addEventListener('scroll', () => {
+            // 如果还没渲染过内容，或者正在自动同步，绝对不要保存滚动位置
+            // 这防止了页面刷新瞬间 scroll=0 覆盖掉 localStorage 的问题
+            if (!hasRenderedContent || isAutoSyncing) return;
+            
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
-                // 只有在非自动重绘导致的滚动时才保存
                 savedState.scrollTop = editorContainer.scrollTop;
                 saveState();
-            }, 100);
+            }, 200); // 防抖
         });
 
         // 搜索逻辑
         searchInput.addEventListener('input', (e) => {
-            showAutocomplete(e.target.value);
+            const val = e.target.value;
+            showAutocomplete(val);
         });
 
         searchInput.addEventListener('focus', (e) => {
@@ -192,7 +187,7 @@
             }
         });
 
-        // 滚动到指定条目
+        // 滚动跳转
         function scrollToItem(text) {
             const activePanel = document.querySelector('.theme-editor-content-panel.active');
             if (!activePanel) return;
@@ -237,7 +232,7 @@
                 item.addEventListener('click', (e) => {
                     e.stopPropagation(); 
                     searchInput.value = match; 
-                    scrollToItem(match);
+                    scrollToItem(match); 
                     autocompleteList.style.display = 'none';
                 });
                 autocompleteList.appendChild(item);
@@ -384,15 +379,15 @@
             
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
-            // [核心修复] 决定此次渲染后的目标滚动位置
+            // [核心逻辑]
+            // 如果已经在运行中（allowDomRebuild=true），我们优先信任当前的 editorContainer.scrollTop
+            // 除非它是 0（可能是刚刷新），那我们尝试用 savedState.scrollTop
             let targetScrollTop = 0;
             if (allowDomRebuild) {
-                if (isFirstRender) {
-                    // 如果是页面刷新后的首次加载，使用 localStorage 的存档
-                    targetScrollTop = savedState.scrollTop || 0;
-                } else {
-                    // 如果是操作过程中的重绘，保持当前 DOM 的滚动位置
+                if (editorContainer.scrollTop > 0) {
                     targetScrollTop = editorContainer.scrollTop;
+                } else {
+                    targetScrollTop = savedState.scrollTop || 0;
                 }
             }
 
@@ -403,6 +398,12 @@
             layoutTitles.clear();
 
             const cssText = customCssTextarea.value;
+            
+            // 如果 CSS 是空的（SillyTavern 还没加载完），不要进行任何操作，也不要重置记忆
+            if (!cssText || cssText.trim() === "") {
+                return; 
+            }
+
             let uniqueId = 0;
             
             let currentStructureSignature = "";
@@ -629,14 +630,14 @@
                     panelColors.appendChild(colorFragment);
                     panelLayout.appendChild(layoutFragment);
                     
-                    // [状态恢复] 应用滚动位置
-                    if (targetScrollTop > 0) {
+                    // [状态恢复] 恢复滚动位置
+                    // 设置一个标志位，告诉程序“我们已经有内容了，可以开始记录新的滚动位置了”
+                    if (colorUIBlocks.length > 0 || layoutUIBlocks.length > 0) {
+                        hasRenderedContent = true;
                         setTimeout(() => {
                             editorContainer.scrollTop = targetScrollTop;
-                        }, 100);
+                        }, 50);
                     }
-                    // 标记首次渲染结束
-                    isFirstRender = false;
                     
                     lastStructureSignature = currentStructureSignature;
 
@@ -689,6 +690,7 @@
             }
         });
 
+        // 初始调用
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
