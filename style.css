@@ -47,6 +47,19 @@
     display: flex;
 }
 
+/* 保存按钮 */
+.theme-editor-save-btn {
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1.2em;
+    padding: 5px 10px;
+    transition: color 0.2s;
+}
+
+.theme-editor-save-btn:hover {
+    color: #9cdcfe;
+}
+
 /* 颜色样式框 */
 .theme-editor-property-block {
     display: flex;
@@ -114,18 +127,26 @@ toolcool-color-picker {
     width: 100%;
 }
 
-/* 数值输入框 */
-.layout-input {
-    background-color: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: #fff;
-    padding: 5px;
-    border-radius: 4px;
-    font-size: 0.9em;
+/* 输入框 */
+#theme-editor-container input.layout-input {
+    all: unset; /* 清除继承 */
+    box-sizing: border-box !important;
+    display: block !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #fff !important;
+    padding: 5px !important;
+    border-radius: 4px !important;
+    font-size: 0.9em !important;
+    height: 30px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    line-height: 20px !important;
 }
 
-.layout-input:focus {
-    outline: none;
-    border-color: #9cdcfe;
-    background-color: rgba(0, 0, 0, 0.5);
+/* 输入框focus状态 */
+#theme-editor-container input.layout-input:focus {
+    border-color: #9cdcfe !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    outline: none !important;
 }
