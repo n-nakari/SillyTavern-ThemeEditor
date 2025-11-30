@@ -14,6 +14,9 @@
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
+        // 结构签名，用于检测是否需要重建 DOM
+        let lastStructureSignature = "";
+        
         // 计时器 & 锁
         let debounceTimer; 
         let syncTextareaTimer;
@@ -44,7 +47,9 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                debouncedParse(true); // 开启时强制重绘 UI
+                // 开启时强制完整重绘
+                lastStructureSignature = ""; 
+                debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
@@ -189,27 +194,23 @@
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
-        function cleanupOldVariables() {
+        // [优化] 只清除不再使用的变量，而不是全部清除
+        function cleanupUnusedVariables(activeVariables) {
             const rootStyle = document.documentElement.style;
             const varsToRemove = [];
             for (let i = 0; i < rootStyle.length; i++) {
                 const prop = rootStyle[i];
-                if (prop.startsWith('--theme-editor-')) {
+                if (prop.startsWith('--theme-editor-') && !activeVariables.has(prop)) {
                     varsToRemove.push(prop);
                 }
             }
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
-            replacementTasks = [];
-            currentValuesMap = {};
-            uniqueTitles.clear();
         }
 
-        // [优化] 使用 RAF 优化变量更新，避免高频操作导致的卡顿
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
-            requestAnimationFrame(() => {
-                document.documentElement.style.setProperty(variableName, newValue, 'important');
-            });
+            // 立即写入，不使用 RAF 避免某些情况下的闪烁
+            document.documentElement.style.setProperty(variableName, newValue, 'important');
 
             // 0.8秒后自动写入文本框
             clearTimeout(syncTextareaTimer);
@@ -244,18 +245,16 @@
             return trimmed;
         }
 
-        // [新功能] 括号感知分割 (Split values respecting parenthesis)
-        // 解决 calc() 被错误拆分的问题
+        // 括号感知分割
         function splitCSSValue(value) {
             const parts = [];
             let current = '';
-            let depth = 0; // 括号深度
+            let depth = 0; 
 
             for (let char of value) {
                 if (char === '(') depth++;
                 else if (char === ')') depth--;
 
-                // 只有在括号外面的空格才算分隔符
                 if (depth === 0 && /\s/.test(char)) {
                     if (current) {
                         parts.push(current);
@@ -270,12 +269,9 @@
         }
 
         function writeChangesToTextarea() {
-            // [核心] 标记正在自动同步，防止 parseAndBuildUI 重绘 UI 导致黑屏
             isAutoSyncing = true;
-
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
-            
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
             tasks.forEach(task => {
@@ -290,10 +286,8 @@
             if (originalCss !== newCss) {
                 const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
                 nativeInputValueSetter.call(customCssTextarea, newCss);
-                
                 const inputEvent = new Event('input', { bubbles: true });
                 customCssTextarea.dispatchEvent(inputEvent);
-                
                 if (window.$) $(customCssTextarea).trigger('input');
             } else {
                 isAutoSyncing = false;
@@ -313,37 +307,31 @@
             }, 100);
         }
 
-        // [核心修正] 解析函数：增加了 rebuildUI 参数
-        // rebuildUI = true: 完整重绘 (用于初始化、手动修改CSS、切换主题)
-        // rebuildUI = false: 静默解析 (用于自动回写后更新索引，不碰 DOM)
-        function parseAndBuildUI(rebuildUI = true) {
+        // --- 核心解析与UI构建 (防闪烁优化版) ---
+        function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
+            
+            if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
-            // 如果是自动同步触发的，我们不重绘 UI，但需要重新解析以更新索引
-            // 实际上，如果 rebuildUI 为 false，我们只更新 replacementTasks 和变量
-            
-            const scrollTop = editorContainer.scrollTop;
+            // [重要] 这里不要清空 liveStyleTag，也不要马上清空变量，以防黑屏闪烁。
+            // 采用 Double Buffering 策略：准备好数据后再更新。
 
-            if (rebuildUI) {
-                cleanupOldVariables();
-                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
-                
-                panelColors.innerHTML = '';
-                panelLayout.innerHTML = '';
-                liveStyleTag.textContent = '';
-                replacementTasks = []; // 重置任务
-                // 注意：currentValuesMap 在这里也被重置了，因为是全新的解析
-            } else {
-                // 静默模式：只清空任务，不清空 map (保留用户正在输入的值)
-                replacementTasks = [];
-            }
-            
-            const colorFragment = document.createDocumentFragment();
-            const layoutFragment = document.createDocumentFragment();
-            
+            replacementTasks = []; 
+            uniqueTitles.clear();
+            const activeVariables = new Set(); // 记录本次解析使用了哪些变量
+
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
+            
+            // 结构签名：用于判断 CSS 结构是否变化
+            let currentStructureSignature = "";
+            let colorUIUpdates = []; // 存储结构未变时的更新数据
+            let layoutUIUpdates = [];
+
+            // 临时存储 DOM 结构，如果需要重建时使用
+            const colorFragment = document.createDocumentFragment();
+            const layoutFragment = document.createDocumentFragment();
 
             const ruleRegex = /([^{]+)\{([^}]+)\}/g;
             let ruleMatch;
@@ -357,6 +345,9 @@
                 let processedDeclarations = declarationsText;
                 let colorUIBlocks = [];
                 let layoutUIBlocks = [];
+
+                // 添加到签名
+                currentStructureSignature += rawSelector + "|";
 
                 const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;\}]+)/g;
                 let declMatch;
@@ -372,11 +363,13 @@
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
-                    // --- 颜色 ---
+                    // --- 颜色处理 ---
                     if (colorProperties.includes(lowerProp)) {
                         const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
                         if (foundColors.length > 0) {
+                            currentStructureSignature += `${property}:color:${foundColors.length}|`;
+                            
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
                             const propLabel = document.createElement('div');
@@ -390,6 +383,7 @@
                                 const colorStr = colorMatch[0];
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
+                                activeVariables.add(variableName);
 
                                 replacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
@@ -397,11 +391,19 @@
                                     variableName: variableName
                                 });
 
-                                // 如果 Map 里有值（说明是静默更新），用 Map 的；否则用 CSS 里的
-                                let initialColor = currentValuesMap[variableName] || (colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr);
-                                
-                                // 始终更新 CSS 变量以保持同步
-                                updateLiveCssVariable(variableName, initialColor);
+                                // 如果是自动同步，优先用 Map 里的值（用户正在拖动），否则用解析值
+                                // 注意：如果用户手打 CSS 修改了颜色，这里 initialColor 会变成新的颜色
+                                let initialColor;
+                                if (isAutoSyncing && currentValuesMap[variableName]) {
+                                     initialColor = currentValuesMap[variableName];
+                                } else {
+                                     initialColor = (colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr);
+                                     // 即使是手打更新，也更新 Map，以便保持同步
+                                     currentValuesMap[variableName] = initialColor;
+                                }
+
+                                // 立即更新 CSS 变量，确保预览即时生效
+                                document.documentElement.style.setProperty(variableName, initialColor, 'important');
 
                                 colorReplacements.push({
                                     str: colorStr,
@@ -410,7 +412,13 @@
                                     length: colorStr.length
                                 });
 
-                                if (rebuildUI) {
+                                // 收集 UI 数据
+                                const colorData = {
+                                    initialColor: initialColor,
+                                    variableName: variableName
+                                };
+
+                                if (allowDomRebuild) {
                                     if (foundColors.length > 1) {
                                         const subLabel = document.createElement('div');
                                         subLabel.className = 'theme-editor-sub-label';
@@ -419,7 +427,8 @@
                                     }
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
-                                    // 延迟设置颜色避免 Web Component 初始化问题
+                                    // 存储关联的变量名，方便后续查找
+                                    colorPicker.dataset.varName = variableName;
                                     setTimeout(() => { colorPicker.color = initialColor; }, 0);
                                     
                                     $(colorPicker).on('change', (evt) => {
@@ -427,6 +436,8 @@
                                     });
                                     propertyBlock.appendChild(colorPicker);
                                 }
+                                
+                                colorUIUpdates.push(colorData);
                             });
 
                             colorReplacements.sort((a, b) => b.index - a.index);
@@ -436,20 +447,21 @@
                             });
                             processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
                             
-                            if (rebuildUI) colorUIBlocks.push(propertyBlock);
+                            if (allowDomRebuild) colorUIBlocks.push(propertyBlock);
                         }
                     }
 
-                    // --- 布局 ---
+                    // --- 布局处理 ---
                     else if (layoutProperties.includes(lowerProp)) {
                         const cleanValue = originalValue.replace('!important', '').trim();
-                        
-                        // [核心修正] 使用新函数 splitCSSValue 替代简单的 split
                         const values = splitCSSValue(cleanValue);
                         
                         if (values.length > 0) {
+                            currentStructureSignature += `${property}:layout:${values.length}|`;
+                            
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
+                            activeVariables.add(variableName);
 
                             replacementTasks.push({
                                 start: valueAbsoluteStart, 
@@ -457,13 +469,21 @@
                                 variableName: variableName
                             });
 
-                            // 优先使用内存中的值，否则使用解析值
-                            let initValue = currentValuesMap[variableName] || cleanValue;
-                            updateLiveCssVariable(variableName, initValue);
+                            let initValue;
+                            if (isAutoSyncing && currentValuesMap[variableName]) {
+                                initValue = currentValuesMap[variableName];
+                            } else {
+                                initValue = cleanValue;
+                                currentValuesMap[variableName] = initValue;
+                            }
+                            
+                            document.documentElement.style.setProperty(variableName, initValue, 'important');
                             
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
 
-                            if (rebuildUI) {
+                            let currentSplitValues = splitCSSValue(initValue);
+
+                            if (allowDomRebuild) {
                                 const propertyBlock = document.createElement('div');
                                 propertyBlock.className = 'theme-editor-property-block';
                                 const propLabel = document.createElement('div');
@@ -474,19 +494,22 @@
                                 const inputsContainer = document.createElement('div');
                                 inputsContainer.className = 'layout-inputs-container';
 
-                                // 这里我们不能简单用 currentValues，因为它是字符串。
-                                // 我们需要基于 splitCSSValue(initValue) 来填充输入框
-                                let currentSplitValues = splitCSSValue(initValue);
-
                                 currentSplitValues.forEach((val, index) => {
                                     const input = document.createElement('input');
                                     input.type = 'text';
                                     input.className = 'layout-input';
                                     input.value = val;
+                                    input.dataset.varName = variableName;
+                                    input.dataset.index = index;
                                     
                                     input.addEventListener('input', (e) => {
-                                        currentSplitValues[index] = e.target.value;
-                                        const formattedValues = currentSplitValues.map(v => formatLayoutValue(lowerProp, v));
+                                        // 重新获取最新的值数组（因为闭包里的可能旧了）
+                                        let latestVals = splitCSSValue(currentValuesMap[variableName] || initValue);
+                                        // 确保数组长度足够
+                                        while(latestVals.length <= index) latestVals.push('0');
+                                        
+                                        latestVals[index] = e.target.value;
+                                        const formattedValues = latestVals.map(v => formatLayoutValue(lowerProp, v));
                                         updateLiveCssVariable(variableName, formattedValues.join(' '));
                                     });
 
@@ -496,13 +519,19 @@
                                 propertyBlock.appendChild(inputsContainer);
                                 layoutUIBlocks.push(propertyBlock);
                             }
+                            
+                            layoutUIUpdates.push({
+                                variableName: variableName,
+                                values: currentSplitValues
+                            });
                         }
                     }
                 } // end declarations
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-                if (rebuildUI) {
+                if (allowDomRebuild) {
+                    // 构建 DOM 碎片逻辑...
                     if (colorUIBlocks.length > 0) {
                         const group = document.createElement('div');
                         group.className = 'theme-group';
@@ -539,31 +568,84 @@
                 }
             } // end rules loop
             
+            // --- 关键优化 1: 无缝更新样式 ---
+            // 直接覆盖内容，不先清空。浏览器通常能在一个重绘帧内处理完毕。
             liveStyleTag.textContent = finalCssRules;
             
-            if (rebuildUI) {
-                panelColors.appendChild(colorFragment);
-                panelLayout.appendChild(layoutFragment);
+            // 清理旧变量 (只清理不再使用的)
+            cleanupUnusedVariables(activeVariables);
 
-                const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
-                if (currentSearch) filterPanels(currentSearch);
-                editorContainer.scrollTop = scrollTop;
+            // --- 关键优化 2: 智能 DOM 更新 ---
+            if (allowDomRebuild) {
+                // 如果是自动同步，绝对不要重建 DOM
+                // 如果结构签名变了，说明增删了属性，必须重建
+                const structureChanged = (currentStructureSignature !== lastStructureSignature);
+                
+                if (structureChanged && !isAutoSyncing) {
+                    const scrollTop = editorContainer.scrollTop;
+                    panelColors.innerHTML = '';
+                    panelLayout.innerHTML = '';
+                    panelColors.appendChild(colorFragment);
+                    panelLayout.appendChild(layoutFragment);
+                    
+                    const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
+                    if (currentSearch) filterPanels(currentSearch);
+                    editorContainer.scrollTop = scrollTop;
+                    
+                    lastStructureSignature = currentStructureSignature;
+                } else if (!isAutoSyncing) {
+                    // 结构没变，但是用户可能手改了数值。我们需要更新 DOM 里的值，
+                    // 否则 Color Picker 会显示旧颜色。
+                    // 这是一个"原位更新"过程。
+                    
+                    // 更新所有颜色选择器
+                    const allPickers = Array.from(document.querySelectorAll('toolcool-color-picker'));
+                    // 创建一个简单的查找表，因为顺序是确定的，或者通过 dataset
+                    // 这里我们用 dataset.varName 更稳健
+                    allPickers.forEach(picker => {
+                        const vName = picker.dataset.varName;
+                        if (vName && currentValuesMap[vName]) {
+                            // 只有当颜色真的变了才设置，避免重绘闪烁
+                            if (picker.color !== currentValuesMap[vName]) {
+                                picker.color = currentValuesMap[vName];
+                            }
+                        }
+                    });
+
+                    // 更新所有布局输入框
+                    // 注意：不要更新当前获得焦点的输入框，否则会打断用户输入
+                    const activeEl = document.activeElement;
+                    const allInputs = Array.from(document.querySelectorAll('.layout-input'));
+                    
+                    allInputs.forEach(input => {
+                        if (input === activeEl) return; // 跳过当前焦点
+                        
+                        const vName = input.dataset.varName;
+                        const idx = parseInt(input.dataset.index);
+                        
+                        if (vName && currentValuesMap[vName]) {
+                            const splitVals = splitCSSValue(currentValuesMap[vName]);
+                            if (splitVals[idx] && input.value !== splitVals[idx]) {
+                                input.value = splitVals[idx];
+                            }
+                        }
+                    });
+                }
             }
         }
 
-        // 解析入口
         function debouncedParse(forceRebuild = false) {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                // 如果是因为自动同步触发的 Input 事件，则只进行静默解析（不重绘UI）
-                // 否则（用户打字、切换主题），进行完整重绘
+                // 如果是自动同步（UI拖动引发的），我们不需要重绘 DOM，只需要解析变量位置
+                // 如果是手动输入，我们需要检查结构变化
                 if (isAutoSyncing && !forceRebuild) {
                     isAutoSyncing = false;
-                    parseAndBuildUI(false); // Silent update
+                    parseAndBuildUI(false); // 只解析数据，不碰 DOM
                 } else {
-                    parseAndBuildUI(true);  // Full rebuild
+                    parseAndBuildUI(true);  // 解析并尝试更新 DOM (函数内部会检查结构是否变化)
                 }
-            }, 500);
+            }, 300); //稍微缩短去抖动时间，提高响应感
         }
 
         const originalValueDescriptor = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -577,9 +659,10 @@
             }
         });
 
+        // 初始化
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v21 - Smooth & Smart) loaded successfully.");
+        console.log("Theme Editor extension (v22 - No Flicker Edition) loaded successfully.");
     });
 })();
