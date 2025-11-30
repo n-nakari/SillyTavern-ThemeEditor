@@ -5,21 +5,22 @@
 /* 主容器：毛玻璃深色背景，强制重置滚动条样式 */
 #theme-editor-container {
     padding: 0;
-    /* [修改] 恢复全圆角，因为去掉了外部标题栏 */
-    border-radius: 8px !important;
-    margin: 10px 0;
+    /* 配合顶部栏，只保留下部圆角，视觉上连接在一起 */
+    border-radius: 0 0 8px 8px;
+    margin: 0 0 10px 0; /* 去掉上边距，紧贴 Header */
     max-height: 500px;
     overflow-y: auto !important; /* 强制显示滚动行为 */
     background-color: rgba(32, 32, 32, 0.95) !important; /* 深色背景 */
     border: 1px solid rgba(255, 255, 255, 0.08) !important; 
+    border-top: none !important; /* 去掉上边框，与Header融合 */
     /* 移除阴影 */
     box-shadow: none !important;
     display: flex;
     flex-direction: column;
     color: #eee !important;
-    font-size: 15px !important; 
+    font-size: 16px !important; /* [修改] 字体从15px增大到16px (approx +0.1em) */
     text-align: left !important; 
-    font-family: sans-serif !important; /* 强制使用无衬线字体 */
+    font-family: sans-serif !important; /* 强制使用无衬线字体，防止主题干扰 */
 }
 
 /* 强制自定义滚动条 - 独立样式，不随主题变化 */
@@ -55,27 +56,37 @@
 }
 
 /* =========================================
-   菜单栏 + 工具栏 (Tabs & Toolbar)
+   顶部标题栏 & 按钮 (已弃用 Header Bar 类，样式转移至 Tabs)
    ========================================= */
 
-/* [修改] 菜单栏现在承担了标题栏的功能：Tab + 搜索 + 按钮 */
+/* [已删除] .theme-editor-header-bar 相关样式 */
+
+/* =========================================
+   菜单栏 (Tabs) - 现在的顶部工具栏
+   ========================================= */
+
 .theme-editor-tabs {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 12px 15px 0 15px; /* 顶部留白增加 */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 20px;
+    padding: 0px 15px 0 15px; /* 上下Padding由子元素撑开 */
     position: sticky;
     top: 0;
-    background-color: rgba(32, 32, 32, 0.98); 
     z-index: 10;
+    
+    /* [新增] 移植原 Header 的样式，作为窗口顶部栏 */
+    background-color: rgba(32, 32, 32, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 8px 8px 0 0 !important;
+    margin-top: 10px !important;
 }
 
 .theme-editor-tab {
-    padding: 8px 4px; /* 调整间距 */
+    padding: 12px 2px; /* 增加点击区域 */
     cursor: pointer;
     color: #777;
-    font-size: 1.0em; 
+    font-size: 1.1em; /* [修改] 1.0 -> 1.1em */
     font-weight: 600;
     transition: all 0.2s;
     border-bottom: 2px solid transparent;
@@ -91,21 +102,23 @@
     border-bottom-color: #fff;
 }
 
-/* [新增] 按钮组容器样式 */
+/* =========================================
+   按钮组 (Action Buttons)
+   ========================================= */
+
 .theme-editor-header-actions {
     display: flex !important;
     gap: 8px !important;
-    margin-left: 10px; /* 与搜索框隔开 */
-    padding-bottom: 8px; /* 对齐 Tab 底线 */
+    margin-left: 10px !important; /* 与搜索框保持间距 */
+    align-items: center !important;
 }
 
 /* [修改] 强制隔离按钮样式 */
 .theme-editor-icon-btn {
-    all: unset !important;
     cursor: pointer !important;
     color: #888 !important;
-    font-size: 1.1em !important; 
-    padding: 4px !important;
+    font-size: 1.2em !important; /* [修改] 1.1 -> 1.2em */
+    padding: 6px !important;
     border-radius: 4px !important;
     transition: all 0.2s ease !important;
     display: flex !important;
@@ -131,18 +144,18 @@
    搜索框区域
    ========================================= */
 
-#theme-editor-container .theme-editor-search-wrapper {
-    margin-left: auto; /* [关键] 将搜索框和右侧按钮推到最右边 */
+.theme-editor-search-wrapper {
+    /* [关键] 将搜索框推到右边，按钮自然跟在它后面 */
+    margin-left: auto; 
     position: relative;
     display: flex;
     align-items: center;
-    padding-bottom: 8px;
     overflow: visible !important;
 }
 
 /* [修改] 搜索输入框 - 极强力隔离 */
-#theme-editor-container .theme-editor-search-input {
-    all: unset !important; 
+.theme-editor-search-input {
+    all: unset !important; /* 清除继承 */
     box-sizing: border-box !important;
     display: block !important;
     background-color: rgba(0, 0, 0, 0.2) !important;
@@ -150,18 +163,18 @@
     color: #ddd !important;
     padding: 4px 10px !important;
     border-radius: 4px !important; 
-    font-size: 0.9em !important; 
+    font-size: 1.0em !important; /* [修改] 0.9 -> 1.0em */
     width: 120px !important;
     transition: all 0.3s ease !important;
     outline: none !important;
     box-shadow: none !important;
-    height: 28px !important;
+    height: 30px !important; /* 微调高度适配字体 */
     line-height: normal !important;
     font-family: sans-serif !important;
     margin: 0 !important;
 }
 
-#theme-editor-container .theme-editor-search-input:focus {
+.theme-editor-search-input:focus {
     width: 180px !important;
     background-color: rgba(0, 0, 0, 0.3) !important;
     border-color: #9cdcfe !important;
@@ -169,7 +182,7 @@
 }
 
 /* 自动补全列表 */
-#theme-editor-container .theme-editor-autocomplete-list {
+.theme-editor-autocomplete-list {
     position: absolute;
     top: 100%;
     right: 0;
@@ -186,24 +199,10 @@
     margin-top: 2px;
 }
 
-/* [新增] 强制显示滚动条 (覆盖全局隐藏设置) */
-#theme-editor-container .theme-editor-autocomplete-list::-webkit-scrollbar {
-    display: block !important; /* 关键修复 */
-    width: 6px !important;
-    height: 6px !important;
-    background: rgba(0, 0, 0, 0.2) !important;
-}
-
-#theme-editor-container .theme-editor-autocomplete-list::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2) !important;
-    border-radius: 3px !important;
-    border: none !important;
-}
-
-#theme-editor-container .theme-editor-autocomplete-item {
+.theme-editor-autocomplete-item {
     padding: 6px 10px;
     cursor: pointer;
-    font-size: 0.9em; 
+    font-size: 1.0em; /* [修改] 0.9 -> 1.0em */
     color: #bbb;
     border-bottom: 1px solid rgba(255,255,255,0.03);
     white-space: nowrap;
@@ -211,12 +210,12 @@
     text-overflow: ellipsis;
 }
 
-#theme-editor-container .theme-editor-autocomplete-item:hover {
+.theme-editor-autocomplete-item:hover {
     background-color: #333;
     color: #fff;
 }
 
-#theme-editor-container .theme-editor-autocomplete-item .match {
+.theme-editor-autocomplete-item .match {
     color: #9cdcfe;
     font-weight: bold;
 }
@@ -255,7 +254,7 @@
 
 .theme-editor-main-label {
     font-weight: 600;
-    font-size: 1.0em; 
+    font-size: 1.1em; /* [修改] 1.0 -> 1.1em */
     color: #fff;
     margin-bottom: 10px;
     width: 100%;
@@ -268,7 +267,7 @@
 /* 注释标签样式 */
 .label-highlight {
     color: #fff;
-    font-size: 1.0em; 
+    font-size: 1.1em; /* [修改] 1.0 -> 1.1em */
     font-weight: normal;
     background-color: rgba(255, 255, 255, 0.2);
     padding: 2px 5px 0;
@@ -295,14 +294,14 @@
 }
 
 .theme-editor-prop-label {
-    font-size: 1em; 
+    font-size: 1.1em; /* [修改] 1.0 -> 1.1em */
     color: #ccc;
     margin-bottom: 4px;
     font-family: monospace; 
 }
 
 .theme-editor-sub-label {
-    font-size: 0.85em; 
+    font-size: 0.95em; /* [修改] 0.85 -> 0.95em */
     color: #ccc; 
     margin: 4px 0;
 }
@@ -311,6 +310,7 @@
    组件：颜色选择器
    ========================================= */
 
+/* 覆盖颜色选择器变量 */
 :root {
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.3) !important;
 }
@@ -321,7 +321,7 @@ toolcool-color-picker {
     overflow: visible; 
     cursor: pointer;
     box-shadow: none;
-    position: relative; 
+    position: relative; /* 确保 z-index 生效 */
     z-index: 1;
 }
 
@@ -350,9 +350,9 @@ toolcool-color-picker {
     border-radius: 3px !important;
     
     padding: 3px 6px !important;
-    font-size: 0.95em !important; 
-    height: 26px !important;
-    line-height: 20px !important;
+    font-size: 1.05em !important; /* [修改] 0.95 -> 1.05em */
+    height: 28px !important; /* 稍微增高以适应字体 */
+    line-height: 22px !important;
     
     width: auto !important;
     min-width: 60px !important;
@@ -362,6 +362,7 @@ toolcool-color-picker {
     transition: border-color 0.2s ease !important;
 }
 
+/* 输入框悬停 & 聚焦 */
 #theme-editor-container input.layout-input:hover {
     border-color: rgba(255, 255, 255, 0.25) !important;
 }
