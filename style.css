@@ -70,7 +70,6 @@
     font-size: 1em;
     font-weight: 600;
     transition: all 0.2s;
-    border-bottom: 2px solid transparent;
 }
 
 .theme-editor-tab:hover {
@@ -79,7 +78,7 @@
 
 .theme-editor-tab.active {
     color: #fff;
-    border-bottom-color: #fff;
+    border-bottom: 2px solid #fff;
 }
 
 /* =========================================
