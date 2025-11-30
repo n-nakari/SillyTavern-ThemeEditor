@@ -15,8 +15,10 @@
         let currentValuesMap = {};
         
         // 防抖计时器
-        let debounceTimer;
-        
+        let debounceTimer; // 用于解析 CSS 的防抖
+        let syncTextareaTimer; // [找回] 用于写回文本框的防抖
+        let isSyncing = false; // [找回] 标志位，防止死循环
+
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
@@ -30,10 +32,9 @@
 
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
-        saveBtn.title = 'Save changes to Theme File';
-        saveBtn.addEventListener('click', saveCurrentTheme);
+        saveBtn.title = 'Save changes to Theme File (Disk)';
+        saveBtn.addEventListener('click', saveToDisk); // 改名为 saveToDisk
 
-        // [优化] 开关逻辑：使用 classList 操作，更安全
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
         toggleBtn.title = 'Enable/Disable Theme Editor';
@@ -43,7 +44,6 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                // 重新触发解析以确保数据最新
                 debouncedParse();
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
@@ -115,7 +115,6 @@
             });
         });
 
-        // 搜索功能
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
@@ -195,7 +194,7 @@
             observer.observe(document.head, { childList: true });
         }
 
-        // --- 配置 ---
+        // --- 核心配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -209,6 +208,8 @@
             'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'font-weight', 'z-index', 'opacity', 'flex-basis'
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
+
+        // --- 核心功能函数 ---
 
         function cleanupOldVariables() {
             const rootStyle = document.documentElement.style;
@@ -225,9 +226,14 @@
             uniqueTitles.clear();
         }
 
+        // [核心恢复] 更新变量时触发自动回写
         function updateLiveCssVariable(variableName, newValue) {
             document.documentElement.style.setProperty(variableName, newValue, 'important');
             currentValuesMap[variableName] = newValue;
+            
+            // 防抖 1秒：停止操作1秒后，把新值写入文本框
+            clearTimeout(syncTextareaTimer);
+            syncTextareaTimer = setTimeout(syncToTextarea, 1000);
         }
 
         function createFormattedSelectorLabel(rawSelector) {
@@ -257,7 +263,10 @@
             return trimmed;
         }
 
-        function saveCurrentTheme() {
+        // [核心恢复] 仅同步到 Textarea (不触发文件保存)
+        function syncToTextarea() {
+            isSyncing = true; // 标记正在同步，避免触发解析造成的面板重绘（打断操作）
+            
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
@@ -271,11 +280,25 @@
                 }
             });
 
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-            nativeInputValueSetter.call(customCssTextarea, newCss);
-            const inputEvent = new Event('input', { bubbles: true });
-            customCssTextarea.dispatchEvent(inputEvent);
-            if (window.$) $(customCssTextarea).trigger('input');
+            // 只有内容真的变了才写
+            if (customCssTextarea.value !== newCss) {
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                nativeInputValueSetter.call(customCssTextarea, newCss);
+                
+                const event = new Event('input', { bubbles: true });
+                customCssTextarea.dispatchEvent(event);
+                
+                if (window.$) $(customCssTextarea).trigger('input');
+            } else {
+                isSyncing = false; // 内容没变，取消锁定
+            }
+        }
+
+        // [核心恢复] 保存到磁盘 (先同步，再点按钮)
+        function saveToDisk() {
+            // 立即执行同步，不等待防抖
+            clearTimeout(syncTextareaTimer);
+            syncToTextarea();
 
             setTimeout(() => {
                 const stUpdateBtn = document.getElementById('ui-preset-update-button');
@@ -291,13 +314,22 @@
         function parseAndBuildUI() {
             if (!isExtensionActive) return;
 
-            // [优化] 记录并恢复滚动位置
+            // [核心恢复] 如果是 Sync 触发的 Input 事件，且面板存在，则不重绘 UI
+            // 这样可以防止回写文本框时，导致颜色选择器失去焦点或滑块跳动
+            if (isSyncing) {
+                isSyncing = false;
+                // 注意：此时 replacementTasks 里的索引其实已经因为文本长度变化而失效了
+                // 但只要用户还在操作同一个控件，不重新 parse 也能继续更新变量。
+                // 等用户停手（debounce结束），或者下次手动改文本框时，会重新 parse 并修正索引。
+                // 这是一个为了流畅体验的权衡。
+                return; 
+            }
+
             const scrollTop = editorContainer.scrollTop;
 
             cleanupOldVariables();
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
             
-            // [优化] 使用 DocumentFragment 批量插入
             const colorFragment = document.createDocumentFragment();
             const layoutFragment = document.createDocumentFragment();
             
@@ -449,7 +481,6 @@
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-                // [优化] 使用 Fragment 插入 Group
                 if (colorUIBlocks.length > 0) {
                     const group = document.createElement('div');
                     group.className = 'theme-group';
@@ -487,11 +518,9 @@
             
             liveStyleTag.textContent = finalCssRules;
             
-            // 一次性插入 DOM
             panelColors.appendChild(colorFragment);
             panelLayout.appendChild(layoutFragment);
 
-            // 恢复状态
             const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
             if (currentSearch) filterPanels(currentSearch);
             editorContainer.scrollTop = scrollTop;
@@ -516,6 +545,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v19 - Performance & Layout Fixed) loaded successfully.");
+        console.log("Theme Editor extension (v20 - Sync Restored) loaded successfully.");
     });
 })();
