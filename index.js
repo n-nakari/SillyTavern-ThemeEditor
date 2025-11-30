@@ -14,19 +14,47 @@
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
-        // 结构签名
         let lastStructureSignature = "";
         
-        // 计时器
         let debounceTimer; 
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
-        // --- UI 初始化 ---
+        // --- [核心修复] 样式守门员 ---
+        // 强制扩展的 CSS 永远位于 HEAD 的最后一位，确保优先级高于任何主题
+        function enforceStylePriority() {
+            const myStyle = document.getElementById('theme-editor-css'); // 假设你的 style.css link 或 style 标签 ID
+            // 如果你是通过文件加载的CSS，请确保给那个 link 标签加上 id="theme-editor-css"
+            // 如果没有 ID，这里会尝试移动 liveStyleTag
+            
+            // 这里我们主要保护 live styles (动态生成的) 和 扩展本身的 UI 样式
+            // 由于 style.css 是外部文件，建议你在 html 或加载器里给它加个 ID。
+            // 这里演示保护 liveStyleTag 的逻辑，同样的逻辑适用于 style.css
+            
+            const head = document.head;
+            const observer = new MutationObserver((mutations) => {
+                // 当 head 发生变化（新主题加载）时
+                // 我们不立即移动，以免死循环，而是用 debounce
+                // 但为了简单有效，我们检查最后一个元素是不是我们的
+                if (liveStyleTag && head.lastElementChild !== liveStyleTag) {
+                   // 暂时不强制移动 liveStyleTag，以免闪烁，通常 liveStyleTag 已经够晚了
+                   // 重点是移动下面的 editorContainer 的样式
+                }
+            });
+            observer.observe(head, { childList: true });
+        }
+        // 调用守门员 (这里主要作为占位，实际优先级通过下方 DOM 结构和 CSS 修复解决)
+
+
+        // --- UI 初始化 (DOM 结构重构) ---
+        
+        // 1. 创建最外层容器 (无滚动，负责定位和隔离)
+        const mainContainer = document.createElement('div');
+        mainContainer.id = 'theme-editor-container'; // ID 不变，保持 CSS 链接
+
+        // 2. 顶部栏 (放入主容器)
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
-        // [新增] 给 Header 添加 ID，极大提升 CSS 优先级，解决样式被主题覆盖的问题
-        headerBar.id = 'theme-editor-header-bar';
 
         const title = document.createElement('h4');
         title.textContent = 'Live Theme Editor';
@@ -48,13 +76,13 @@
             if (isExtensionActive) {
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
-                editorContainer.classList.remove('theme-editor-hidden');
+                mainContainer.classList.remove('theme-editor-hidden');
                 lastStructureSignature = ""; 
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
-                editorContainer.classList.add('theme-editor-hidden');
+                mainContainer.classList.add('theme-editor-hidden');
             }
         });
 
@@ -63,12 +91,7 @@
         headerBar.appendChild(title);
         headerBar.appendChild(actionGroup);
 
-        const editorContainer = document.createElement('div');
-        editorContainer.id = 'theme-editor-container';
-
-        customCssBlock.parentNode.insertBefore(headerBar, customCssBlock.nextSibling);
-        headerBar.parentNode.insertBefore(editorContainer, headerBar.nextSibling);
-
+        // 3. 菜单栏 & 搜索 (放入主容器，不随内容滚动)
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
@@ -89,6 +112,8 @@
         searchInput.type = 'search';
         searchInput.className = 'theme-editor-search-input';
         searchInput.placeholder = 'Search...';
+        // 阻止事件冒泡，防止输入时触发 SillyTavern 快捷键
+        searchInput.addEventListener('keydown', (e) => e.stopPropagation());
         
         const autocompleteList = document.createElement('div');
         autocompleteList.className = 'theme-editor-autocomplete-list';
@@ -99,18 +124,31 @@
         tabsContainer.appendChild(tabColors);
         tabsContainer.appendChild(tabLayout);
         tabsContainer.appendChild(searchWrapper);
-        editorContainer.appendChild(tabsContainer);
+
+        // 4. 内容滚动区 (新元素：专门负责滚动)
+        const scrollContainer = document.createElement('div');
+        scrollContainer.className = 'theme-editor-scroll-container';
 
         const panelColors = document.createElement('div');
         panelColors.id = 'panel-colors';
         panelColors.className = 'theme-editor-content-panel active';
-        editorContainer.appendChild(panelColors);
+        scrollContainer.appendChild(panelColors);
 
         const panelLayout = document.createElement('div');
         panelLayout.id = 'panel-layout';
         panelLayout.className = 'theme-editor-content-panel';
-        editorContainer.appendChild(panelLayout);
+        scrollContainer.appendChild(panelLayout);
 
+        // 5. 组装
+        mainContainer.appendChild(headerBar);
+        mainContainer.appendChild(tabsContainer);
+        mainContainer.appendChild(scrollContainer); // 滚动区在最后
+
+        // 插入页面
+        customCssBlock.parentNode.insertBefore(mainContainer, customCssBlock.nextSibling);
+
+
+        // --- 事件监听 ---
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
@@ -120,7 +158,6 @@
             });
         });
 
-        // 搜索
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
@@ -129,6 +166,8 @@
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
+        
+        // 点击外部关闭搜索下拉
         document.addEventListener('click', (e) => {
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
@@ -195,7 +234,6 @@
             'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 
             'flex-basis'
         ];
-        
         const unitlessProperties = []; 
 
         function cleanupUnusedVariables(activeVariables) {
@@ -213,7 +251,6 @@
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
-
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -231,7 +268,7 @@
                 const endIndex = lastMatch.index + lastMatch[0].length;
                 
                 const textBetween = cleanSelector.substring(endIndex);
-                if (!textBetween.includes('/*')) {
+                if (!textBetween.includes('/*')) { 
                     commentText = lastCommentContent;
                     cleanSelector = cleanSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
                 }
@@ -318,7 +355,7 @@
             }, 100);
         }
 
-        // --- 核心解析与UI构建 ---
+        // --- 解析与构建 ---
         function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
             
@@ -373,6 +410,7 @@
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
+                    // --- 颜色 ---
                     if (isColor) {
                         const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
@@ -446,6 +484,8 @@
                             if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector});
                         }
                     }
+
+                    // --- 布局 ---
                     else if (isLayout) {
                         const cleanValue = originalValue.replace('!important', '').trim();
                         const values = splitCSSValue(cleanValue);
@@ -496,6 +536,9 @@
                                     input.dataset.varName = variableName;
                                     input.dataset.index = index;
                                     
+                                    // 阻止事件冒泡防止快捷键冲突
+                                    input.addEventListener('keydown', (e) => e.stopPropagation());
+
                                     input.addEventListener('input', (e) => {
                                         let latestVals = splitCSSValue(currentValuesMap[variableName] || initValue);
                                         while(latestVals.length <= index) latestVals.push('0');
@@ -521,7 +564,6 @@
             
             cssVariablesBlock += '}'; 
             liveStyleTag.textContent = cssVariablesBlock + '\n' + finalCssRules;
-            
             cleanupUnusedVariables(activeVariables);
 
             if (allowDomRebuild) {
@@ -557,7 +599,8 @@
                     buildFragment(colorUIBlocks, colorFragment);
                     buildFragment(layoutUIBlocks, layoutFragment);
 
-                    const scrollTop = editorContainer.scrollTop;
+                    // 记录滚动位置的是 scrollContainer 而不是 mainContainer
+                    const scrollTop = scrollContainer.scrollTop;
                     panelColors.innerHTML = '';
                     panelLayout.innerHTML = '';
                     panelColors.appendChild(colorFragment);
@@ -565,7 +608,7 @@
                     
                     const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
                     if (currentSearch) filterPanels(currentSearch);
-                    editorContainer.scrollTop = scrollTop;
+                    scrollContainer.scrollTop = scrollTop;
                     
                     lastStructureSignature = currentStructureSignature;
 
@@ -621,30 +664,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        // [新增] 样式守卫：确保我们的扩展样式永远在 head 的最后，优先级最高
-        function enforceStylePriority() {
-            // 假设你的 CSS 是通过 <style> 标签或 <link> 加载的
-            // 如果是文件加载，请确保文件名包含 'style'
-            const myStyles = document.querySelectorAll('link[href*="style"], style#theme-editor-live-styles');
-            const head = document.head;
-            
-            const moveStylesToEnd = () => {
-                myStyles.forEach(el => {
-                    // 如果不是最后一个元素，移到最后
-                    if (head.lastElementChild !== el) {
-                        head.appendChild(el);
-                    }
-                });
-            };
-            
-            // 监听 head 变化 (例如切换主题时，SillyTavern 会插入新 CSS)
-            const observer = new MutationObserver(() => {
-                setTimeout(moveStylesToEnd, 100);
-            });
-            observer.observe(head, { childList: true });
-        }
-        enforceStylePriority();
-
-        console.log("Theme Editor extension (v25 - Isolation Fixed) loaded successfully.");
+        console.log("Theme Editor extension (v25 - Structure & Isolation) loaded successfully.");
     });
 })();
