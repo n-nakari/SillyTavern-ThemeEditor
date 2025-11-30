@@ -8,8 +8,11 @@
     background-color: rgba(30, 30, 30, 0.7);
 }
 
-/* 颜色条目 */
-.theme-editor-item.multi-color {
+/* 
+   属性容器 (对应原本的 .theme-editor-item.multi-color) 
+   这是包含 属性名 + 调色盘 的那个框
+*/
+.theme-editor-property-block {
     display: flex;
     flex-direction: column; /* 垂直排列 */
     align-items: flex-start; /* 靠左对齐 */
@@ -17,13 +20,15 @@
     background-color: rgba(0, 0, 0, 0.1);
     padding-top: 5px;
     padding-left: 15px;
+    padding-bottom: 10px; /* 稍微增加底部内边距，让内容不贴底 */
     margin-bottom: 10px;
     gap: 5px;
     border-radius: 0 5px 5px 0;
 }
 
-/* 标题标签 */
-.theme-editor-label, .theme-editor-main-label {
+/* 标题标签 (类名/注释) */
+.theme-editor-main-label {
+    font-family: 'NotoSansMono', monospace;
     font-weight: 900;
     font-size: 1.0em;
     color: #fff;
@@ -33,23 +38,53 @@
     border-bottom: 2px solid #aaa;
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
+    width: 100%;
+    white-space: normal;
+    word-break: break-all;
+    line-height: 1.4;
 }
 
-/* 清除调色盘本身的背景和边框 */
-.theme-editor-item toolcool-color-picker {
+/* 属性名标签 (例如 --background-color) */
+.theme-editor-prop-label {
+    font-family: 'NotoSansMono', monospace;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #eee;
+    margin-bottom: 5px;
+}
+
+/* 颜色选择器 */
+toolcool-color-picker {
     width: 100%;
     height: 30px;
     background: none;
     border: none;
     padding: 0;
+    cursor: pointer;
 }
 
+/* 子颜色标签 (Color #1, Color #2) */
 .theme-editor-sub-label {
+    font-family: 'NotoSansMono', monospace;
     font-weight: bold;
     font-size: 0.85em;
     color: #ddd;
+    margin-top: 5px;
 }
 
+/* CSS 变量定义：用于强制修改组件内部边框颜色 */
 :root {
     --tool-cool-color-picker-btn-border-color-inner: white;
+}
+
+/* 
+   辅助样式：注释高亮 
+   (依然保留这个小细节，用于把 /* 注释 */ 和类名区分开，不影响整体布局)
+*/
+.label-highlight {
+    color: #9cdcfe;
+}
+.label-line-2 {
+    font-size: 0.85em;
+    color: #bbb;
 }
