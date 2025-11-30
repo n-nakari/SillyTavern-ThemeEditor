@@ -14,9 +14,9 @@
         let colorTitles = new Set();
         let layoutTitles = new Set();
         
-        let replacementTasks = []; // 用于更新文本框 (File)
-        let currentValuesMap = {}; // 存储当前所有变量的值
-        let liveCssGenerators = []; // [新] 用于生成实时 CSS (Screen)
+        let replacementTasks = []; 
+        let currentValuesMap = {}; 
+        let liveCssGenerators = []; 
         
         let lastStructureSignature = "";
         
@@ -25,13 +25,22 @@
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
+        // [新] 状态保存相关
+        const STATE_KEY = 'theme_editor_state';
+        let savedState = JSON.parse(localStorage.getItem(STATE_KEY) || '{"tab": "panel-colors", "scrollTop": 0}');
+
+        // 保存状态辅助函数
+        function saveState() {
+            localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
+        }
+
         // --- UI 初始化 ---
         
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
         const tabColors = document.createElement('div');
-        tabColors.className = 'theme-editor-tab active';
+        tabColors.className = 'theme-editor-tab';
         tabColors.textContent = 'Colors';
         tabColors.dataset.target = 'panel-colors';
 
@@ -39,6 +48,13 @@
         tabLayout.className = 'theme-editor-tab';
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
+
+        // 根据保存的状态设置初始 Tab
+        if (savedState.tab === 'panel-layout') {
+            tabLayout.classList.add('active');
+        } else {
+            tabColors.classList.add('active'); // 默认
+        }
 
         const searchWrapper = document.createElement('div');
         searchWrapper.className = 'theme-editor-search-wrapper';
@@ -96,25 +112,33 @@
 
         const panelColors = document.createElement('div');
         panelColors.id = 'panel-colors';
-        panelColors.className = 'theme-editor-content-panel active';
+        panelColors.className = 'theme-editor-content-panel';
+        if (savedState.tab !== 'panel-layout') panelColors.classList.add('active');
         editorContainer.appendChild(panelColors);
 
         const panelLayout = document.createElement('div');
         panelLayout.id = 'panel-layout';
         panelLayout.className = 'theme-editor-content-panel';
+        if (savedState.tab === 'panel-layout') panelLayout.classList.add('active');
         editorContainer.appendChild(panelLayout);
 
+        // Tab 切换逻辑
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
                 [panelColors, panelLayout].forEach(p => p.classList.remove('active'));
                 
                 tab.classList.add('active');
-                document.getElementById(tab.dataset.target).classList.add('active');
+                const targetId = tab.dataset.target;
+                document.getElementById(targetId).classList.add('active');
                 
+                // [保存状态] 记录当前 Tab
+                savedState.tab = targetId;
+                saveState();
+
+                // 切换 Tab 时刷新搜索建议
                 const currentSearch = searchInput.value;
                 if (currentSearch) {
-                    filterPanels(currentSearch.toLowerCase());
                     showAutocomplete(currentSearch);
                 } else {
                      autocompleteList.style.display = 'none';
@@ -122,10 +146,20 @@
             });
         });
 
+        // [保存状态] 监听滚动事件记录位置 (防抖)
+        let scrollTimeout;
+        editorContainer.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                savedState.scrollTop = editorContainer.scrollTop;
+                saveState();
+            }, 200);
+        });
+
         // 搜索逻辑
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value;
-            filterPanels(val.toLowerCase());
+            // [修改] 不再调用 filterPanels，只显示建议
             showAutocomplete(val);
         });
 
@@ -146,19 +180,28 @@
             }
         });
 
-        function filterPanels(text) {
+        // [新功能] 滚动到指定条目
+        function scrollToItem(text) {
             const activePanel = document.querySelector('.theme-editor-content-panel.active');
             if (!activePanel) return;
 
+            // 移除旧的高亮
+            const oldFlashes = activePanel.querySelectorAll('.theme-flash');
+            oldFlashes.forEach(el => el.classList.remove('theme-flash'));
+
             const groups = activePanel.querySelectorAll('.theme-group');
-            groups.forEach(group => {
-                const filterText = group.dataset.filterText || '';
-                if (filterText.includes(text)) {
-                    group.style.display = '';
-                } else {
-                    group.style.display = 'none';
+            // 精确匹配 dataset.filterText (它是我们在 createFormattedSelectorLabelInfo 里生成的 labelText.toLowerCase())
+            const targetText = text.toLowerCase().trim();
+            
+            for (let group of groups) {
+                if (group.dataset.filterText === targetText) {
+                    // 滚动到视图中心
+                    group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // 添加高亮动画
+                    group.classList.add('theme-flash');
+                    return;
                 }
-            });
+            }
         }
 
         function showAutocomplete(text) {
@@ -185,8 +228,8 @@
                 
                 item.addEventListener('click', (e) => {
                     e.stopPropagation(); 
-                    searchInput.value = match;
-                    filterPanels(match.toLowerCase());
+                    searchInput.value = match; // 填入全名
+                    scrollToItem(match); // [修改] 跳转而不是过滤
                     autocompleteList.style.display = 'none';
                 });
                 autocompleteList.appendChild(item);
@@ -217,21 +260,14 @@
         ];
         const unitlessProperties = []; 
 
-        // [核心] 更新逻辑：不再注入CSS变量，而是直接重新生成CSS文本
         function updateLiveCss(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
-            
-            // 1. 立即重新渲染 CSS (Screen Update)
             renderLiveCss();
-
-            // 2. 延迟更新文本框 (File Update)
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
-        // [新功能] 根据当前 Map 组装无变量的纯 CSS
         function renderLiveCss() {
-            // 将所有规则生成器执行一遍，拼接成完整 CSS
             const css = liveCssGenerators.map(generator => generator()).join('\n');
             liveStyleTag.textContent = css;
         }
@@ -340,8 +376,21 @@
             
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
+            // 如果要重绘DOM，先记录当前的滚动位置
+            // 注意：如果是初始加载，我们希望使用 savedState.scrollTop
+            // 如果是运行中的重绘（比如打字），我们希望保持当前 scrollTop
+            // 这里我们优先取 DOM 的当前值（如果>0），否则取存档值
+            let targetScrollTop = 0;
+            if (allowDomRebuild) {
+                if (editorContainer.scrollTop > 0) {
+                    targetScrollTop = editorContainer.scrollTop;
+                } else {
+                    targetScrollTop = savedState.scrollTop || 0;
+                }
+            }
+
             replacementTasks = []; 
-            liveCssGenerators = []; // 重置生成器列表
+            liveCssGenerators = []; 
             
             colorTitles.clear();
             layoutTitles.clear();
@@ -366,7 +415,6 @@
                 const declarationsText = ruleMatch[2];
                 const ruleBodyOffset = ruleMatch.index + ruleMatch[0].indexOf('{') + 1;
                 
-                // 模板字符串，初始为 CSS 文本，我们会用占位符替换其中的值
                 let ruleTemplate = declarationsText;
                 
                 currentStructureSignature += selector.length + "|";
@@ -406,7 +454,6 @@
                             propLabel.textContent = property;
                             propertyBlock.appendChild(propLabel);
 
-                            // 用于在模板中替换当前属性的字符串
                             let replacedValueInTemplate = originalValue;
 
                             foundColors.forEach((colorMatch, index) => {
@@ -414,7 +461,6 @@
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
 
-                                // File Task (Textarea)
                                 replacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
                                     end: valueAbsoluteStart + colorMatch.index + colorStr.length,
@@ -429,9 +475,6 @@
                                      currentValuesMap[variableName] = initialColor;
                                 }
 
-                                // [核心] 替换模板中的具体数值为占位符
-                                // 使用特殊标记防止替换错误： %%%VAR_NAME%%%
-                                // 注意：因为 replace 只替换第一个匹配项，且我们也是顺序遍历，所以只要 match 顺序正确即可
                                 replacedValueInTemplate = replacedValueInTemplate.replace(colorStr, `%%%${variableName}%%%`);
 
                                 if (allowDomRebuild) {
@@ -455,7 +498,6 @@
                                 }
                             });
 
-                            // 更新总模板中的这段属性声明
                             ruleTemplate = ruleTemplate.replace(originalValue, replacedValueInTemplate);
                             
                             if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector, labelHtml: labelInfo.html, labelText: labelInfo.text});
@@ -489,7 +531,6 @@
                                 currentValuesMap[variableName] = initValue;
                             }
                             
-                            // [核心] 替换为占位符
                             ruleTemplate = ruleTemplate.replace(originalValue, `%%%${variableName}%%%`);
 
                             let currentSplitValues = splitCSSValue(initValue);
@@ -532,13 +573,8 @@
                     }
                 } 
 
-                // [生成器闭包]
-                // 这是一个函数，当被调用时，它会取出当前所有变量的最新值，
-                // 填入到模板中，并返回一段完整的 CSS 规则
-                // 使用闭包捕获了当前的 selector 和 ruleTemplate
                 const generatorClosure = ((sel, tpl) => {
                     return () => {
-                        // 正则替换 %%%VAR_NAME%%% 为 currentValuesMap[VAR_NAME]
                         const filledDeclarations = tpl.replace(/%%%(--[\w-]+)%%%/g, (_, vName) => {
                             return currentValuesMap[vName] || '';
                         });
@@ -548,9 +584,8 @@
 
                 liveCssGenerators.push(generatorClosure);
 
-            } // end rules loop
+            } 
             
-            // 立即进行一次渲染
             renderLiveCss();
             
             if (allowDomRebuild) {
@@ -582,15 +617,16 @@
                     buildFragment(colorUIBlocks, colorFragment);
                     buildFragment(layoutUIBlocks, layoutFragment);
 
-                    const scrollTop = editorContainer.scrollTop;
                     panelColors.innerHTML = '';
                     panelLayout.innerHTML = '';
                     panelColors.appendChild(colorFragment);
                     panelLayout.appendChild(layoutFragment);
                     
-                    const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
-                    if (currentSearch) filterPanels(currentSearch);
-                    editorContainer.scrollTop = scrollTop;
+                    // [状态恢复] 恢复滚动位置
+                    // 使用 setTimeout 确保 DOM 渲染后再滚动
+                    setTimeout(() => {
+                        editorContainer.scrollTop = targetScrollTop;
+                    }, 50);
                     
                     lastStructureSignature = currentStructureSignature;
 
@@ -646,6 +682,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v28 - Direct Injection) loaded successfully.");
+        console.log("Theme Editor extension (v29 - Jump & Persist) loaded successfully.");
     });
 })();
