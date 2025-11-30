@@ -25,11 +25,22 @@
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
-        // [新] 状态保存相关
-        const STATE_KEY = 'theme_editor_state';
-        let savedState = JSON.parse(localStorage.getItem(STATE_KEY) || '{"tab": "panel-colors", "scrollTop": 0}');
+        // [核心] 首次渲染标记，用于判断是刷新页面还是切换主题
+        let isFirstRender = true;
 
-        // 保存状态辅助函数
+        // [状态保存]
+        const STATE_KEY = 'theme_editor_state';
+        let savedState = {};
+        try {
+            savedState = JSON.parse(localStorage.getItem(STATE_KEY)) || {};
+        } catch (e) {
+            savedState = {};
+        }
+
+        // 默认值
+        if (!savedState.tab) savedState.tab = 'panel-colors';
+        if (!savedState.scrollTop) savedState.scrollTop = 0;
+
         function saveState() {
             localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
         }
@@ -49,11 +60,11 @@
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
 
-        // 根据保存的状态设置初始 Tab
+        // 恢复 Tab 状态
         if (savedState.tab === 'panel-layout') {
             tabLayout.classList.add('active');
         } else {
-            tabColors.classList.add('active'); // 默认
+            tabColors.classList.add('active');
         }
 
         const searchWrapper = document.createElement('div');
@@ -87,7 +98,10 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
+                // 开启时强制重置结构签名，触发重绘
                 lastStructureSignature = ""; 
+                // 如果是重新开启，视为一次“新渲染”，尝试恢复位置
+                isFirstRender = true;
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
@@ -132,11 +146,10 @@
                 const targetId = tab.dataset.target;
                 document.getElementById(targetId).classList.add('active');
                 
-                // [保存状态] 记录当前 Tab
+                // 保存 Tab 状态
                 savedState.tab = targetId;
                 saveState();
 
-                // 切换 Tab 时刷新搜索建议
                 const currentSearch = searchInput.value;
                 if (currentSearch) {
                     showAutocomplete(currentSearch);
@@ -146,21 +159,20 @@
             });
         });
 
-        // [保存状态] 监听滚动事件记录位置 (防抖)
+        // 监听滚动保存 (防抖 100ms)
         let scrollTimeout;
         editorContainer.addEventListener('scroll', () => {
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
+                // 只有在非自动重绘导致的滚动时才保存
                 savedState.scrollTop = editorContainer.scrollTop;
                 saveState();
-            }, 200);
+            }, 100);
         });
 
         // 搜索逻辑
         searchInput.addEventListener('input', (e) => {
-            const val = e.target.value;
-            // [修改] 不再调用 filterPanels，只显示建议
-            showAutocomplete(val);
+            showAutocomplete(e.target.value);
         });
 
         searchInput.addEventListener('focus', (e) => {
@@ -180,24 +192,20 @@
             }
         });
 
-        // [新功能] 滚动到指定条目
+        // 滚动到指定条目
         function scrollToItem(text) {
             const activePanel = document.querySelector('.theme-editor-content-panel.active');
             if (!activePanel) return;
 
-            // 移除旧的高亮
             const oldFlashes = activePanel.querySelectorAll('.theme-flash');
             oldFlashes.forEach(el => el.classList.remove('theme-flash'));
 
             const groups = activePanel.querySelectorAll('.theme-group');
-            // 精确匹配 dataset.filterText (它是我们在 createFormattedSelectorLabelInfo 里生成的 labelText.toLowerCase())
             const targetText = text.toLowerCase().trim();
             
             for (let group of groups) {
                 if (group.dataset.filterText === targetText) {
-                    // 滚动到视图中心
                     group.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // 添加高亮动画
                     group.classList.add('theme-flash');
                     return;
                 }
@@ -228,8 +236,8 @@
                 
                 item.addEventListener('click', (e) => {
                     e.stopPropagation(); 
-                    searchInput.value = match; // 填入全名
-                    scrollToItem(match); // [修改] 跳转而不是过滤
+                    searchInput.value = match; 
+                    scrollToItem(match);
                     autocompleteList.style.display = 'none';
                 });
                 autocompleteList.appendChild(item);
@@ -376,16 +384,15 @@
             
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
-            // 如果要重绘DOM，先记录当前的滚动位置
-            // 注意：如果是初始加载，我们希望使用 savedState.scrollTop
-            // 如果是运行中的重绘（比如打字），我们希望保持当前 scrollTop
-            // 这里我们优先取 DOM 的当前值（如果>0），否则取存档值
+            // [核心修复] 决定此次渲染后的目标滚动位置
             let targetScrollTop = 0;
             if (allowDomRebuild) {
-                if (editorContainer.scrollTop > 0) {
-                    targetScrollTop = editorContainer.scrollTop;
-                } else {
+                if (isFirstRender) {
+                    // 如果是页面刷新后的首次加载，使用 localStorage 的存档
                     targetScrollTop = savedState.scrollTop || 0;
+                } else {
+                    // 如果是操作过程中的重绘，保持当前 DOM 的滚动位置
+                    targetScrollTop = editorContainer.scrollTop;
                 }
             }
 
@@ -622,11 +629,14 @@
                     panelColors.appendChild(colorFragment);
                     panelLayout.appendChild(layoutFragment);
                     
-                    // [状态恢复] 恢复滚动位置
-                    // 使用 setTimeout 确保 DOM 渲染后再滚动
-                    setTimeout(() => {
-                        editorContainer.scrollTop = targetScrollTop;
-                    }, 50);
+                    // [状态恢复] 应用滚动位置
+                    if (targetScrollTop > 0) {
+                        setTimeout(() => {
+                            editorContainer.scrollTop = targetScrollTop;
+                        }, 100);
+                    }
+                    // 标记首次渲染结束
+                    isFirstRender = false;
                     
                     lastStructureSignature = currentStructureSignature;
 
@@ -682,6 +692,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v29 - Jump & Persist) loaded successfully.");
+        console.log("Theme Editor extension (v30 - Final) loaded successfully.");
     });
 })();
