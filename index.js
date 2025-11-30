@@ -14,6 +14,7 @@
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
+        // 结构签名
         let lastStructureSignature = "";
         
         // 计时器
@@ -46,20 +47,12 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                
-                // 开启时：禁用原声CSS，强制重绘
-                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
                 lastStructureSignature = ""; 
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
                 editorContainer.classList.add('theme-editor-hidden');
-                
-                // 关闭时：清除实时样式，恢复原生CSS
-                const liveTag = document.getElementById('theme-editor-live-styles');
-                if (liveTag) liveTag.textContent = '';
-                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = false;
             }
         });
 
@@ -125,6 +118,7 @@
             });
         });
 
+        // 搜索
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
@@ -184,6 +178,7 @@
             document.head.appendChild(liveStyleTag);
         }
 
+        // --- 核心配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -191,12 +186,15 @@
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
 
+        // [优化] 只保留位置和尺寸相关的属性
         const layoutProperties = [
             'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
             'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
-            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'font-weight', 'z-index', 'opacity', 'flex-basis'
+            'top', 'bottom', 'left', 'right', 'gap', 
+            'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 
+            'flex-basis'
         ];
-        const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
+        const unitlessProperties = []; 
 
         function cleanupUnusedVariables(activeVariables) {
             const rootStyle = document.documentElement.style;
@@ -210,25 +208,46 @@
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
         }
 
+        // 单个更新时使用 JS 属性（用于滑块拖动）
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
-            
+
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
+        // [优化] 标题逻辑：只获取离选择器最近的上一行注释
         function createFormattedSelectorLabel(rawSelector) {
-            let commentText = "";
+            // 1. 去除前面残留的 } 或空白
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
-            const commentMatch = cleanSelector.match(/\/\*([\s\S]*?)\*\//);
-            if (commentMatch) {
-                commentText = commentMatch[1].trim(); 
-                cleanSelector = cleanSelector.replace(commentMatch[0], '').trim(); 
+            let commentText = "";
+
+            // 2. 查找所有的注释块
+            const commentRegex = /\/\*([\s\S]*?)\*\//g;
+            const matches = [...cleanSelector.matchAll(commentRegex)];
+            
+            if (matches.length > 0) {
+                // 取最后一个注释匹配
+                const lastMatch = matches[matches.length - 1];
+                const lastCommentContent = lastMatch[1].trim();
+                const endIndex = lastMatch.index + lastMatch[0].length;
+                
+                // 检查注释和后续文本之间是否只有空白（确保它是紧邻的标题）
+                const textBetween = cleanSelector.substring(endIndex);
+                if (!textBetween.includes('/*')) { // 理论上正则已保证，但双重确认
+                    commentText = lastCommentContent;
+                    // 移除所有注释，只保留选择器文本
+                    cleanSelector = cleanSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+                }
+            } else {
+                cleanSelector = cleanSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
             }
+            
             cleanSelector = cleanSelector.replace(/\s+/g, ' ');
             const titleText = commentText ? `${commentText}/${cleanSelector}` : cleanSelector;
             uniqueTitles.add(titleText);
+
             if (commentText) {
                 return `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
             } else {
@@ -304,11 +323,10 @@
             }, 100);
         }
 
-        // --- 解析核心 (v24 修复黑色元素闪烁) ---
+        // --- 核心解析与UI构建 ---
         function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
             
-            // 确保原生 CSS 被禁用，防止冲突
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
             replacementTasks = []; 
@@ -318,6 +336,8 @@
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
+            // [重要] 创建 CSS 变量批量注入块，避免逐个 JS 设置导致的黑屏
+            let cssVariablesBlock = ':root {';
             
             let currentStructureSignature = "";
             let colorUIBlocks = [];
@@ -338,6 +358,7 @@
                 
                 let processedDeclarations = declarationsText;
                 
+                // 签名记录
                 currentStructureSignature += selector.length + "|";
 
                 let declMatch;
@@ -348,6 +369,7 @@
                     const property = declMatch[1].trim();
                     const originalValue = declMatch[2]; 
                     const lowerProp = property.toLowerCase();
+
                     const isColor = colorProperties.includes(lowerProp);
                     const isLayout = !isColor && layoutProperties.includes(lowerProp);
 
@@ -394,13 +416,12 @@
                                      currentValuesMap[variableName] = initialColor;
                                 }
 
-                                document.documentElement.style.setProperty(variableName, initialColor, 'important');
+                                // [核心优化] 将变量写入 CSS 字符串，而不是调用 JS API
+                                cssVariablesBlock += `${variableName}: ${initialColor};`;
 
-                                // [关键修复] 添加 Fallback 值： var(--name, #originalColor)
-                                // 这样即使 JS 变量有延迟，CSS 也会立即渲染原始颜色，防止变黑
                                 colorReplacements.push({
                                     str: colorStr,
-                                    var: `var(${variableName}, ${colorStr})`, 
+                                    var: `var(${variableName})`,
                                     index: colorMatch.index,
                                     length: colorStr.length
                                 });
@@ -461,10 +482,10 @@
                                 currentValuesMap[variableName] = initValue;
                             }
                             
-                            document.documentElement.style.setProperty(variableName, initValue, 'important');
+                            // [核心优化] 写入 CSS 字符串
+                            cssVariablesBlock += `${variableName}: ${initValue};`;
                             
-                            // [关键修复] Layout 也添加 Fallback
-                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName}, ${cleanValue})`);
+                            processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
 
                             let currentSplitValues = splitCSSValue(initValue);
 
@@ -504,13 +525,18 @@
                             }
                         }
                     }
-                } 
+                } // end declarations
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-            } 
+            } // end rules loop
             
-            liveStyleTag.textContent = finalCssRules;
+            cssVariablesBlock += '}'; // 结束 :root 块
+
+            // [核心] 一次性写入 变量定义 + 样式规则
+            // 这保证了在规则生效的同一帧，变量已经定义好了，不会出现黑色
+            liveStyleTag.textContent = cssVariablesBlock + '\n' + finalCssRules;
+            
             cleanupUnusedVariables(activeVariables);
 
             if (allowDomRebuild) {
@@ -525,14 +551,17 @@
                             if (item.rawSelector !== lastSelector || !currentGroup) {
                                 currentGroup = document.createElement('div');
                                 currentGroup.className = 'theme-group';
+                                
                                 const titleHtml = createFormattedSelectorLabel(item.rawSelector);
                                 const tempDiv = document.createElement('div');
                                 tempDiv.innerHTML = titleHtml;
                                 currentGroup.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
+
                                 const mainLabel = document.createElement('div');
                                 mainLabel.className = 'theme-editor-main-label';
                                 mainLabel.innerHTML = titleHtml;
                                 currentGroup.appendChild(mainLabel);
+                                
                                 fragment.appendChild(currentGroup);
                                 lastSelector = item.rawSelector;
                             }
@@ -556,6 +585,7 @@
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
+                    // 原位更新 UI 数值
                     const allPickers = document.querySelectorAll('toolcool-color-picker');
                     for (let picker of allPickers) {
                         const vName = picker.dataset.varName;
@@ -563,6 +593,7 @@
                             picker.color = currentValuesMap[vName];
                         }
                     }
+
                     const allInputs = document.querySelectorAll('.layout-input');
                     const activeEl = document.activeElement;
                     for (let input of allInputs) {
@@ -589,7 +620,7 @@
                 } else {
                     parseAndBuildUI(true);  
                 }
-            }, 60); 
+            }, 50); 
         }
 
         const originalValueDescriptor = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -606,6 +637,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v24 - Fallback Fix) loaded successfully.");
+        console.log("Theme Editor extension (v24 - Instant Batching) loaded successfully.");
     });
 })();
