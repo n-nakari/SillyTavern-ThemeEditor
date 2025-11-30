@@ -24,8 +24,7 @@
 
         // --- UI 初始化 ---
         
-        // [修改] 不再创建独立的 HeaderBar 和 Title
-        // 直接创建顶部工具栏容器 (兼具 Tabs 功能)
+        // 顶部工具栏容器 (兼具 Tabs 功能)
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
@@ -55,7 +54,7 @@
         searchWrapper.appendChild(searchInput);
         searchWrapper.appendChild(autocompleteList);
 
-        // [修改] 按钮组现在移到这里
+        // 按钮组
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
 
@@ -85,7 +84,7 @@
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
 
-        // 组装顶部栏：Tabs -> Spacer(CSS控制) -> Search -> Buttons
+        // 组装顶部栏
         tabsContainer.appendChild(tabColors);
         tabsContainer.appendChild(tabLayout);
         tabsContainer.appendChild(searchWrapper);
@@ -117,15 +116,25 @@
             });
         });
 
-        // 搜索逻辑
+        // --- 搜索逻辑修复 ---
+        // 输入时触发
         searchInput.addEventListener('input', (e) => {
-            const val = e.target.value.toLowerCase();
-            filterPanels(val);
+            const val = e.target.value;
+            filterPanels(val.toLowerCase());
             showAutocomplete(val);
         });
+
+        // 聚焦时触发 (如果已经有文字)
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
+
+        // [修复] 点击时也触发 (解决聚焦状态下点击不显示的问题)
+        searchInput.addEventListener('click', (e) => {
+            if (e.target.value) showAutocomplete(e.target.value);
+        });
+
+        // 点击外部隐藏
         document.addEventListener('click', (e) => {
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
@@ -150,16 +159,21 @@
                 autocompleteList.style.display = 'none';
                 return;
             }
-            const matches = Array.from(uniqueTitles).filter(t => t.toLowerCase().includes(text));
+            // 过滤匹配项
+            const matches = Array.from(uniqueTitles).filter(t => t.toLowerCase().includes(text.toLowerCase()));
+            
             if (matches.length === 0) {
                 autocompleteList.style.display = 'none';
                 return;
             }
+            
             matches.slice(0, 10).forEach(match => {
                 const item = document.createElement('div');
                 item.className = 'theme-editor-autocomplete-item';
+                // 高亮匹配文字
                 const regex = new RegExp(`(${text})`, 'gi');
                 item.innerHTML = match.replace(regex, '<span class="match">$1</span>');
+                
                 item.addEventListener('click', () => {
                     searchInput.value = match;
                     filterPanels(match.toLowerCase());
@@ -419,7 +433,6 @@
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     colorPicker.dataset.varName = variableName;
-                                    // [核心修复] 添加 popup-position="fixed" 以解决被容器遮挡的问题
                                     colorPicker.setAttribute('popup-position', 'fixed');
                                     
                                     setTimeout(() => { colorPicker.color = initialColor; }, 0);
@@ -618,6 +631,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v25 - Compact UI) loaded successfully.");
+        console.log("Theme Editor extension (v26 - Dropdown Fix) loaded successfully.");
     });
 })();
