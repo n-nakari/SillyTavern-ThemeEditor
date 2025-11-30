@@ -351,3 +351,16 @@ toolcool-color-picker-popup {
 #theme-editor-container input.layout-input:focus {
     border-color: #9cdcfe !important;
 }
+
+/* =========================================
+   搜索跳转高亮动画
+   ========================================= */
+
+@keyframes theme-editor-flash {
+    0% { background-color: rgba(156, 220, 254, 0.3); border-radius: 6px; }
+    100% { background-color: transparent; }
+}
+
+.theme-flash {
+    animation: theme-editor-flash 2s ease-out;
+}
