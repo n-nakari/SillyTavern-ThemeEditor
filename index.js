@@ -25,18 +25,12 @@
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
-        // [状态保存] 
+        // [状态保存] 只保留 Tab 记忆，移除滚动条记忆
         const STATE_KEY = 'theme_editor_state';
-        // 读取记忆，默认在 Colors 面板，滚动为 0
-        let savedState = JSON.parse(localStorage.getItem(STATE_KEY) || '{"tab": "panel-colors", "scrollTop": 0}');
-        // [核心修复] 标记是否已完成首次有效渲染，防止加载时的空状态覆盖记忆
-        let hasRenderedContent = false; 
+        let savedState = JSON.parse(localStorage.getItem(STATE_KEY) || '{"tab": "panel-colors"}');
 
         function saveState() {
-            // 只有当真正渲染过内容后，才允许保存，防止覆盖
-            if (hasRenderedContent) {
-                localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
-            }
+            localStorage.setItem(STATE_KEY, JSON.stringify(savedState));
         }
 
         // --- UI 初始化 ---
@@ -54,11 +48,11 @@
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
 
-        // 恢复 Tab 选择
+        // 恢复上次的 Tab
         if (savedState.tab === 'panel-layout') {
             tabLayout.classList.add('active');
         } else {
-            tabColors.classList.add('active');
+            tabColors.classList.add('active'); 
         }
 
         const searchWrapper = document.createElement('div');
@@ -77,6 +71,15 @@
 
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
+
+        // [新增] 回顶按钮
+        const topBtn = document.createElement('div');
+        topBtn.className = 'theme-editor-icon-btn fa-solid fa-arrow-up';
+        topBtn.title = 'Scroll to Top';
+        topBtn.addEventListener('click', () => {
+            // 平滑滚动回顶部
+            editorContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        });
 
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
@@ -101,6 +104,8 @@
             }
         });
 
+        // 按钮顺序：回顶 -> 保存 -> 开关
+        actionGroup.appendChild(topBtn);
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
 
@@ -138,9 +143,8 @@
                 document.getElementById(targetId).classList.add('active');
                 
                 savedState.tab = targetId;
-                saveState(); // 立即保存 Tab 状态
+                saveState();
 
-                // 切换 Tab 时刷新搜索
                 const currentSearch = searchInput.value;
                 if (currentSearch) {
                     showAutocomplete(currentSearch);
@@ -148,20 +152,6 @@
                      autocompleteList.style.display = 'none';
                 }
             });
-        });
-
-        // [核心修复] 滚动位置保存逻辑
-        let scrollTimeout;
-        editorContainer.addEventListener('scroll', () => {
-            // 如果还没渲染过内容，或者正在自动同步，绝对不要保存滚动位置
-            // 这防止了页面刷新瞬间 scroll=0 覆盖掉 localStorage 的问题
-            if (!hasRenderedContent || isAutoSyncing) return;
-            
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                savedState.scrollTop = editorContainer.scrollTop;
-                saveState();
-            }, 200); // 防抖
         });
 
         // 搜索逻辑
@@ -379,18 +369,6 @@
             
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
-            // [核心逻辑]
-            // 如果已经在运行中（allowDomRebuild=true），我们优先信任当前的 editorContainer.scrollTop
-            // 除非它是 0（可能是刚刷新），那我们尝试用 savedState.scrollTop
-            let targetScrollTop = 0;
-            if (allowDomRebuild) {
-                if (editorContainer.scrollTop > 0) {
-                    targetScrollTop = editorContainer.scrollTop;
-                } else {
-                    targetScrollTop = savedState.scrollTop || 0;
-                }
-            }
-
             replacementTasks = []; 
             liveCssGenerators = []; 
             
@@ -398,12 +376,6 @@
             layoutTitles.clear();
 
             const cssText = customCssTextarea.value;
-            
-            // 如果 CSS 是空的（SillyTavern 还没加载完），不要进行任何操作，也不要重置记忆
-            if (!cssText || cssText.trim() === "") {
-                return; 
-            }
-
             let uniqueId = 0;
             
             let currentStructureSignature = "";
@@ -630,15 +602,6 @@
                     panelColors.appendChild(colorFragment);
                     panelLayout.appendChild(layoutFragment);
                     
-                    // [状态恢复] 恢复滚动位置
-                    // 设置一个标志位，告诉程序“我们已经有内容了，可以开始记录新的滚动位置了”
-                    if (colorUIBlocks.length > 0 || layoutUIBlocks.length > 0) {
-                        hasRenderedContent = true;
-                        setTimeout(() => {
-                            editorContainer.scrollTop = targetScrollTop;
-                        }, 50);
-                    }
-                    
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
@@ -690,7 +653,6 @@
             }
         });
 
-        // 初始调用
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
