@@ -8,6 +8,7 @@
             return;
         }
 
+        // 创建主容器
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
         
@@ -18,6 +19,49 @@
         customCssBlock.parentNode.insertBefore(title, customCssBlock.nextSibling);
         title.parentNode.insertBefore(editorContainer, title.nextSibling);
 
+        // 创建 Tab 栏
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'theme-editor-tabs';
+        
+        const tabColors = document.createElement('div');
+        tabColors.className = 'theme-editor-tab active'; // 默认选中
+        tabColors.textContent = 'Colors';
+        tabColors.dataset.target = 'panel-colors';
+
+        const tabLayout = document.createElement('div');
+        tabLayout.className = 'theme-editor-tab';
+        tabLayout.textContent = 'Layout';
+        tabLayout.dataset.target = 'panel-layout';
+
+        tabsContainer.appendChild(tabColors);
+        tabsContainer.appendChild(tabLayout);
+        editorContainer.appendChild(tabsContainer);
+
+        // 创建内容面板
+        const panelColors = document.createElement('div');
+        panelColors.id = 'panel-colors';
+        panelColors.className = 'theme-editor-content-panel active';
+        editorContainer.appendChild(panelColors);
+
+        const panelLayout = document.createElement('div');
+        panelLayout.id = 'panel-layout';
+        panelLayout.className = 'theme-editor-content-panel';
+        editorContainer.appendChild(panelLayout);
+
+        // Tab 切换逻辑
+        [tabColors, tabLayout].forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有激活状态
+                [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
+                [panelColors, panelLayout].forEach(p => p.classList.remove('active'));
+                
+                // 激活当前点击的
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
+            });
+        });
+
+        // 样式注入标签
         let liveStyleTag = document.getElementById('theme-editor-live-styles');
         if (!liveStyleTag) {
             liveStyleTag = document.createElement('style');
@@ -25,6 +69,7 @@
             document.head.appendChild(liveStyleTag);
         }
         
+        // 禁用原生CSS
         let sillyTavernStyleTag = document.getElementById('custom-css');
         if (sillyTavernStyleTag) {
             sillyTavernStyleTag.disabled = true;
@@ -43,19 +88,26 @@
             observer.observe(document.head, { childList: true });
         }
 
+        // --- 配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
         
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
-        const colorPropertiesRegex = new RegExp(`(?:^|;)\\s*(${colorProperties.join('|')})\\s*:([^;]+)`, 'gi');
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
+
+        // [新增] 布局属性列表
+        const layoutProperties = [
+            'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+            'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height'
+        ];
 
         function updateLiveCssVariable(variableName, newColor) {
             document.documentElement.style.setProperty(variableName, newColor);
         }
 
-        // 格式化选择器标题：分离注释
+        // 格式化标题：注释/类名 (无空格)
         function createFormattedSelectorLabel(rawSelector) {
             let commentText = "";
             let cleanSelector = rawSelector.trim();
@@ -68,17 +120,20 @@
             }
 
             if (commentText) {
-                return `<div class="label-line-1"><span class="label-highlight">${commentText}</span> / ${cleanSelector}</div>`;
+                return `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
             } else {
                 return `<div class="label-line-1">${cleanSelector}</div>`;
             }
         }
 
+        // 核心解析函数
         function parseAndBuildUI() {
             if (sillyTavernStyleTag) sillyTavernStyleTag.disabled = true;
 
             const cssText = customCssTextarea.value;
-            editorContainer.innerHTML = '';
+            panelColors.innerHTML = '';
+            panelLayout.innerHTML = '';
+            
             let uniqueId = 0;
             let finalCssRules = '';
 
@@ -91,16 +146,9 @@
                 const declarationsText = ruleMatch[2];
                 let processedDeclarations = declarationsText;
 
-                // 检查该规则块内是否有我们关心的颜色属性
-                // 如果有，先创建一个主标题 (Main Label)
-                let hasColorProperties = false;
-                const tempCheckRegex = new RegExp(`(?:^|;)\\s*(${colorProperties.join('|')})\\s*:`, 'i');
-                if (tempCheckRegex.test(declarationsText)) {
-                     // 注意：这里只是简单预检，下面会详细解析
-                }
-
-                // 用来收集该选择器下的所有颜色UI块
-                let propertyUIBlocks = [];
+                // 临时存储当前选择器的UI块，稍后决定放入哪个Tab
+                let colorUIBlocks = [];
+                let layoutUIBlocks = [];
 
                 const allDeclarations = declarationsText.split(';').filter(d => d.trim() !== '');
 
@@ -110,23 +158,23 @@
 
                     const property = parts[0].trim();
                     const value = parts.slice(1).join(':').trim();
+                    const lowerProp = property.toLowerCase();
 
-                    if (colorProperties.includes(property.toLowerCase())) {
+                    // --- 处理颜色属性 ---
+                    if (colorProperties.includes(lowerProp)) {
                         let tempValue = value;
                         const foundColors = [...value.matchAll(colorValueRegex)].map(m => m[0]);
                         
                         if (foundColors.length > 0) {
                             let replacementMade = false;
                             
-                            // 创建属性块容器 (.theme-editor-property-block)
-                            // 样式完全依照你的 .theme-editor-item.multi-color
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
 
-                            // 添加属性名标签 (--background-color)
                             const propLabel = document.createElement('div');
                             propLabel.className = 'theme-editor-prop-label';
-                            propLabel.textContent = `--${property}`;
+                            // 移除 -- 前缀
+                            propLabel.textContent = property;
                             propertyBlock.appendChild(propLabel);
 
                             foundColors.forEach((colorStr, index) => {
@@ -140,7 +188,6 @@
                                     let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                     updateLiveCssVariable(variableName, initialColor);
 
-                                    // 如果是同一个属性下的多个颜色，添加子标题 (Color #1, #2...)
                                     if (foundColors.length > 1) {
                                         const subLabel = document.createElement('div');
                                         subLabel.className = 'theme-editor-sub-label';
@@ -149,42 +196,99 @@
                                     }
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
-                                    
-                                    setTimeout(() => {
-                                        colorPicker.color = initialColor;
-                                    }, 0);
-
+                                    setTimeout(() => { colorPicker.color = initialColor; }, 0);
                                     $(colorPicker).on('change', (evt) => {
-                                        const newColor = evt.detail.rgba; 
-                                        updateLiveCssVariable(variableName, newColor);
+                                        updateLiveCssVariable(variableName, evt.detail.rgba);
                                     });
-                                    
                                     propertyBlock.appendChild(colorPicker);
                                 }
                             });
 
                             if (replacementMade) {
                                 processedDeclarations = processedDeclarations.replace(declarationString, ` ${property}: ${tempValue} `);
-                                propertyUIBlocks.push(propertyBlock);
+                                colorUIBlocks.push(propertyBlock);
                             }
+                        }
+                    }
+
+                    // --- 处理布局属性 ---
+                    if (layoutProperties.includes(lowerProp)) {
+                        let tempValue = value;
+                        // 按空格分割数值，但需要处理 !important 或者 calc() 的情况（这里简化处理，按空格分）
+                        // 移除可能存在的 !important 以便解析数值
+                        const cleanValue = value.replace('!important', '').trim();
+                        
+                        // 简单的空格分割，暂不支持 calc(a + b) 这种含空格的复杂值作为单个值
+                        const values = cleanValue.split(/\s+/);
+                        
+                        if (values.length > 0) {
+                            const variableName = `--theme-editor-layout-${uniqueId}`;
+                            uniqueId++;
+
+                            // 创建CSS变量，初始值为原样
+                            updateLiveCssVariable(variableName, cleanValue);
+                            
+                            // 替换CSS中的值为变量
+                            processedDeclarations = processedDeclarations.replace(declarationString, ` ${property}: var(${variableName}) `);
+
+                            // UI
+                            const propertyBlock = document.createElement('div');
+                            propertyBlock.className = 'theme-editor-property-block';
+
+                            const propLabel = document.createElement('div');
+                            propLabel.className = 'theme-editor-prop-label';
+                            propLabel.textContent = property;
+                            propertyBlock.appendChild(propLabel);
+
+                            const inputsContainer = document.createElement('div');
+                            inputsContainer.className = 'layout-inputs-container';
+
+                            // 为每个数值创建一个输入框
+                            // 我们需要一个闭包或者引用来维护当前这组值的状态
+                            let currentValues = [...values];
+
+                            values.forEach((val, index) => {
+                                const input = document.createElement('input');
+                                input.type = 'text';
+                                input.className = 'layout-input';
+                                input.value = val;
+                                
+                                input.addEventListener('input', (e) => {
+                                    currentValues[index] = e.target.value;
+                                    // 重新组合并更新变量
+                                    updateLiveCssVariable(variableName, currentValues.join(' '));
+                                });
+
+                                inputsContainer.appendChild(input);
+                            });
+
+                            propertyBlock.appendChild(inputsContainer);
+                            layoutUIBlocks.push(propertyBlock);
                         }
                     }
                 });
                 
-                finalCssRules += `${selector} { ${processedDeclarations} }\n`;
+                // 加上 !important 确保覆盖原生样式
+                finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-                // 如果该规则下确实找到了颜色属性，才将UI添加到页面
-                if (propertyUIBlocks.length > 0) {
-                    // 1. 添加大标题 (类名/注释)
+                // --- 将UI块添加到对应的面板 ---
+                
+                // Colors Panel
+                if (colorUIBlocks.length > 0) {
                     const mainLabel = document.createElement('div');
                     mainLabel.className = 'theme-editor-main-label';
                     mainLabel.innerHTML = createFormattedSelectorLabel(rawSelector);
-                    editorContainer.appendChild(mainLabel);
+                    panelColors.appendChild(mainLabel);
+                    colorUIBlocks.forEach(block => panelColors.appendChild(block));
+                }
 
-                    // 2. 添加所有属性块
-                    propertyUIBlocks.forEach(block => {
-                        editorContainer.appendChild(block);
-                    });
+                // Layout Panel
+                if (layoutUIBlocks.length > 0) {
+                    const mainLabel = document.createElement('div');
+                    mainLabel.className = 'theme-editor-main-label';
+                    mainLabel.innerHTML = createFormattedSelectorLabel(rawSelector);
+                    panelLayout.appendChild(mainLabel);
+                    layoutUIBlocks.forEach(block => panelLayout.appendChild(block));
                 }
             }
             
@@ -200,6 +304,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v10 - Hierarchical Layout) loaded successfully.");
+        console.log("Theme Editor extension (v11 - Tabs & Layout) loaded successfully.");
     });
 })();
