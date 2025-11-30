@@ -22,44 +22,11 @@
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
-        // --- Shadow DOM 初始化 (核心隔离逻辑) ---
-        // 1. 创建宿主节点
-        const shadowHost = document.createElement('div');
-        shadowHost.id = 'theme-editor-shadow-host';
-        shadowHost.style.display = 'block'; // 确保宿主显示
-        
-        // 2. 开启影子模式 (Open mode 允许 JS 访问)
-        const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
-
-        // 3. 智能注入样式资源
-        function injectStylesIntoShadow() {
-            // A. 寻找并注入 FontAwesome (保留图标)
-            const faLink = document.querySelector('link[href*="fontawesome"], link[href*="all.css"], link[href*="all.min.css"]');
-            if (faLink) {
-                shadowRoot.appendChild(faLink.cloneNode(true));
-            }
-
-            // B. 寻找并注入扩展自身的 style (1).css
-            // 我们尝试通过文件名特征找到它
-            const extLink = document.querySelector('link[href*="style (1).css"], link[href*="style.css"]');
-            
-            // 为了确保万无一失，如果找不到 link，我们尝试创建一个指向当前扩展路径的 link
-            // 这里假设既然 loaded，就能在 DOM 里找到。我们优先克隆现有的。
-            if (extLink) {
-                const clonedLink = extLink.cloneNode(true);
-                shadowRoot.appendChild(clonedLink);
-            } else {
-                // 备选方案：如果找不到，可能是通过 JS 动态加载的 text，这里尝试手动创建
-                // 但通常 SillyTavern 扩展会作为 link 加载。
-                // 如果发现样式丢失，请检查 style (1).css 是否正确加载到了主页面 head 中。
-                console.warn("Theme Editor: Could not automatically find style (1).css to inject into Shadow DOM.");
-            }
-        }
-        injectStylesIntoShadow();
-
-        // --- UI 构建 (全部挂载到 shadowRoot 下) ---
+        // --- UI 初始化 ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
+        // [新增] 给 Header 添加 ID，极大提升 CSS 优先级，解决样式被主题覆盖的问题
+        headerBar.id = 'theme-editor-header-bar';
 
         const title = document.createElement('h4');
         title.textContent = 'Live Theme Editor';
@@ -99,12 +66,8 @@
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
 
-        // [重要] 将 UI 放入 Shadow Root，而不是直接放入 document
-        shadowRoot.appendChild(headerBar);
-        shadowRoot.appendChild(editorContainer);
-        
-        // 将 Shadow Host 插入到原来的位置
-        customCssBlock.parentNode.insertBefore(shadowHost, customCssBlock.nextSibling);
+        customCssBlock.parentNode.insertBefore(headerBar, customCssBlock.nextSibling);
+        headerBar.parentNode.insertBefore(editorContainer, headerBar.nextSibling);
 
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
@@ -153,8 +116,7 @@
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
                 [panelColors, panelLayout].forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
-                // [注意] 使用 shadowRoot 查找元素
-                shadowRoot.getElementById(tab.dataset.target).classList.add('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
             });
         });
 
@@ -167,16 +129,14 @@
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
-        // [注意] 事件监听改为 shadowRoot
-        shadowRoot.addEventListener('click', (e) => {
+        document.addEventListener('click', (e) => {
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
             }
         });
 
         function filterPanels(text) {
-            // [注意] querySelectorAll 改为 shadowRoot
-            const groups = shadowRoot.querySelectorAll('.theme-group');
+            const groups = document.querySelectorAll('.theme-group');
             groups.forEach(group => {
                 const filterText = group.dataset.filterText || '';
                 if (filterText.includes(text)) {
@@ -235,6 +195,7 @@
             'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 
             'flex-basis'
         ];
+        
         const unitlessProperties = []; 
 
         function cleanupUnusedVariables(activeVariables) {
@@ -252,6 +213,7 @@
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
+
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -259,6 +221,7 @@
         function createFormattedSelectorLabel(rawSelector) {
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             let commentText = "";
+
             const commentRegex = /\/\*([\s\S]*?)\*\//g;
             const matches = [...cleanSelector.matchAll(commentRegex)];
             
@@ -266,8 +229,9 @@
                 const lastMatch = matches[matches.length - 1];
                 const lastCommentContent = lastMatch[1].trim();
                 const endIndex = lastMatch.index + lastMatch[0].length;
+                
                 const textBetween = cleanSelector.substring(endIndex);
-                if (!textBetween.includes('/*')) { 
+                if (!textBetween.includes('/*')) {
                     commentText = lastCommentContent;
                     cleanSelector = cleanSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
                 }
@@ -409,7 +373,6 @@
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
-                    // --- 颜色处理 ---
                     if (isColor) {
                         const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
@@ -483,8 +446,6 @@
                             if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector});
                         }
                     }
-
-                    // --- 布局处理 ---
                     else if (isLayout) {
                         const cleanValue = originalValue.replace('!important', '').trim();
                         const values = splitCSSValue(cleanValue);
@@ -552,14 +513,13 @@
                             }
                         }
                     }
-                } 
+                } // end declarations
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-            } 
+            } // end rules loop
             
             cssVariablesBlock += '}'; 
-
             liveStyleTag.textContent = cssVariablesBlock + '\n' + finalCssRules;
             
             cleanupUnusedVariables(activeVariables);
@@ -603,16 +563,14 @@
                     panelColors.appendChild(colorFragment);
                     panelLayout.appendChild(layoutFragment);
                     
-                    // [注意] 使用 shadowRoot 查找
-                    const currentSearch = shadowRoot.querySelector('.theme-editor-search-input')?.value.toLowerCase();
+                    const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
                     if (currentSearch) filterPanels(currentSearch);
                     editorContainer.scrollTop = scrollTop;
                     
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
-                    // [注意] 使用 shadowRoot 查找更新
-                    const allPickers = shadowRoot.querySelectorAll('toolcool-color-picker');
+                    const allPickers = document.querySelectorAll('toolcool-color-picker');
                     for (let picker of allPickers) {
                         const vName = picker.dataset.varName;
                         if (vName && currentValuesMap[vName] && picker.color !== currentValuesMap[vName]) {
@@ -620,9 +578,8 @@
                         }
                     }
 
-                    const allInputs = shadowRoot.querySelectorAll('.layout-input');
-                    // 注意：activeElement 在 shadowDOM 中需要特殊获取
-                    const activeEl = shadowRoot.activeElement;
+                    const allInputs = document.querySelectorAll('.layout-input');
+                    const activeEl = document.activeElement;
                     for (let input of allInputs) {
                         if (input === activeEl) continue;
                         const vName = input.dataset.varName;
@@ -664,6 +621,30 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v25 - Shadow DOM Isolation) loaded successfully.");
+        // [新增] 样式守卫：确保我们的扩展样式永远在 head 的最后，优先级最高
+        function enforceStylePriority() {
+            // 假设你的 CSS 是通过 <style> 标签或 <link> 加载的
+            // 如果是文件加载，请确保文件名包含 'style'
+            const myStyles = document.querySelectorAll('link[href*="style"], style#theme-editor-live-styles');
+            const head = document.head;
+            
+            const moveStylesToEnd = () => {
+                myStyles.forEach(el => {
+                    // 如果不是最后一个元素，移到最后
+                    if (head.lastElementChild !== el) {
+                        head.appendChild(el);
+                    }
+                });
+            };
+            
+            // 监听 head 变化 (例如切换主题时，SillyTavern 会插入新 CSS)
+            const observer = new MutationObserver(() => {
+                setTimeout(moveStylesToEnd, 100);
+            });
+            observer.observe(head, { childList: true });
+        }
+        enforceStylePriority();
+
+        console.log("Theme Editor extension (v25 - Isolation Fixed) loaded successfully.");
     });
 })();
