@@ -1,3 +1,9 @@
+/* 标题栏 */
+.theme-editor-header-bar {
+    display: flex;
+    align-items: flex-start;
+}
+
 /* 扩展样式 */
 #theme-editor-container {
     padding: 10px;
