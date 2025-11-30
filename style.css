@@ -2,46 +2,51 @@
    核心容器与隔离层
    ========================================= */
 
-/* 主容器：去除了所有阴影，采用纯粹的边框界限 */
+/* 主容器：毛玻璃深色背景，强制重置滚动条样式 */
 #theme-editor-container {
     padding: 0;
-    border-radius: 6px;
-    margin: 10px 0;
+    /* 配合顶部栏，只保留下部圆角，视觉上连接在一起 */
+    border-radius: 0 0 8px 8px;
+    margin: 0 0 10px 0; /* 去掉上边距，紧贴 Header */
     max-height: 500px;
-    overflow-y: auto !important;
-    background-color: #1e1e1e; /* 纯色深灰背景，更像软件面板 */
-    border: 1px solid #333; /* 明显的边框 */
-    box-shadow: none !important; /* 【修改】彻底去除阴影 */
+    overflow-y: auto !important; /* 强制显示滚动行为 */
+    background-color: rgba(32, 32, 32, 0.95); /* 深色背景 */
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-top: none; /* 去掉上边框，与Header融合 */
+    /* 移除阴影 */
+    box-shadow: none !important;
     display: flex;
     flex-direction: column;
-    color: #ccc;
-    font-size: 13px;
-    text-align: left;
-    font-family: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif; /* 统一字体 */
+    color: #eee;
+    font-size: 14px;
+    text-align: left; 
 }
 
-/* =========================================
-   自定义滚动条 (Scrollbar) - 匹配扩展风格
-   ========================================= */
-
+/* 强制自定义滚动条 - 独立样式，不随主题变化 */
 #theme-editor-container::-webkit-scrollbar {
     width: 8px !important;
     height: 8px !important;
-    background: #1e1e1e !important; /* 轨道颜色与背景一致 */
+    display: block !important;
+    background: rgba(0, 0, 0, 0.1) !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb {
-    background-color: #444 !important; /* 简单的灰色滑块 */
-    border: 2px solid #1e1e1e !important; /* 通过边框制造间距感 */
+    background-color: rgba(255, 255, 255, 0.15) !important;
     border-radius: 4px !important;
+    border: 2px solid transparent !important; /* 增加透明边框让滑块变细 */
+    background-clip: content-box !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb:hover {
-    background-color: #666 !important; /* 悬停加深 */
+    background-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+#theme-editor-container::-webkit-scrollbar-track {
+    background: transparent !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-corner {
-    background: #1e1e1e !important;
+    background: transparent !important;
 }
 
 /* 隐藏类 */
@@ -50,55 +55,57 @@
 }
 
 /* =========================================
-   顶部标题栏 (Header Bar)
+   顶部标题栏 & 按钮
    ========================================= */
 
+/* 重新设计 Header，使其看起来像窗口标题栏 */
 .theme-editor-header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0;
-    padding: 8px 10px;
-    background-color: #252526; /* 稍微亮一点的头部背景 */
-    border-bottom: 1px solid #333; /* 分割线 */
+    padding: 8px 12px;
+    background-color: rgba(32, 32, 32, 0.95); /* 与主容器同色 */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* 分割线 */
+    border-radius: 8px 8px 0 0; /* 上圆角 */
+    margin-top: 10px;
+    margin-bottom: 0; /* 紧贴主容器 */
 }
 
 .theme-editor-title {
     margin: 0;
-    font-size: 0.95em;
-    font-weight: 700;
-    color: #eee;
-    text-transform: uppercase;
+    font-size: 1.0em;
+    font-weight: 600;
+    color: #fff;
+    opacity: 0.85;
     letter-spacing: 0.5px;
 }
 
 .theme-editor-header-actions {
     display: flex;
-    gap: 4px; /* 紧凑排列 */
+    gap: 8px;
 }
 
-/* 顶部按钮 */
 .theme-editor-icon-btn {
     cursor: pointer;
-    color: #999;
+    color: #888;
     font-size: 1.0em;
-    padding: 4px 8px;
-    border-radius: 2px;
-    transition: all 0.1s ease;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
-    border: 1px solid transparent;
 }
 
 .theme-editor-icon-btn:hover {
     color: #fff;
-    background-color: #333;
-    border-color: #444;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .theme-editor-icon-btn.active {
-    color: #fff;
-    background-color: #007acc; /* VS Code 风格的蓝色激活态 */
-    border-color: #007acc;
+    color: #9cdcfe;
 }
 
 /* =========================================
@@ -107,71 +114,69 @@
 
 .theme-editor-tabs {
     display: flex;
-    align-items: flex-end; /* 底部对齐 */
-    gap: 2px;
-    padding: 8px 10px 0 10px;
-    border-bottom: 1px solid #333;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 15px 0 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: sticky;
     top: 0;
-    background-color: #1e1e1e;
+    background-color: rgba(32, 32, 32, 0.98); 
     z-index: 10;
 }
 
 .theme-editor-tab {
-    padding: 6px 12px;
+    padding: 8px 2px;
     cursor: pointer;
-    color: #888;
-    font-size: 0.85em;
-    transition: all 0.1s;
-    border-radius: 4px 4px 0 0;
-    border: 1px solid transparent;
-    border-bottom: none;
+    color: #777;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
     margin-bottom: -1px;
 }
 
 .theme-editor-tab:hover {
-    color: #fff;
-    background-color: #2a2a2a;
+    color: #ccc;
 }
 
 .theme-editor-tab.active {
     color: #fff;
-    background-color: #1e1e1e;
-    border-color: #333;
-    border-bottom-color: #1e1e1e; /* 盖住底部分割线 */
-    font-weight: bold;
+    border-bottom-color: #fff;
 }
 
 /* =========================================
-   搜索框
+   搜索框区域
    ========================================= */
 
 .theme-editor-search-wrapper {
-    margin-left: auto;
+    margin-left: auto; 
     position: relative;
     display: flex;
     align-items: center;
-    padding-bottom: 4px;
+    padding-bottom: 8px;
 }
 
+/* 搜索输入框 - 强制重写样式防止被主题污染 */
 .theme-editor-search-input {
-    background-color: #2d2d2d !important;
-    border: 1px solid #3e3e3e !important;
-    color: #ccc !important;
-    padding: 4px 8px !important;
-    border-radius: 2px !important; /* 方形圆角 */
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ddd !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important; /* 改为小圆角，更符合代码编辑器风格 */
     font-size: 0.85em !important;
-    width: 150px !important;
-    transition: border-color 0.2s !important;
+    width: 120px !important;
+    transition: all 0.3s ease !important;
     outline: none !important;
-    box-shadow: none !important; /* 无阴影 */
-    height: 24px !important;
+    box-shadow: none !important;
+    height: auto !important;
+    line-height: normal !important;
 }
 
 .theme-editor-search-input:focus {
-    border-color: #007acc !important;
+    width: 180px !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
     color: #fff !important;
-    background-color: #333 !important;
 }
 
 /* 自动补全列表 */
@@ -180,33 +185,37 @@
     top: 100%;
     right: 0;
     width: 260px;
-    max-height: 200px;
+    max-height: 250px;
     overflow-y: auto;
-    background-color: #252526;
-    border: 1px solid #454545;
-    box-shadow: none; /* 去阴影 */
+    background-color: #252525;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    /* 移除阴影 */
+    box-shadow: none; 
+    border-bottom: 2px solid rgba(0,0,0,0.3); /* 用边框代替阴影增加立体感 */
     z-index: 100;
     display: none;
+    margin-top: 2px;
 }
 
 .theme-editor-autocomplete-item {
     padding: 6px 10px;
     cursor: pointer;
     font-size: 0.85em;
-    color: #ccc;
-    border-bottom: 1px solid #333;
+    color: #bbb;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .theme-editor-autocomplete-item:hover {
-    background-color: #094771; /* 经典的列表悬停蓝 */
+    background-color: #333;
     color: #fff;
 }
 
 .theme-editor-autocomplete-item .match {
-    color: #4fc1ff;
+    color: #9cdcfe;
     font-weight: bold;
 }
 
@@ -217,7 +226,8 @@
 .theme-editor-content-panel {
     display: none;
     flex-direction: column;
-    padding: 10px;
+    padding: 15px;
+    gap: 12px;
 }
 
 .theme-editor-content-panel.active {
@@ -226,92 +236,109 @@
 
 /* 分组容器 */
 .theme-group {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #333; /* 仅用底部分割线区分大组 */
+    display: flex;
+    flex-direction: column;
+    /* 去除背景色，让界面更清爽，只靠分割线区分 */
+    background-color: transparent; 
+    padding: 5px 0 15px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .theme-group:last-child {
     border-bottom: none;
-    margin-bottom: 0;
 }
 
 /* =========================================
-   标题与标签 (Labels)
+   选择器标题 (Main Label)
    ========================================= */
 
-/* 主标题 */
 .theme-editor-main-label {
+    font-weight: 600;
     font-size: 0.9em;
-    color: #ddd;
-    margin-bottom: 8px;
-    font-family: monospace; /* 代码风格字体 */
-    line-height: 1.4;
+    color: #fff;
+    margin-bottom: 10px;
+    width: 100%;
+    word-break: break-all;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* 靠左对齐 */
 }
 
-/* 【新增】注释样式 - 醒目 */
+/* 注释标签样式 */
 .label-highlight {
-    color: #4ec9b0; /* 类似于 VS Code 的类型颜色 (青绿色) */
+    color: #fff;
+    font-size: 0.85em;
     font-weight: normal;
-    font-size: 0.9em;
-    font-style: italic;
-    opacity: 0.9;
-    margin-right: 5px;
-}
-
-/* 属性名 */
-.theme-editor-prop-label {
-    font-size: 0.8em;
-    color: #9cdcfe; /* 属性名颜色 */
+    background-color: rgba(255, 255, 255, 0.1); /* 胶囊背景 */
+    padding: 2px 6px;
+    border-radius: 4px; /* 胶囊圆角 */
     margin-bottom: 4px;
-    font-weight: normal;
+    display: inline-block;
 }
 
-.theme-editor-sub-label {
-    font-size: 0.75em;
-    color: #888;
-    margin: 4px 0;
-}
+/* =========================================
+   属性控制块 (Property Block)
+   ========================================= */
 
 .theme-editor-property-block {
     display: flex;
     flex-direction: column;
-    margin-bottom: 10px;
-    padding-left: 10px; /* 简单缩进 */
+    margin-bottom: 8px;
+    padding-left: 10px;
+    border-left: 2px solid rgba(255, 255, 255, 0.05); /* 更低调的指示线 */
+}
+
+.theme-editor-property-block:hover {
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+.theme-editor-prop-label {
+    font-size: 0.8em;
+    color: #aaa;
+    margin-bottom: 4px;
+    font-family: monospace; /* 代码字体 */
+}
+
+.theme-editor-sub-label {
+    font-size: 0.75em;
+    color: #666;
+    margin: 4px 0;
 }
 
 /* =========================================
-   颜色选择器 (Color Picker)
+   组件：颜色选择器
    ========================================= */
+
+/* 覆盖颜色选择器变量 */
+:root {
+    /* 给颜色选择器按钮添加明显的边框，防止透明色不可见 */
+    --tool-cool-color-picker-btn-border-color: rgba(255, 255, 255, 0.2) !important;
+    --tool-cool-color-picker-btn-border-color-inner: transparent !important;
+    --tool-cool-color-picker-btn-border-radius: 3px !important;
+}
 
 toolcool-color-picker {
     width: 100%;
     height: 28px;
-    border-radius: 2px;
+    border-radius: 3px;
+    overflow: hidden;
     cursor: pointer;
     /* 移除阴影 */
-    box-shadow: none; 
-}
-
-/* 【修改】强制覆盖 Web Component 内部变量，确保有边框 */
-:root {
-    /* 设置一个明显的边框颜色，防止透明时看不见 */
-    --tool-cool-color-picker-btn-border-color: rgba(255, 255, 255, 0.25) !important;
-    --tool-cool-color-picker-btn-border-color-inner: transparent !important;
-    --tool-cool-color-picker-btn-border-radius: 2px !important;
+    box-shadow: none;
 }
 
 /* =========================================
-   数值输入框 (Layout Inputs)
+   组件：数值输入框 (Layout Inputs)
    ========================================= */
 
 .layout-inputs-container {
     display: flex;
     flex-wrap: wrap; 
-    gap: 6px; 
+    gap: 8px; 
     width: 100%;
-    /* 【修改】左对齐 */
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: flex-start; /* 整体靠左 */
 }
 
 /* 单个输入框 */
@@ -320,39 +347,33 @@ toolcool-color-picker {
     box-sizing: border-box !important;
     display: inline-block !important;
     
-    background-color: #333 !important;
-    border: 1px solid #444 !important;
+    background-color: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #eee !important;
-    border-radius: 2px !important;
+    border-radius: 3px !important;
     
     padding: 3px 6px !important;
     font-size: 0.85em !important;
-    height: 24px !important;
-    line-height: 18px !important;
+    height: 26px !important;
+    line-height: 20px !important;
     
-    /* 【修改】宽度逻辑：最大1/3，内容过长可撑开 */
-    width: auto !important; 
-    min-width: 50px !important; 
+    /* 宽度控制：不超过1/3，但最少60px */
+    width: auto !important;
+    min-width: 60px !important;
     max-width: 33% !important; 
-    flex-grow: 0; /* 不要自动填满整行 */
+    flex-grow: 0 !important; /* 不要自动拉伸 */
     
-    /* 【修改】文字左对齐 */
-    text-align: left !important;
-    
-    transition: border-color 0.1s !important;
+    text-align: left !important; /* 文字靠左 */
+    transition: border-color 0.2s ease !important;
 }
 
-/* 悬停 */
+/* 输入框悬停 & 聚焦 */
 #theme-editor-container input.layout-input:hover {
-    background-color: #3a3a3a !important;
-    border-color: #555 !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
 }
 
-/* 聚焦 */
 #theme-editor-container input.layout-input:focus {
-    /* 【修改】聚焦无阴影，仅变色 */
-    border-color: #007acc !important; 
-    background-color: #252526 !important;
-    box-shadow: none !important; 
-    color: #fff !important;
+    border-color: #9cdcfe !important; /* 聚焦只变边框色 */
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    box-shadow: none !important; /* 去除发光阴影 */
 }
