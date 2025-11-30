@@ -16,7 +16,7 @@
         
         let lastStructureSignature = "";
         
-        // 计时器 & 锁
+        // 计时器
         let debounceTimer; 
         let syncTextareaTimer;
         let isAutoSyncing = false; 
@@ -40,19 +40,15 @@
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
         toggleBtn.title = 'Enable/Disable Theme Editor';
-        
-        // [修复] 开关逻辑：关闭时必须还原原生样式，否则页面会乱
         toggleBtn.addEventListener('click', () => {
             isExtensionActive = !isExtensionActive;
-            const originalStyleTag = document.getElementById('custom-css');
-
             if (isExtensionActive) {
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
                 
-                // 开启：禁用原生tag，强制重绘我的tag
-                if (originalStyleTag) originalStyleTag.disabled = true;
+                // 开启时：禁用原声CSS，强制重绘
+                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
                 lastStructureSignature = ""; 
                 debouncedParse(true); 
             } else {
@@ -60,9 +56,10 @@
                 toggleBtn.classList.add('fa-toggle-off');
                 editorContainer.classList.add('theme-editor-hidden');
                 
-                // 关闭：清空我的tag，启用原生tag
-                if (liveStyleTag) liveStyleTag.textContent = '';
-                if (originalStyleTag) originalStyleTag.disabled = false;
+                // 关闭时：清除实时样式，恢复原生CSS
+                const liveTag = document.getElementById('theme-editor-live-styles');
+                if (liveTag) liveTag.textContent = '';
+                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = false;
             }
         });
 
@@ -187,7 +184,6 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        // --- 核心配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -217,6 +213,7 @@
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
+            
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -224,17 +221,14 @@
         function createFormattedSelectorLabel(rawSelector) {
             let commentText = "";
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
-            
             const commentMatch = cleanSelector.match(/\/\*([\s\S]*?)\*\//);
             if (commentMatch) {
                 commentText = commentMatch[1].trim(); 
                 cleanSelector = cleanSelector.replace(commentMatch[0], '').trim(); 
             }
             cleanSelector = cleanSelector.replace(/\s+/g, ' ');
-
             const titleText = commentText ? `${commentText}/${cleanSelector}` : cleanSelector;
             uniqueTitles.add(titleText);
-
             if (commentText) {
                 return `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
             } else {
@@ -255,11 +249,9 @@
             const parts = [];
             let current = '';
             let depth = 0; 
-
             for (let char of value) {
                 if (char === '(') depth++;
                 else if (char === ')') depth--;
-
                 if (depth === 0 && /\s/.test(char)) {
                     if (current) {
                         parts.push(current);
@@ -312,11 +304,11 @@
             }, 100);
         }
 
-        // --- 核心解析与UI构建 ---
+        // --- 解析核心 (v24 修复黑色元素闪烁) ---
         function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
             
-            // 确保禁用 SillyTavern 的默认 CSS 处理，防止冲突
+            // 确保原生 CSS 被禁用，防止冲突
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
             replacementTasks = []; 
@@ -356,7 +348,6 @@
                     const property = declMatch[1].trim();
                     const originalValue = declMatch[2]; 
                     const lowerProp = property.toLowerCase();
-
                     const isColor = colorProperties.includes(lowerProp);
                     const isLayout = !isColor && layoutProperties.includes(lowerProp);
 
@@ -405,14 +396,11 @@
 
                                 document.documentElement.style.setProperty(variableName, initialColor, 'important');
 
-                                // [关键修复] 添加 Fallback (备用值)
-                                // 生成类似 var(--v, #fff) 的代码，防止变量未加载时变黑
-                                const fallback = colorStr; // 原始值即为最佳备胎
-                                const varStr = `var(${variableName}, ${fallback})`;
-
+                                // [关键修复] 添加 Fallback 值： var(--name, #originalColor)
+                                // 这样即使 JS 变量有延迟，CSS 也会立即渲染原始颜色，防止变黑
                                 colorReplacements.push({
                                     str: colorStr,
-                                    var: varStr,
+                                    var: `var(${variableName}, ${colorStr})`, 
                                     index: colorMatch.index,
                                     length: colorStr.length
                                 });
@@ -475,7 +463,7 @@
                             
                             document.documentElement.style.setProperty(variableName, initValue, 'important');
                             
-                            // [关键修复] 布局也添加 Fallback
+                            // [关键修复] Layout 也添加 Fallback
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName}, ${cleanValue})`);
 
                             let currentSplitValues = splitCSSValue(initValue);
@@ -516,11 +504,11 @@
                             }
                         }
                     }
-                } // end declarations
+                } 
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-            } // end rules loop
+            } 
             
             liveStyleTag.textContent = finalCssRules;
             cleanupUnusedVariables(activeVariables);
@@ -529,7 +517,6 @@
                 const structureChanged = (currentStructureSignature !== lastStructureSignature);
                 
                 if (structureChanged && !isAutoSyncing) {
-                    
                     const buildFragment = (items, fragment) => {
                         let currentGroup = null;
                         let lastSelector = null;
@@ -538,17 +525,14 @@
                             if (item.rawSelector !== lastSelector || !currentGroup) {
                                 currentGroup = document.createElement('div');
                                 currentGroup.className = 'theme-group';
-                                
                                 const titleHtml = createFormattedSelectorLabel(item.rawSelector);
                                 const tempDiv = document.createElement('div');
                                 tempDiv.innerHTML = titleHtml;
                                 currentGroup.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
-
                                 const mainLabel = document.createElement('div');
                                 mainLabel.className = 'theme-editor-main-label';
                                 mainLabel.innerHTML = titleHtml;
                                 currentGroup.appendChild(mainLabel);
-                                
                                 fragment.appendChild(currentGroup);
                                 lastSelector = item.rawSelector;
                             }
@@ -572,7 +556,6 @@
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
-                    // 结构没变，只更新数据
                     const allPickers = document.querySelectorAll('toolcool-color-picker');
                     for (let picker of allPickers) {
                         const vName = picker.dataset.varName;
@@ -580,7 +563,6 @@
                             picker.color = currentValuesMap[vName];
                         }
                     }
-
                     const allInputs = document.querySelectorAll('.layout-input');
                     const activeEl = document.activeElement;
                     for (let input of allInputs) {
@@ -621,7 +603,6 @@
             }
         });
 
-        // 初始化
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
