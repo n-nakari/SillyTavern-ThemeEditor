@@ -224,7 +224,7 @@
 .theme-group {
     display: flex;
     flex-direction: column;
-    padding: 15px 0;
+    padding: 15px 0 7px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
@@ -269,6 +269,7 @@
     padding-left: 10px;
     border-left: 2px solid rgba(255, 255, 255, 0.3);
     transition: border-color 0.2s;
+    margin-bottom: 8px;
 }
 
 .theme-editor-property-block:hover {
@@ -296,13 +297,13 @@
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5) !important;
 }
 
-toolcool-color-picker {
+toolcool-color-picker-popup {
     width: 100%;
     border-radius: 4px;
     overflow: visible;
     cursor: pointer;
     box-shadow: none;
-    position: relative;
+    position: relative !important;
     z-index: 1;
 }
 
