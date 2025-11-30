@@ -1,112 +1,172 @@
-/* 标题栏 */
-.theme-editor-header-bar {
-    display: flex;
-    align-items: flex-start;
-}
+/* =========================================
+   全局容器与隔离 (Isolation & Container)
+   ========================================= */
 
-/* 右侧按钮组 */
-.theme-editor-header-actions {
-    display: flex;
-    gap: 10px;
-}
-
-/* 按钮通用样式 */
-.theme-editor-icon-btn {
-    cursor: pointer;
-    color: #aaa;
-    font-size: 1.2em;
-    padding: 5px;
-    transition: all 0.2s;
-    border-radius: 4px;
-}
-
-.theme-editor-icon-btn:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
-}
-
-.theme-editor-icon-btn.active {
-    color: #9cdcfe;
-}
-
-/* 扩展样式 */
+/* 主容器：模拟独立窗口的质感，深色背景，无阴影干扰 */
 #theme-editor-container {
-    padding: 0px;
-    border-radius: 5px;
-    margin: 10px 0px;
-    max-height: 500px;
-    overflow-y: auto;
-    background-color: rgba(30, 30, 30, 0.7);
+    display: flex;
     flex-direction: column;
+    background-color: #1e1e1e; /* VS Code 风格深灰背景 */
+    border: 1px solid #3e3e42;
+    border-radius: 0; /* 去除圆角，更硬朗 */
+    margin: 10px 0;
+    padding: 0;
+    max-height: 500px;
+    overflow-y: auto; /* 确保自身有滚动条 */
+    color: #cccccc;
+    font-size: 14px;
+    opacity: 1;
     transition: opacity 0.2s ease-in-out;
+    box-sizing: border-box;
 }
 
-/* 开关的隐藏类 */
+/* 强制显示容器内的滚动条，不受外部主题影响 */
+#theme-editor-container::-webkit-scrollbar {
+    width: 10px !important;
+    height: 10px !important;
+    display: block !important;
+    background-color: #1e1e1e !important;
+}
+
+#theme-editor-container::-webkit-scrollbar-track {
+    background: #1e1e1e !important;
+}
+
+#theme-editor-container::-webkit-scrollbar-thumb {
+    background-color: #424242 !important;
+    border: 2px solid #1e1e1e !important; /* 创建间隙感 */
+    border-radius: 0px !important;
+}
+
+#theme-editor-container::-webkit-scrollbar-thumb:hover {
+    background-color: #4f4f4f !important;
+}
+
+#theme-editor-container * {
+    box-sizing: border-box; /* 统一盒模型 */
+}
+
+/* 隐藏状态 */
 .theme-editor-hidden {
     display: none !important;
 }
 
-/* 菜单栏 */
-.theme-editor-tabs {
+/* =========================================
+   标题栏 (Header Bar)
+   ========================================= */
+
+.theme-editor-header-bar {
     display: flex;
-    gap: 5px;
-    padding: 10px 10px 0 10px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-    position: sticky;
-    top: 0;
-    background-color: rgba(30, 30, 30, 0.98);
-    z-index: 10;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid transparent;
 }
 
-.theme-editor-tab {
-    padding: 6px 12px;
-    cursor: pointer;
+.theme-editor-title {
+    margin: 0;
+    font-size: 1.1em;
     font-weight: bold;
-    color: #888;
-    border-radius: 5px 5px 0 0;
-    font-size: 0.9em;
+    color: #eeeeee;
+    letter-spacing: 0.5px;
+}
+
+.theme-editor-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 顶部图标按钮 */
+.theme-editor-icon-btn {
+    cursor: pointer;
+    color: #858585;
+    font-size: 1.1em;
+    padding: 6px;
+    border-radius: 3px;
     transition: all 0.2s;
-    white-space: nowrap;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.theme-editor-icon-btn:hover {
+    color: #ffffff;
+    background-color: #333333;
+}
+
+.theme-editor-icon-btn.active {
+    color: #007fd4; /* 强调色 */
+}
+
+/* =========================================
+   菜单栏与搜索 (Tabs & Search)
+   ========================================= */
+
+.theme-editor-tabs {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background-color: #252526; /* 比内容区稍浅 */
+    border-bottom: 1px solid #3e3e42;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    gap: 15px;
+    min-height: 35px;
+}
+
+/* 标签页 */
+.theme-editor-tab {
+    padding: 8px 4px;
+    cursor: pointer;
+    font-weight: normal;
+    color: #969696;
+    font-size: 0.9em;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .theme-editor-tab:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    color: #e0e0e0;
 }
 
 .theme-editor-tab.active {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-bottom: 2px solid #fff;
-    margin-bottom: -2px;
+    color: #ffffff;
+    border-bottom: 2px solid #007fd4;
+    font-weight: bold;
 }
 
-/* 搜索框 */
+/* 搜索框容器 */
 .theme-editor-search-wrapper {
     margin-left: auto;
     position: relative;
     display: flex;
-    align-items: flex-start;
-    padding-bottom: 5px;
+    align-items: center;
+    padding: 5px 0;
 }
 
-.theme-editor-search-input {
-    background-color: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 15px;
-    font-size: 0.85em;
-    width: 150px;
-    transition: width 0.3s;
+/* 搜索输入框 - 强制重置样式以防被外部污染 */
+input.theme-editor-search-input {
+    background-color: #3c3c3c !important;
+    border: 1px solid #3c3c3c !important;
+    color: #cccccc !important;
+    padding: 4px 8px !important;
+    border-radius: 2px !important; /* 稍微圆角 */
+    font-size: 0.85em !important;
+    width: 140px;
+    transition: width 0.2s, background-color 0.2s, border-color 0.2s;
+    outline: none !important;
+    box-shadow: none !important;
+    height: 24px !important;
+    line-height: 1 !important;
 }
 
-.theme-editor-search-input:focus {
+input.theme-editor-search-input:focus {
     width: 200px;
-    outline: none;
-    border-color: #9cdcfe;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: #444444 !important;
+    border-color: #007fd4 !important;
+    color: #ffffff !important;
 }
 
 /* 自动补全下拉框 */
@@ -117,36 +177,39 @@
     width: 250px;
     max-height: 200px;
     overflow-y: auto;
-    background-color: #2b2b2b;
-    border: 1px solid #555;
-    border-radius: 4px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-    z-index: 20;
+    background-color: #252526;
+    border: 1px solid #454545;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    z-index: 30;
     display: none;
+    margin-top: 2px;
 }
 
 .theme-editor-autocomplete-item {
     padding: 6px 10px;
     cursor: pointer;
-    font-size: 0.8em;
-    color: #ccc;
-    border-bottom: 1px solid #333;
+    font-size: 0.85em;
+    color: #cccccc;
+    border-bottom: 1px solid #2d2d2d;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .theme-editor-autocomplete-item:hover {
-    background-color: #444;
-    color: #fff;
+    background-color: #04395e; /* 选中深蓝背景 */
+    color: #ffffff;
 }
 
 .theme-editor-autocomplete-item .match {
-    color: #9cdcfe;
+    color: #4fc1ff;
     font-weight: bold;
 }
 
-/* 内容区域切换 */
+/* =========================================
+   内容面板 (Content Panels)
+   ========================================= */
+
 .theme-editor-content-panel {
     display: none;
     flex-direction: column;
@@ -157,96 +220,140 @@
     display: flex;
 }
 
-/* 方便搜索隐藏 */
+/* 分组 (Selector Group) */
 .theme-group {
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    border-left: 2px solid #3e3e42; /* 左侧弱引导线 */
+    padding-left: 10px;
 }
 
-/* 颜色样式框 */
+.theme-group:hover {
+    border-left-color: #666;
+}
+
+/* 选择器标题标签 */
+.theme-editor-main-label {
+    font-weight: bold;
+    font-size: 0.95em;
+    color: #d4d4d4;
+    margin-bottom: 8px;
+    padding: 4px 0;
+    word-break: break-all;
+    line-height: 1.4;
+    /* 标题下划线 */
+    border-bottom: 1px solid #2d2d2d;
+}
+
+/* 注释高亮 */
+.label-highlight {
+    color: #4ec9b0; /* 类似代码注释的绿色 */
+    margin-right: 5px;
+    font-weight: normal;
+}
+
+.label-line-1 {
+    display: block;
+}
+
+/* =========================================
+   属性块 (Property Blocks)
+   ========================================= */
+
 .theme-editor-property-block {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    border-left: 3px solid rgba(255, 255, 255, 0.3);
-    background-color: rgba(0, 0, 0, 0.1);
-    padding-top: 5px;
-    padding-left: 15px;
-    margin-bottom: 10px;
-    gap: 5px;
-    border-radius: 0 5px 5px 0;
+    margin-bottom: 8px;
+    padding: 4px 0 4px 8px;
+    /* 属性名的左侧小竖条，类似代码缩进 */
+    border-left: 1px solid #444; 
 }
 
-/* 标题标签 */
-.theme-editor-main-label {
-    font-weight: 900;
-    font-size: 1.0em;
-    color: #fff;
-    margin-top: 10px;
-    margin-bottom: 5px;
-    padding: 8px;
-    border-bottom: 2px solid #aaa;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    width: 100%;
-    white-space: normal;
-    word-break: break-all;
-    line-height: 1.4;
+.theme-editor-property-block:hover {
+    background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* 颜色样式标签 */
+/* 属性名 */
 .theme-editor-prop-label {
-    font-weight: bold;
-    font-size: 0.9em;
-    color: #eee;
+    font-size: 0.85em;
+    color: #9cdcfe; /* 类似 VS Code 属性颜色 */
+    margin-bottom: 4px;
 }
 
-/* 颜色选择器 */
+/* 子标签 (Color #2...) */
+.theme-editor-sub-label {
+    font-size: 0.75em;
+    color: #888;
+    margin-top: 4px;
+    margin-bottom: 2px;
+}
+
+/* =========================================
+   颜色选择器 (Color Picker)
+   ========================================= */
+
 toolcool-color-picker {
     width: 100%;
-    height: 30px;
-    background: none;
-    border: none;
+    height: 28px;
     padding: 0;
+    opacity: 0.9;
+    transition: opacity 0.2s;
 }
 
-/* 子颜色标签 */
-.theme-editor-sub-label {
-    font-weight: bold;
-    font-size: 0.8em;
-    color: #ddd;
-    margin-top: 5px;
+toolcool-color-picker:hover {
+    opacity: 1;
 }
 
-/* 颜色选择器边框颜色 */
 :root {
-    --tool-cool-color-picker-btn-border-color-inner: white;
+    /* 调整 toolcool 内部变量以匹配深色主题 */
+    --tool-cool-color-picker-btn-border-color: #3e3e42;
+    --tool-cool-color-picker-btn-border-color-inner: #3e3e42;
 }
 
-/* 数值输入框容器 */
+/* =========================================
+   布局输入框 (Layout Inputs) - 重点修改
+   ========================================= */
+
 .layout-inputs-container {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap; /* 允许换行 */
+    gap: 8px; /* 输入框之间的间距 */
     width: 100%;
 }
 
-/* 输入框 */
+/* 输入框样式 */
 #theme-editor-container input.layout-input {
-    all: unset; /* 清除继承 */
+    all: unset; /* 清除所有默认样式 */
     box-sizing: border-box !important;
-    display: block !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    color: #fff !important;
-    padding: 0px 5px !important;
-    border-radius: 4px !important;
+    display: inline-block !important;
+    
+    /* 视觉样式 */
+    background-color: #3c3c3c !important;
+    border: 1px solid transparent !important;
+    color: #ce9178 !important; /* 类似字符串数值的颜色 */
+    border-radius: 2px !important;
+    
+    /* 文字排版 */
     font-size: 0.9em !important;
-    height: 25px !important;
-    margin-bottom: 10px !important;
+    padding: 2px 6px !important;
+    height: 26px !important;
+    line-height: 24px !important;
+    text-align: left !important;
+    
+    /* 尺寸控制 */
+    flex-grow: 1; /* 自动填充剩余空间 */
+    flex-shrink: 1; /* 允许缩小 */
+    min-width: 60px; /* 最小宽度，防止太窄无法点击 */
+    width: auto; /* 宽度随内容和flex变化 */
 }
 
-/* 输入框focus状态 */
+/* 输入框悬停与焦点 */
+#theme-editor-container input.layout-input:hover {
+    background-color: #444444 !important;
+}
+
 #theme-editor-container input.layout-input:focus {
-    border-color: rgba(255, 255, 255, 0.6) !important;
-    background-color: rgba(0, 0, 0, 0.1) !important;
-    box-shadow: 0 0 5px rgba(156, 220, 254, 0.5) !important;
+    background-color: #252526 !important;
+    border: 1px solid #007fd4 !important; /* 焦点时显示蓝色边框 */
+    color: #ffffff !important;
+    box-shadow: 0 0 2px rgba(0, 127, 212, 0.5) !important;
 }
