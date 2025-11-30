@@ -7,20 +7,12 @@
     padding: 0;
     /* 配合顶部栏，只保留下部圆角，视觉上连接在一起 */
     border-radius: 0 0 8px 8px;
-    margin: 0 0 10px 0; /* 去掉上边距，紧贴 Header */
     max-height: 500px;
     overflow-y: auto !important; /* 强制显示滚动行为 */
     background-color: rgba(32, 32, 32, 0.95) !important; /* 深色背景 */
-    border: 1px solid rgba(255, 255, 255, 0.08) !important; 
-    border-top: none !important; /* 去掉上边框，与Header融合 */
-    /* 移除阴影 */
-    box-shadow: none !important;
     display: flex;
     flex-direction: column;
-    color: #eee !important;
-    font-size: 16px !important; /* [修改] 字体从15px增大到16px (approx +0.1em) */
-    text-align: left !important; 
-    font-family: sans-serif !important; /* 强制使用无衬线字体，防止主题干扰 */
+    text-align: left !important;
 }
 
 /* 强制自定义滚动条 - 独立样式，不随主题变化 */
@@ -28,18 +20,17 @@
     width: 8px !important;
     height: 8px !important;
     display: block !important;
-    background: rgba(0, 0, 0, 0.1) !important;
+    background: transparent !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.15) !important;
+    background-color: rgba(255, 255, 255, 0.3) !important;
     border-radius: 4px !important;
-    border: 2px solid transparent !important; 
     background-clip: content-box !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.3) !important;
+    background-color: rgba(255, 255, 255, 0.5) !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-track {
@@ -56,41 +47,30 @@
 }
 
 /* =========================================
-   顶部标题栏 & 按钮 (已弃用 Header Bar 类，样式转移至 Tabs)
-   ========================================= */
-
-/* [已删除] .theme-editor-header-bar 相关样式 */
-
-/* =========================================
    菜单栏 (Tabs) - 现在的顶部工具栏
    ========================================= */
 
 .theme-editor-tabs {
     display: flex;
     align-items: center;
-    gap: 20px;
-    padding: 0px 15px 0 15px; /* 上下Padding由子元素撑开 */
+    gap: 10px;
+    padding: 0px 15px; /* 上下Padding由子元素撑开 */
     position: sticky;
     top: 0;
     z-index: 10;
-    
-    /* [新增] 移植原 Header 的样式，作为窗口顶部栏 */
-    background-color: rgba(32, 32, 32, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background-color: rgba(0, 0, 0, 1) !important;
     border-radius: 8px 8px 0 0 !important;
     margin-top: 10px !important;
 }
 
 .theme-editor-tab {
-    padding: 12px 2px; /* 增加点击区域 */
+    padding: 5px 0 3px;
     cursor: pointer;
     color: #777;
-    font-size: 1.1em; /* [修改] 1.0 -> 1.1em */
+    font-size: 1em;
     font-weight: 600;
     transition: all 0.2s;
     border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
 }
 
 .theme-editor-tab:hover {
@@ -108,8 +88,6 @@
 
 .theme-editor-header-actions {
     display: flex !important;
-    gap: 8px !important;
-    margin-left: 10px !important; /* 与搜索框保持间距 */
     align-items: center !important;
 }
 
@@ -117,15 +95,15 @@
 .theme-editor-icon-btn {
     cursor: pointer !important;
     color: #888 !important;
-    font-size: 1.2em !important; /* [修改] 1.1 -> 1.2em */
-    padding: 6px !important;
-    border-radius: 4px !important;
+    font-size: 1.2em !important;
+    padding: 5px !important;
+    border-radius: 0 !important;
     transition: all 0.2s ease !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     background: transparent !important;
-    border: 1px solid transparent !important;
+    border: none !important;
     box-shadow: none !important;
     width: auto !important;
     height: auto !important;
@@ -146,7 +124,7 @@
 
 .theme-editor-search-wrapper {
     /* [关键] 将搜索框推到右边，按钮自然跟在它后面 */
-    margin-left: auto; 
+    margin-left: auto;
     position: relative;
     display: flex;
     align-items: center;
@@ -155,7 +133,6 @@
 
 /* [修改] 搜索输入框 - 极强力隔离 */
 .theme-editor-search-input {
-    all: unset !important; /* 清除继承 */
     box-sizing: border-box !important;
     display: block !important;
     background-color: rgba(0, 0, 0, 0.2) !important;
@@ -176,7 +153,7 @@
 
 .theme-editor-search-input:focus {
     width: 180px !important;
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: rgba(255, 255, 255, 0.3) !important;
     border-color: #9cdcfe !important;
     color: #fff !important;
 }
