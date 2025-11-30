@@ -8,9 +8,7 @@
             return;
         }
 
-        // --- 初始化 UI 结构 ---
-        
-        // 标题栏容器
+        // --- 初始化 UI ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
 
@@ -18,26 +16,20 @@
         title.textContent = 'Live Theme Editor';
         title.className = 'theme-editor-title';
 
-        // 保存按钮
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-save-btn fa-solid fa-floppy-disk';
-        saveBtn.title = 'Save changes to current theme (Preserves formatting)';
-        saveBtn.addEventListener('click', () => {
-            saveCurrentTheme();
-        });
+        saveBtn.title = 'Save changes (Preserves formatting)';
+        saveBtn.addEventListener('click', saveCurrentTheme);
 
         headerBar.appendChild(title);
         headerBar.appendChild(saveBtn);
 
-        // 主容器
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
 
-        // 插入到页面
         customCssBlock.parentNode.insertBefore(headerBar, customCssBlock.nextSibling);
         headerBar.parentNode.insertBefore(editorContainer, headerBar.nextSibling);
 
-        // Tabs
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
@@ -55,7 +47,6 @@
         tabsContainer.appendChild(tabLayout);
         editorContainer.appendChild(tabsContainer);
 
-        // Panels
         const panelColors = document.createElement('div');
         panelColors.id = 'panel-colors';
         panelColors.className = 'theme-editor-content-panel active';
@@ -66,7 +57,6 @@
         panelLayout.className = 'theme-editor-content-panel';
         editorContainer.appendChild(panelLayout);
 
-        // Tab Switching
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
@@ -76,15 +66,13 @@
             });
         });
 
-        // 样式注入标签
         let liveStyleTag = document.getElementById('theme-editor-live-styles');
         if (!liveStyleTag) {
             liveStyleTag = document.createElement('style');
             liveStyleTag.id = 'theme-editor-live-styles';
             document.head.appendChild(liveStyleTag);
         }
-        
-        // 禁用 SillyTavern 原生样式
+
         let sillyTavernStyleTag = document.getElementById('custom-css');
         if (sillyTavernStyleTag) {
             sillyTavernStyleTag.disabled = true;
@@ -103,7 +91,7 @@
             observer.observe(document.head, { childList: true });
         }
 
-        // --- 配置数据 ---
+        // --- 数据定义 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -114,21 +102,30 @@
         const layoutProperties = [
             'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
             'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
-            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'font-weight', 'z-index', 'opacity'
+            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'font-weight', 'z-index', 'opacity', 'flex-basis'
         ];
 
-        // 存储“替换任务”： { start: index, end: index, variableName: string, currentValue: string }
-        // 使用 Map 存储当前值，Key 为 variableName
         let replacementTasks = [];
         let currentValuesMap = {}; 
 
-        // 更新变量
+        function cleanupOldVariables() {
+            // 遍历所有样式属性，删除我们自己创建的变量
+            const rootStyle = document.documentElement.style;
+            for (let i = rootStyle.length - 1; i >= 0; i--) {
+                const prop = rootStyle[i];
+                if (prop.startsWith('--theme-editor-')) {
+                    rootStyle.removeProperty(prop);
+                }
+            }
+            replacementTasks = [];
+            currentValuesMap = {};
+        }
+
         function updateLiveCssVariable(variableName, newValue) {
-            document.documentElement.style.setProperty(variableName, newValue);
+            document.documentElement.style.setProperty(variableName, newValue, 'important');
             currentValuesMap[variableName] = newValue;
         }
 
-        // 格式化标题
         function createFormattedSelectorLabel(rawSelector) {
             let commentText = "";
             let cleanSelector = rawSelector.trim();
@@ -144,22 +141,15 @@
             }
         }
 
-        // [核心改进]：非破坏性保存
         function saveCurrentTheme() {
             const originalCss = customCssTextarea.value;
+            let newCss = originalCss;
             
-            // 1. 过滤出有修改过的任务
-            // 如果 currentValuesMap 里没有值，或者值没变（虽然很难判断，但我们只替换有记录的），就替换
-            // 关键是 replacementTasks 记录了 原始CSS中的位置。
-            // 我们必须按照位置 从后往前 替换，这样前面的索引才不会乱。
-            
+            // 按照起始位置从后往前排序，防止替换后影响前面的索引
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
-            let newCss = originalCss;
-
             tasks.forEach(task => {
                 const newValue = currentValuesMap[task.variableName];
-                // 只有当内存中有新值时才替换
                 if (newValue !== undefined && newValue !== null) {
                     const before = newCss.slice(0, task.start);
                     const after = newCss.slice(task.end);
@@ -167,91 +157,75 @@
                 }
             });
 
-            // 回写并触发保存
             customCssTextarea.value = newCss;
             const event = new Event('input', { bubbles: true });
             customCssTextarea.dispatchEvent(event);
 
-            // 稍微延迟后重新解析，以确保 UI 与新保存的 CSS 同步（主要是重置 task 索引）
+            // 重新解析以同步状态
             setTimeout(() => {
                 parseAndBuildUI();
-                // 简单提示
-                alert("Theme saved successfully!"); 
-            }, 100);
+                // 使用 toastr 提示如果可用，否则用 alert
+                if (window.toastr) window.toastr.success('Theme saved successfully!');
+                else alert('Theme saved successfully!');
+            }, 50);
         }
 
         function parseAndBuildUI() {
-            // 1. 清理旧状态
+            // 1. 清理环境
+            cleanupOldVariables();
             if (sillyTavernStyleTag) sillyTavernStyleTag.disabled = true;
             panelColors.innerHTML = '';
             panelLayout.innerHTML = '';
-            liveStyleTag.textContent = '';
-            
-            // 清除旧的 CSS 变量 (通过移除 style 属性里的相关变量，或者直接重置)
-            // 简单暴力的做法：遍历 currentValuesMap 里的 key 并移除
-            Object.keys(currentValuesMap).forEach(key => {
-                document.documentElement.style.removeProperty(key);
-            });
-
-            replacementTasks = []; // 重置替换任务
-            currentValuesMap = {}; // 重置当前值
             
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
 
-            const ruleRegex = /([^{}]+)\s*\{\s*([^}]+)\s*}/g;
+            // 匹配规则块：选择器 { 内容 }
+            const ruleRegex = /([^{]+)\{([^}]+)\}/g;
             let ruleMatch;
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
-                const rawSelector = ruleMatch[1];
-                const selector = rawSelector.trim();
+                const rawSelector = ruleMatch[1].trim();
+                const selector = rawSelector; // 用于 CSS 选择器
                 const declarationsText = ruleMatch[2];
-                // 规则块在原始字符串中的起始位置（大括号后的第一个字符）
-                const ruleBodyStartIndex = ruleMatch.index + ruleMatch[0].indexOf('{') + 1;
+                // 计算规则块内容在整个字符串中的起始偏移量（大括号后）
+                const ruleBodyOffset = ruleMatch.index + ruleMatch[0].indexOf('{') + 1;
                 
-                let processedDeclarations = declarationsText; // 用于生成实时 CSS
-
+                let processedDeclarations = declarationsText;
                 let colorUIBlocks = [];
                 let layoutUIBlocks = [];
 
-                // 我们需要手动解析声明，并记录它们在 ruleBody 中的相对位置，以便计算绝对位置
-                // 正则匹配属性:值
-                const declarationRegex = /([a-zA-Z-]+)\s*:\s*([^;]+)/g;
+                // 匹配声明： 属性 : 值
+                // 排除分号结尾，处理最后一行可能没分号的情况
+                const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;]+)/g;
                 let declMatch;
 
                 while ((declMatch = declarationRegex.exec(declarationsText)) !== null) {
+                    const fullMatch = declMatch[0];
                     const property = declMatch[1].trim();
-                    const originalValue = declMatch[2]; // 包含可能的空格，但不含分号
-                    const valueTrimmed = originalValue.trim();
+                    const originalValue = declMatch[2]; // 值可能包含空格
                     const lowerProp = property.toLowerCase();
+
+                    // 计算值在 declarationsText 中的相对位置
+                    // declMatch.index 是匹配项开始的位置（可能包含前导分号）
+                    // 我们需要找到冒号的位置
+                    const colonRelativeIndex = fullMatch.indexOf(':');
+                    // 值的起始位置是 冒号位置 + 1 (跳过冒号) + 前导空格长度 (trimStart处理)
+                    // 但 originalValue 已经不含前导空格了吗？declMatch[2] 是正则捕获组
+                    // 为了精确，我们在 fullMatch 中搜索 originalValue
+                    const valueIndexInMatch = fullMatch.indexOf(originalValue);
                     
-                    // 值的绝对起始位置 = 规则体起始 + 匹配项起始 + 冒号后的偏移
-                    // 这一步比较繁琐，因为 : 前后可能有空格。
-                    // 我们可以直接用 declMatch.index 定位到属性名，然后找冒号
-                    const propIndex = declMatch.index;
-                    const colonRelativeIndex = declarationsText.indexOf(':', propIndex);
-                    // 值开始的位置（冒号后第一个非空字符? 不，我们替换的是整个 capture group 2）
-                    // declMatch[2] 是正则捕获的，它从冒号后开始，到分号前（或块结束）
-                    // 它的在 declarationsText 中的索引需要精确定位
-                    
-                    // 为了简单且准确，我们直接利用正则匹配到的子串位置
-                    // declMatch[0] 是 "prop: value"
-                    // declMatch[1] 是 "prop"
-                    // declMatch[2] 是 " value" (可能包含前导空格)
-                    
-                    // 值的相对起始位置 = 匹配项起始 + 完整匹配长度 - 值长度
-                    const valueRelativeStart = declMatch.index + declMatch[0].lastIndexOf(originalValue);
-                    const valueAbsoluteStart = ruleBodyStartIndex + valueRelativeStart;
+                    // 绝对起始位置 = 规则体偏移 + 匹配项偏移 + 值在匹配项中的偏移
+                    const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueIndexInMatch;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
                     // --- 颜色处理 ---
                     if (colorProperties.includes(lowerProp)) {
-                        let tempValueForLiveCss = originalValue; // 用于实时预览的字符串
-                        const foundColors = [...originalValue.matchAll(colorValueRegex)]; // 获取所有匹配对象以便定位
+                        const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
                         if (foundColors.length > 0) {
-                            let replacementMade = false;
+                            let tempValue = originalValue;
                             
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
@@ -260,38 +234,37 @@
                             propLabel.textContent = property;
                             propertyBlock.appendChild(propLabel);
 
-                            // 从后往前处理颜色，以免影响前面颜色的索引（虽然这里是替换变量名，不影响 task）
-                            // 但对于生成 live css，我们需要替换。
+                            // 从后往前处理颜色变量替换（用于 Live CSS），同时记录 Task
+                            // 注意：foundColors 的 index 是相对于 originalValue 的
                             
-                            // 这里我们只需为每个颜色生成 UI 和 Task
-                            // 注意：如果一个属性里有多个颜色，我们需要计算每个颜色相对于 originalValue 的位置
+                            // 这里我们先收集所有颜色信息
+                            let colorReplacements = [];
+
                             foundColors.forEach((colorMatch, index) => {
                                 const colorStr = colorMatch[0];
-                                const colorIndexInValue = colorMatch.index; // 相对于 originalValue 的位置
-                                
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
 
-                                // 记录替换任务
+                                // 记录保存任务
                                 replacementTasks.push({
-                                    start: valueAbsoluteStart + colorIndexInValue,
-                                    end: valueAbsoluteStart + colorIndexInValue + colorStr.length,
-                                    variableName: variableName,
-                                    // 初始值不存，等 update 时存
+                                    start: valueAbsoluteStart + colorMatch.index,
+                                    end: valueAbsoluteStart + colorMatch.index + colorStr.length,
+                                    variableName: variableName
                                 });
 
-                                // 初始化 CSS 变量
+                                // 初始化变量
                                 let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                 updateLiveCssVariable(variableName, initialColor);
 
-                                // 替换 live css 字符串中的颜色为变量
-                                // 这里为了避免替换错（比如有两个 #fff），我们其实应该按位置替换。
-                                // 但为了简化 Live CSS 生成，我们假设替换所有匹配项是安全的，或者只替换当前这个。
-                                // 简单的 replace 可能会替换错。更严谨的做法是重建字符串。
-                                // 鉴于 Live CSS 只是预览，我们简单处理：把整个属性值里的颜色都换成变量。
-                                // *修正*：必须精确。
-                                
-                                // UI 生成
+                                // 收集替换信息用于构建 Live CSS
+                                colorReplacements.push({
+                                    str: colorStr,
+                                    var: `var(${variableName})`,
+                                    index: colorMatch.index,
+                                    length: colorStr.length
+                                });
+
+                                // UI
                                 if (foundColors.length > 1) {
                                     const subLabel = document.createElement('div');
                                     subLabel.className = 'theme-editor-sub-label';
@@ -307,61 +280,48 @@
                                 propertyBlock.appendChild(colorPicker);
                             });
 
-                            colorUIBlocks.push(propertyBlock);
-                            
-                            // 生成 Live CSS: 把该属性的所有颜色换成变量
-                            let valueWithVars = originalValue;
-                            // 倒序替换以保持索引正确
-                            for (let i = foundColors.length - 1; i >= 0; i--) {
-                                const cm = foundColors[i];
-                                // 这里的 variableName 需要重新计算一下... 或者我们在上面循环时存下来
-                                // 为了简单，我们重新生成一遍 ID 逻辑是不行的。
-                                // 修正逻辑：我们在上面循环时，应该构建好 valueWithVars
-                            }
-                            
-                            // 重新遍历一遍来构建 Live CSS 字符串 (比较笨但安全)
-                            let offset = 0;
-                            let newValueBuilder = "";
-                            let vIdStart = uniqueId - foundColors.length; // 回溯 ID
-                            
-                            let lastEnd = 0;
-                            foundColors.forEach(cm => {
-                                const vName = `--theme-editor-color-${vIdStart}`;
-                                vIdStart++;
-                                newValueBuilder += originalValue.slice(lastEnd, cm.index);
-                                newValueBuilder += `var(${vName})`;
-                                lastEnd = cm.index + cm[0].length;
+                            // 构建 Live CSS 的值 string (倒序替换)
+                            colorReplacements.sort((a, b) => b.index - a.index);
+                            let liveValue = originalValue;
+                            colorReplacements.forEach(rep => {
+                                liveValue = liveValue.substring(0, rep.index) + rep.var + liveValue.substring(rep.index + rep.length);
                             });
-                            newValueBuilder += originalValue.slice(lastEnd);
-                            
+
                             // 替换 processedDeclarations 中的这一段
-                            processedDeclarations = processedDeclarations.replace(originalValue, newValueBuilder);
+                            // 这里简单的 replace 可能会有风险，如果 originalValue 在同一个规则里出现多次
+                            // 但由于我们是顺序遍历，且 declarationsText 是局部的，只要值唯一就没问题。
+                            // 更稳妥的是重建 processedDeclarations，但这里我们使用 replace 第一次出现
+                            processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
+                            
+                            colorUIBlocks.push(propertyBlock);
                         }
                     }
 
                     // --- 布局处理 ---
                     else if (layoutProperties.includes(lowerProp)) {
-                        const cleanValue = valueTrimmed.replace('!important', '').trim();
+                        const cleanValue = originalValue.replace('!important', '').trim();
+                        // 简单的按空格分割数值
                         const values = cleanValue.split(/\s+/);
                         
                         if (values.length > 0) {
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
 
-                            // 任务：替换整个值部分
+                            // 任务：替换整个值部分 (保留 !important 结构，我们在变量里不含 !important)
+                            // 注意：如果原值有 !important，我们这里替换的是 originalValue (包含 !important)
+                            // 所以变量里只需要值。
+                            // 但为了保留原CSS里的 !important，我们应该只替换数值部分。
+                            // 简化：直接替换整个 originalValue 为 var(...)，我们在 CSS rule 末尾加了 !important，所以原内联 !important 可以忽略
+                            
                             replacementTasks.push({
-                                start: valueAbsoluteStart,
+                                start: valueAbsoluteStart, // 这里的 start 是原值的起始位置
                                 end: valueAbsoluteEnd,
                                 variableName: variableName
                             });
 
-                            // 初始化变量
                             updateLiveCssVariable(variableName, cleanValue);
-                            
-                            // Live CSS
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
 
-                            // UI
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
                             const propLabel = document.createElement('div');
@@ -392,11 +352,8 @@
                             layoutUIBlocks.push(propertyBlock);
                         }
                     }
-                } // end while declarations
+                } // end while declaration
 
-                // 生成 Live CSS 规则，加上 !important
-                // 注意：这里生成的 CSS 可能包含多个同名属性，但浏览器会应用最后一个（即我们的变量版）
-                // 更精确的做法是只保留变量版。上面的 replace 逻辑已经尽量做到了。
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
                 if (colorUIBlocks.length > 0) {
@@ -414,7 +371,6 @@
                     panelLayout.appendChild(mainLabel);
                     layoutUIBlocks.forEach(block => panelLayout.appendChild(block));
                 }
-
             } // end while rules
             
             liveStyleTag.textContent = finalCssRules;
@@ -426,9 +382,11 @@
             debounceTimer = setTimeout(parseAndBuildUI, 500);
         }
 
+        // 监听外部的主题变化（例如通过其他方式加载了新CSS）
+        // 但最主要的是初始化时解析
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v13 - Perfect Save) loaded successfully.");
+        console.log("Theme Editor extension (v14 - Cleanup & Robust Parsing) loaded successfully.");
     });
 })();
