@@ -11,15 +11,13 @@
         // --- 状态变量 ---
         let isExtensionActive = true;
         let uniqueTitles = new Set();
-        // 存储替换任务：{ start, end, variableName }
         let replacementTasks = [];
-        // 存储当前值：{ variableName: value }
         let currentValuesMap = {}; 
         
-        // 计时器
-        let debounceTimer; // 用于解析
-        let syncTextareaTimer; // 用于回写文本框
-        let isSyncing = false; // 锁：防止回写导致死循环
+        // 计时器 & 锁
+        let debounceTimer; 
+        let syncTextareaTimer;
+        let isAutoSyncing = false; // 标记是否正在进行自动同步
 
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
@@ -34,7 +32,7 @@
 
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
-        saveBtn.title = 'Save Theme File (Disk)';
+        saveBtn.title = 'Save changes to Theme File (Disk)';
         saveBtn.addEventListener('click', commitToThemeFile);
 
         const toggleBtn = document.createElement('div');
@@ -46,7 +44,7 @@
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
                 editorContainer.classList.remove('theme-editor-hidden');
-                debouncedParse();
+                debouncedParse(true); // 开启时强制重绘 UI
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
@@ -176,24 +174,6 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        let sillyTavernStyleTag = document.getElementById('custom-css');
-        if (sillyTavernStyleTag) {
-            sillyTavernStyleTag.disabled = true;
-        } else {
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    for (const node of mutation.addedNodes) {
-                        if (node.id === 'custom-css') {
-                            node.disabled = true;
-                            observer.disconnect();
-                            return;
-                        }
-                    }
-                }
-            });
-            observer.observe(document.head, { childList: true });
-        }
-
         // --- 核心配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
@@ -219,18 +199,19 @@
                 }
             }
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
-            
             replacementTasks = [];
             currentValuesMap = {};
             uniqueTitles.clear();
         }
 
-        // [恢复功能] 更新变量的同时，设置回写定时器
+        // [优化] 使用 RAF 优化变量更新，避免高频操作导致的卡顿
         function updateLiveCssVariable(variableName, newValue) {
-            document.documentElement.style.setProperty(variableName, newValue, 'important');
             currentValuesMap[variableName] = newValue;
+            requestAnimationFrame(() => {
+                document.documentElement.style.setProperty(variableName, newValue, 'important');
+            });
 
-            // 防抖：停止操作 800ms 后回写文本框
+            // 0.8秒后自动写入文本框
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -257,22 +238,44 @@
         function formatLayoutValue(prop, val) {
             if (!val) return val;
             const trimmed = val.toString().trim();
-            // 如果是纯数字且需要单位，自动补全px
             if (!isNaN(trimmed) && trimmed !== '0' && !unitlessProperties.includes(prop.toLowerCase())) {
                 return trimmed + 'px';
             }
             return trimmed;
         }
 
-        // [核心逻辑] 回写 CSS 到文本框 (Auto-Sync)
+        // [新功能] 括号感知分割 (Split values respecting parenthesis)
+        // 解决 calc() 被错误拆分的问题
+        function splitCSSValue(value) {
+            const parts = [];
+            let current = '';
+            let depth = 0; // 括号深度
+
+            for (let char of value) {
+                if (char === '(') depth++;
+                else if (char === ')') depth--;
+
+                // 只有在括号外面的空格才算分隔符
+                if (depth === 0 && /\s/.test(char)) {
+                    if (current) {
+                        parts.push(current);
+                        current = '';
+                    }
+                } else {
+                    current += char;
+                }
+            }
+            if (current) parts.push(current);
+            return parts;
+        }
+
         function writeChangesToTextarea() {
-            // 设置同步锁，防止回写触发 parseAndBuildUI 的完整重绘（导致输入框失焦）
-            isSyncing = true;
+            // [核心] 标记正在自动同步，防止 parseAndBuildUI 重绘 UI 导致黑屏
+            isAutoSyncing = true;
 
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
             
-            // 必须按位置从后往前替换
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
             tasks.forEach(task => {
@@ -284,7 +287,6 @@
                 }
             });
 
-            // 只有当内容真正改变时才写入
             if (originalCss !== newCss) {
                 const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
                 nativeInputValueSetter.call(customCssTextarea, newCss);
@@ -293,21 +295,13 @@
                 customCssTextarea.dispatchEvent(inputEvent);
                 
                 if (window.$) $(customCssTextarea).trigger('input');
-                
-                // 写入后，原始字符串变了，replacementTasks 的索引也就失效了。
-                // 我们必须在 isSyncing = false 之后让它重新解析一次，更新索引。
-                // 这里的逻辑在 debouncedParse 里处理。
             } else {
-                isSyncing = false;
+                isAutoSyncing = false;
             }
         }
 
-        // [核心逻辑] 提交到文件 (Commit)
         function commitToThemeFile() {
-            // 确保最新的修改已经写入文本框
             writeChangesToTextarea();
-
-            // 触发 SillyTavern 保存
             setTimeout(() => {
                 const stUpdateBtn = document.getElementById('ui-preset-update-button');
                 if (stUpdateBtn) {
@@ -319,33 +313,33 @@
             }, 100);
         }
 
-        function parseAndBuildUI() {
+        // [核心修正] 解析函数：增加了 rebuildUI 参数
+        // rebuildUI = true: 完整重绘 (用于初始化、手动修改CSS、切换主题)
+        // rebuildUI = false: 静默解析 (用于自动回写后更新索引，不碰 DOM)
+        function parseAndBuildUI(rebuildUI = true) {
             if (!isExtensionActive) return;
 
-            // 如果是扩展自己回写触发的 input 事件，我们跳过 UI 重建以防闪烁
-            // 但是！我们需要更新索引。这是一个两难。
-            // 幸运的是，parseAndBuildUI 速度很快 (DocumentFragment)，
-            // 而且 writeChangesToTextarea 是在用户“停手”后触发的。
-            // 所以即使重绘，用户也不会感觉到拖拽被打断。
-            // 唯一的问题是焦点丢失。
-            // 这里我们选择：如果 syncing，也重绘，但因为是停手后，影响较小。
-            // 只要确保拖拽过程中的 updateLiveCssVariable 不触发重绘即可。
-            if (isSyncing) {
-                isSyncing = false;
-                // 继续执行，以更新索引
-            }
-
+            // 如果是自动同步触发的，我们不重绘 UI，但需要重新解析以更新索引
+            // 实际上，如果 rebuildUI 为 false，我们只更新 replacementTasks 和变量
+            
             const scrollTop = editorContainer.scrollTop;
 
-            cleanupOldVariables();
-            if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
+            if (rebuildUI) {
+                cleanupOldVariables();
+                if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
+                
+                panelColors.innerHTML = '';
+                panelLayout.innerHTML = '';
+                liveStyleTag.textContent = '';
+                replacementTasks = []; // 重置任务
+                // 注意：currentValuesMap 在这里也被重置了，因为是全新的解析
+            } else {
+                // 静默模式：只清空任务，不清空 map (保留用户正在输入的值)
+                replacementTasks = [];
+            }
             
             const colorFragment = document.createDocumentFragment();
             const layoutFragment = document.createDocumentFragment();
-            
-            panelColors.innerHTML = '';
-            panelLayout.innerHTML = '';
-            liveStyleTag.textContent = '';
             
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
@@ -364,21 +358,17 @@
                 let colorUIBlocks = [];
                 let layoutUIBlocks = [];
 
-                // 修正正则，防止吞字：非 ; 非 }
                 const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;\}]+)/g;
                 let declMatch;
 
                 while ((declMatch = declarationRegex.exec(declarationsText)) !== null) {
                     const fullMatch = declMatch[0];
                     const property = declMatch[1].trim();
-                    const originalValue = declMatch[2]; // 这是正则捕获的值部分
+                    const originalValue = declMatch[2]; 
                     const lowerProp = property.toLowerCase();
 
-                    // 精确定位
                     const colonIndex = fullMatch.indexOf(':');
-                    // originalValue 在 fullMatch 中的起始位置
                     const valueRelativeStart = fullMatch.indexOf(originalValue, colonIndex); 
-                    
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
@@ -401,14 +391,16 @@
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
 
-                                // Task: 记录原始位置，用于保存到文本框
                                 replacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
                                     end: valueAbsoluteStart + colorMatch.index + colorStr.length,
                                     variableName: variableName
                                 });
 
-                                let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
+                                // 如果 Map 里有值（说明是静默更新），用 Map 的；否则用 CSS 里的
+                                let initialColor = currentValuesMap[variableName] || (colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr);
+                                
+                                // 始终更新 CSS 变量以保持同步
                                 updateLiveCssVariable(variableName, initialColor);
 
                                 colorReplacements.push({
@@ -418,19 +410,23 @@
                                     length: colorStr.length
                                 });
 
-                                if (foundColors.length > 1) {
-                                    const subLabel = document.createElement('div');
-                                    subLabel.className = 'theme-editor-sub-label';
-                                    subLabel.textContent = `Color #${index + 1}`;
-                                    propertyBlock.appendChild(subLabel);
-                                }
+                                if (rebuildUI) {
+                                    if (foundColors.length > 1) {
+                                        const subLabel = document.createElement('div');
+                                        subLabel.className = 'theme-editor-sub-label';
+                                        subLabel.textContent = `Color #${index + 1}`;
+                                        propertyBlock.appendChild(subLabel);
+                                    }
 
-                                const colorPicker = document.createElement('toolcool-color-picker');
-                                setTimeout(() => { colorPicker.color = initialColor; }, 0);
-                                $(colorPicker).on('change', (evt) => {
-                                    updateLiveCssVariable(variableName, evt.detail.rgba);
-                                });
-                                propertyBlock.appendChild(colorPicker);
+                                    const colorPicker = document.createElement('toolcool-color-picker');
+                                    // 延迟设置颜色避免 Web Component 初始化问题
+                                    setTimeout(() => { colorPicker.color = initialColor; }, 0);
+                                    
+                                    $(colorPicker).on('change', (evt) => {
+                                        updateLiveCssVariable(variableName, evt.detail.rgba);
+                                    });
+                                    propertyBlock.appendChild(colorPicker);
+                                }
                             });
 
                             colorReplacements.sort((a, b) => b.index - a.index);
@@ -439,112 +435,135 @@
                                 liveValue = liveValue.substring(0, rep.index) + rep.var + liveValue.substring(rep.index + rep.length);
                             });
                             processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
-                            colorUIBlocks.push(propertyBlock);
+                            
+                            if (rebuildUI) colorUIBlocks.push(propertyBlock);
                         }
                     }
 
                     // --- 布局 ---
                     else if (layoutProperties.includes(lowerProp)) {
                         const cleanValue = originalValue.replace('!important', '').trim();
-                        const values = cleanValue.split(/\s+/);
+                        
+                        // [核心修正] 使用新函数 splitCSSValue 替代简单的 split
+                        const values = splitCSSValue(cleanValue);
                         
                         if (values.length > 0) {
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
 
-                            // 任务：替换整个值区间
                             replacementTasks.push({
                                 start: valueAbsoluteStart, 
                                 end: valueAbsoluteEnd,
                                 variableName: variableName
                             });
 
-                            updateLiveCssVariable(variableName, cleanValue);
+                            // 优先使用内存中的值，否则使用解析值
+                            let initValue = currentValuesMap[variableName] || cleanValue;
+                            updateLiveCssVariable(variableName, initValue);
+                            
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
 
-                            const propertyBlock = document.createElement('div');
-                            propertyBlock.className = 'theme-editor-property-block';
-                            const propLabel = document.createElement('div');
-                            propLabel.className = 'theme-editor-prop-label';
-                            propLabel.textContent = property;
-                            propertyBlock.appendChild(propLabel);
+                            if (rebuildUI) {
+                                const propertyBlock = document.createElement('div');
+                                propertyBlock.className = 'theme-editor-property-block';
+                                const propLabel = document.createElement('div');
+                                propLabel.className = 'theme-editor-prop-label';
+                                propLabel.textContent = property;
+                                propertyBlock.appendChild(propLabel);
 
-                            const inputsContainer = document.createElement('div');
-                            inputsContainer.className = 'layout-inputs-container';
+                                const inputsContainer = document.createElement('div');
+                                inputsContainer.className = 'layout-inputs-container';
 
-                            let currentValues = [...values];
+                                // 这里我们不能简单用 currentValues，因为它是字符串。
+                                // 我们需要基于 splitCSSValue(initValue) 来填充输入框
+                                let currentSplitValues = splitCSSValue(initValue);
 
-                            values.forEach((val, index) => {
-                                const input = document.createElement('input');
-                                input.type = 'text';
-                                input.className = 'layout-input';
-                                input.value = val;
-                                
-                                input.addEventListener('input', (e) => {
-                                    currentValues[index] = e.target.value;
-                                    const formattedValues = currentValues.map(v => formatLayoutValue(lowerProp, v));
-                                    updateLiveCssVariable(variableName, formattedValues.join(' '));
+                                currentSplitValues.forEach((val, index) => {
+                                    const input = document.createElement('input');
+                                    input.type = 'text';
+                                    input.className = 'layout-input';
+                                    input.value = val;
+                                    
+                                    input.addEventListener('input', (e) => {
+                                        currentSplitValues[index] = e.target.value;
+                                        const formattedValues = currentSplitValues.map(v => formatLayoutValue(lowerProp, v));
+                                        updateLiveCssVariable(variableName, formattedValues.join(' '));
+                                    });
+
+                                    inputsContainer.appendChild(input);
                                 });
 
-                                inputsContainer.appendChild(input);
-                            });
-
-                            propertyBlock.appendChild(inputsContainer);
-                            layoutUIBlocks.push(propertyBlock);
+                                propertyBlock.appendChild(inputsContainer);
+                                layoutUIBlocks.push(propertyBlock);
+                            }
                         }
                     }
                 } // end declarations
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-                if (colorUIBlocks.length > 0) {
-                    const group = document.createElement('div');
-                    group.className = 'theme-group';
-                    const titleHtml = createFormattedSelectorLabel(rawSelector);
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = titleHtml;
-                    group.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
+                if (rebuildUI) {
+                    if (colorUIBlocks.length > 0) {
+                        const group = document.createElement('div');
+                        group.className = 'theme-group';
+                        const titleHtml = createFormattedSelectorLabel(rawSelector);
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = titleHtml;
+                        group.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
 
-                    const mainLabel = document.createElement('div');
-                    mainLabel.className = 'theme-editor-main-label';
-                    mainLabel.innerHTML = titleHtml;
-                    
-                    group.appendChild(mainLabel);
-                    colorUIBlocks.forEach(block => group.appendChild(block));
-                    colorFragment.appendChild(group);
+                        const mainLabel = document.createElement('div');
+                        mainLabel.className = 'theme-editor-main-label';
+                        mainLabel.innerHTML = titleHtml;
+                        
+                        group.appendChild(mainLabel);
+                        colorUIBlocks.forEach(block => group.appendChild(block));
+                        colorFragment.appendChild(group);
+                    }
+
+                    if (layoutUIBlocks.length > 0) {
+                        const group = document.createElement('div');
+                        group.className = 'theme-group';
+                        const titleHtml = createFormattedSelectorLabel(rawSelector);
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = titleHtml;
+                        group.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
+
+                        const mainLabel = document.createElement('div');
+                        mainLabel.className = 'theme-editor-main-label';
+                        mainLabel.innerHTML = titleHtml;
+
+                        group.appendChild(mainLabel);
+                        layoutUIBlocks.forEach(block => group.appendChild(block));
+                        layoutFragment.appendChild(group);
+                    }
                 }
-
-                if (layoutUIBlocks.length > 0) {
-                    const group = document.createElement('div');
-                    group.className = 'theme-group';
-                    const titleHtml = createFormattedSelectorLabel(rawSelector);
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = titleHtml;
-                    group.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
-
-                    const mainLabel = document.createElement('div');
-                    mainLabel.className = 'theme-editor-main-label';
-                    mainLabel.innerHTML = titleHtml;
-
-                    group.appendChild(mainLabel);
-                    layoutUIBlocks.forEach(block => group.appendChild(block));
-                    layoutFragment.appendChild(group);
-                }
-            }
+            } // end rules loop
             
             liveStyleTag.textContent = finalCssRules;
             
-            panelColors.appendChild(colorFragment);
-            panelLayout.appendChild(layoutFragment);
+            if (rebuildUI) {
+                panelColors.appendChild(colorFragment);
+                panelLayout.appendChild(layoutFragment);
 
-            const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
-            if (currentSearch) filterPanels(currentSearch);
-            editorContainer.scrollTop = scrollTop;
+                const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
+                if (currentSearch) filterPanels(currentSearch);
+                editorContainer.scrollTop = scrollTop;
+            }
         }
 
-        function debouncedParse() {
+        // 解析入口
+        function debouncedParse(forceRebuild = false) {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(parseAndBuildUI, 500);
+            debounceTimer = setTimeout(() => {
+                // 如果是因为自动同步触发的 Input 事件，则只进行静默解析（不重绘UI）
+                // 否则（用户打字、切换主题），进行完整重绘
+                if (isAutoSyncing && !forceRebuild) {
+                    isAutoSyncing = false;
+                    parseAndBuildUI(false); // Silent update
+                } else {
+                    parseAndBuildUI(true);  // Full rebuild
+                }
+            }, 500);
         }
 
         const originalValueDescriptor = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -558,9 +577,9 @@
             }
         });
 
-        parseAndBuildUI();
+        parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v20 - Sync & Stability) loaded successfully.");
+        console.log("Theme Editor extension (v21 - Smooth & Smart) loaded successfully.");
     });
 })();
