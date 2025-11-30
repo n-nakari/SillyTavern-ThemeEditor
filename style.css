@@ -75,7 +75,7 @@
 }
 
 /* [修改] 强制隔离标题样式 */
-.theme-editor-title {
+#theme-editor-header-bar .theme-editor-title {
     all: unset !important; /* 清除所有继承样式 */
     display: block !important;
     margin: 0 !important;
@@ -88,14 +88,13 @@
     text-shadow: none !important;
 }
 
-.theme-editor-header-actions {
+#theme-editor-header-bar .theme-editor-header-actions {
     display: flex !important;
     gap: 8px !important;
 }
 
 /* [修改] 强制隔离按钮样式 */
 .theme-editor-icon-btn {
-    all: unset !important; /* 清除所有继承样式 */
     cursor: pointer !important;
     color: #888 !important;
     font-size: 1.1em !important; /* [修改] 字体加大 */
@@ -112,12 +111,12 @@
     height: auto !important;
 }
 
-.theme-editor-icon-btn:hover {
+#theme-editor-header-bar .theme-editor-icon-btn:hover {
     color: #fff !important;
     background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.theme-editor-icon-btn.active {
+#theme-editor-header-bar .theme-editor-icon-btn.active {
     color: #9cdcfe !important;
 }
 
@@ -161,15 +160,16 @@
    搜索框区域
    ========================================= */
 
-.theme-editor-search-wrapper {
+#theme-editor-container .theme-editor-search-wrapper {
     margin-left: auto; 
     position: relative;
     display: flex;
     align-items: center;
+    overflow: visible !important;
 }
 
 /* [修改] 搜索输入框 - 极强力隔离 */
-.theme-editor-search-input {
+#theme-editor-container .theme-editor-search-input {
     all: unset !important; /* 清除继承 */
     box-sizing: border-box !important;
     display: block !important;
@@ -189,7 +189,7 @@
     margin: 0 !important;
 }
 
-.theme-editor-search-input:focus {
+#theme-editor-container .theme-editor-search-input:focus {
     width: 180px !important;
     background-color: rgba(0, 0, 0, 0.3) !important;
     border-color: #9cdcfe !important;
@@ -197,7 +197,7 @@
 }
 
 /* 自动补全列表 */
-.theme-editor-autocomplete-list {
+#theme-editor-container .theme-editor-autocomplete-list {
     position: absolute;
     top: 100%;
     right: 0;
@@ -208,13 +208,13 @@
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 4px;
     box-shadow: none; 
-    border-bottom: 2px solid rgba(0,0,0,0.3); 
-    z-index: 100;
+    border-bottom: 2px solid rgba(0,0,0,0.3);
+    z-index: 9999 !important;
     display: none;
     margin-top: 2px;
 }
 
-.theme-editor-autocomplete-item {
+#theme-editor-container .theme-editor-autocomplete-item {
     padding: 6px 10px;
     cursor: pointer;
     font-size: 0.9em; /* [修改] 字体加大 */
@@ -225,12 +225,12 @@
     text-overflow: ellipsis;
 }
 
-.theme-editor-autocomplete-item:hover {
+#theme-editor-container .theme-editor-autocomplete-item:hover {
     background-color: #333;
     color: #fff;
 }
 
-.theme-editor-autocomplete-item .match {
+#theme-editor-container .theme-editor-autocomplete-item .match {
     color: #9cdcfe;
     font-weight: bold;
 }
