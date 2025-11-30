@@ -11,13 +11,15 @@
         // --- 状态变量 ---
         let isExtensionActive = true;
         let uniqueTitles = new Set();
+        // 存储替换任务：{ start, end, variableName }
         let replacementTasks = [];
-        let currentValuesMap = {};
+        // 存储当前值：{ variableName: value }
+        let currentValuesMap = {}; 
         
-        // 防抖计时器
-        let debounceTimer; // 用于解析 CSS 的防抖
-        let syncTextareaTimer; // [找回] 用于写回文本框的防抖
-        let isSyncing = false; // [找回] 标志位，防止死循环
+        // 计时器
+        let debounceTimer; // 用于解析
+        let syncTextareaTimer; // 用于回写文本框
+        let isSyncing = false; // 锁：防止回写导致死循环
 
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
@@ -32,8 +34,8 @@
 
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
-        saveBtn.title = 'Save changes to Theme File (Disk)';
-        saveBtn.addEventListener('click', saveToDisk); // 改名为 saveToDisk
+        saveBtn.title = 'Save Theme File (Disk)';
+        saveBtn.addEventListener('click', commitToThemeFile);
 
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
@@ -54,7 +56,6 @@
 
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
-
         headerBar.appendChild(title);
         headerBar.appendChild(actionGroup);
 
@@ -115,16 +116,15 @@
             });
         });
 
+        // 搜索
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
             showAutocomplete(val);
         });
-
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
-
         document.addEventListener('click', (e) => {
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
@@ -209,8 +209,6 @@
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
-        // --- 核心功能函数 ---
-
         function cleanupOldVariables() {
             const rootStyle = document.documentElement.style;
             const varsToRemove = [];
@@ -221,19 +219,20 @@
                 }
             }
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
+            
             replacementTasks = [];
             currentValuesMap = {};
             uniqueTitles.clear();
         }
 
-        // [核心恢复] 更新变量时触发自动回写
+        // [恢复功能] 更新变量的同时，设置回写定时器
         function updateLiveCssVariable(variableName, newValue) {
             document.documentElement.style.setProperty(variableName, newValue, 'important');
             currentValuesMap[variableName] = newValue;
-            
-            // 防抖 1秒：停止操作1秒后，把新值写入文本框
+
+            // 防抖：停止操作 800ms 后回写文本框
             clearTimeout(syncTextareaTimer);
-            syncTextareaTimer = setTimeout(syncToTextarea, 1000);
+            syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
         function createFormattedSelectorLabel(rawSelector) {
@@ -244,6 +243,7 @@
                 commentText = commentMatch[1].trim();
                 cleanSelector = rawSelector.replace(commentMatch[0], '').trim();
             }
+            
             const titleText = commentText ? `${commentText} ${cleanSelector}` : cleanSelector;
             uniqueTitles.add(titleText);
 
@@ -257,18 +257,22 @@
         function formatLayoutValue(prop, val) {
             if (!val) return val;
             const trimmed = val.toString().trim();
+            // 如果是纯数字且需要单位，自动补全px
             if (!isNaN(trimmed) && trimmed !== '0' && !unitlessProperties.includes(prop.toLowerCase())) {
                 return trimmed + 'px';
             }
             return trimmed;
         }
 
-        // [核心恢复] 仅同步到 Textarea (不触发文件保存)
-        function syncToTextarea() {
-            isSyncing = true; // 标记正在同步，避免触发解析造成的面板重绘（打断操作）
-            
+        // [核心逻辑] 回写 CSS 到文本框 (Auto-Sync)
+        function writeChangesToTextarea() {
+            // 设置同步锁，防止回写触发 parseAndBuildUI 的完整重绘（导致输入框失焦）
+            isSyncing = true;
+
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
+            
+            // 必须按位置从后往前替换
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
             tasks.forEach(task => {
@@ -280,33 +284,37 @@
                 }
             });
 
-            // 只有内容真的变了才写
-            if (customCssTextarea.value !== newCss) {
+            // 只有当内容真正改变时才写入
+            if (originalCss !== newCss) {
                 const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
                 nativeInputValueSetter.call(customCssTextarea, newCss);
                 
-                const event = new Event('input', { bubbles: true });
-                customCssTextarea.dispatchEvent(event);
+                const inputEvent = new Event('input', { bubbles: true });
+                customCssTextarea.dispatchEvent(inputEvent);
                 
                 if (window.$) $(customCssTextarea).trigger('input');
+                
+                // 写入后，原始字符串变了，replacementTasks 的索引也就失效了。
+                // 我们必须在 isSyncing = false 之后让它重新解析一次，更新索引。
+                // 这里的逻辑在 debouncedParse 里处理。
             } else {
-                isSyncing = false; // 内容没变，取消锁定
+                isSyncing = false;
             }
         }
 
-        // [核心恢复] 保存到磁盘 (先同步，再点按钮)
-        function saveToDisk() {
-            // 立即执行同步，不等待防抖
-            clearTimeout(syncTextareaTimer);
-            syncToTextarea();
+        // [核心逻辑] 提交到文件 (Commit)
+        function commitToThemeFile() {
+            // 确保最新的修改已经写入文本框
+            writeChangesToTextarea();
 
+            // 触发 SillyTavern 保存
             setTimeout(() => {
                 const stUpdateBtn = document.getElementById('ui-preset-update-button');
                 if (stUpdateBtn) {
                     stUpdateBtn.click();
                     if (window.toastr) window.toastr.success('Theme file updated!');
                 } else {
-                    alert('Updated CSS box. Please save theme manually.');
+                    alert('CSS Updated. Please save theme manually.');
                 }
             }, 100);
         }
@@ -314,15 +322,17 @@
         function parseAndBuildUI() {
             if (!isExtensionActive) return;
 
-            // [核心恢复] 如果是 Sync 触发的 Input 事件，且面板存在，则不重绘 UI
-            // 这样可以防止回写文本框时，导致颜色选择器失去焦点或滑块跳动
+            // 如果是扩展自己回写触发的 input 事件，我们跳过 UI 重建以防闪烁
+            // 但是！我们需要更新索引。这是一个两难。
+            // 幸运的是，parseAndBuildUI 速度很快 (DocumentFragment)，
+            // 而且 writeChangesToTextarea 是在用户“停手”后触发的。
+            // 所以即使重绘，用户也不会感觉到拖拽被打断。
+            // 唯一的问题是焦点丢失。
+            // 这里我们选择：如果 syncing，也重绘，但因为是停手后，影响较小。
+            // 只要确保拖拽过程中的 updateLiveCssVariable 不触发重绘即可。
             if (isSyncing) {
                 isSyncing = false;
-                // 注意：此时 replacementTasks 里的索引其实已经因为文本长度变化而失效了
-                // 但只要用户还在操作同一个控件，不重新 parse 也能继续更新变量。
-                // 等用户停手（debounce结束），或者下次手动改文本框时，会重新 parse 并修正索引。
-                // 这是一个为了流畅体验的权衡。
-                return; 
+                // 继续执行，以更新索引
             }
 
             const scrollTop = editorContainer.scrollTop;
@@ -354,17 +364,21 @@
                 let colorUIBlocks = [];
                 let layoutUIBlocks = [];
 
+                // 修正正则，防止吞字：非 ; 非 }
                 const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;\}]+)/g;
                 let declMatch;
 
                 while ((declMatch = declarationRegex.exec(declarationsText)) !== null) {
                     const fullMatch = declMatch[0];
                     const property = declMatch[1].trim();
-                    const originalValue = declMatch[2]; 
+                    const originalValue = declMatch[2]; // 这是正则捕获的值部分
                     const lowerProp = property.toLowerCase();
 
+                    // 精确定位
                     const colonIndex = fullMatch.indexOf(':');
-                    const valueRelativeStart = fullMatch.indexOf(originalValue, colonIndex + 1);
+                    // originalValue 在 fullMatch 中的起始位置
+                    const valueRelativeStart = fullMatch.indexOf(originalValue, colonIndex); 
+                    
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
@@ -387,6 +401,7 @@
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
 
+                                // Task: 记录原始位置，用于保存到文本框
                                 replacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
                                     end: valueAbsoluteStart + colorMatch.index + colorStr.length,
@@ -437,6 +452,7 @@
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
 
+                            // 任务：替换整个值区间
                             replacementTasks.push({
                                 start: valueAbsoluteStart, 
                                 end: valueAbsoluteEnd,
@@ -477,7 +493,7 @@
                             layoutUIBlocks.push(propertyBlock);
                         }
                     }
-                }
+                } // end declarations
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
@@ -545,6 +561,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v20 - Sync Restored) loaded successfully.");
+        console.log("Theme Editor extension (v20 - Sync & Stability) loaded successfully.");
     });
 })();
