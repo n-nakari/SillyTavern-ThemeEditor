@@ -158,6 +158,21 @@
     color: #fff !important;
 }
 
+/* Webkit浏览器 (Chrome/Edge) 原生清除按钮样式 */
+#theme-editor-container .theme-editor-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    cursor: pointer;
+    /* 默认状态：稍微调亮一点，确保在深色背景可见 */
+    filter: invert(0.5);
+    transition: filter 0.2s;
+}
+
+/* 聚焦或悬停时：完全变白 */
+#theme-editor-container .theme-editor-search-input:focus::-webkit-search-cancel-button,
+#theme-editor-container .theme-editor-search-input:hover::-webkit-search-cancel-button {
+    filter: invert(1); /* 反转颜色，通常黑色图标会变成白色 */
+}
+
 /* 自动补全列表 */
 .theme-editor-autocomplete-list {
     position: absolute;
