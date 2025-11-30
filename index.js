@@ -10,7 +10,11 @@
 
         // --- 状态变量 ---
         let isExtensionActive = true;
-        let uniqueTitles = new Set();
+        
+        // [修改] 分离颜色和布局的标题库，实现隔离搜索
+        let colorTitles = new Set();
+        let layoutTitles = new Set();
+        
         let replacementTasks = [];
         let currentValuesMap = {}; 
         
@@ -24,7 +28,7 @@
 
         // --- UI 初始化 ---
         
-        // 顶部工具栏容器 (兼具 Tabs 功能)
+        // 顶部工具栏容器
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
@@ -107,42 +111,61 @@
         panelLayout.className = 'theme-editor-content-panel';
         editorContainer.appendChild(panelLayout);
 
+        // Tab 切换逻辑
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
                 [panelColors, panelLayout].forEach(p => p.classList.remove('active'));
+                
                 tab.classList.add('active');
                 document.getElementById(tab.dataset.target).classList.add('active');
+                
+                // [修复] 切换 Tab 时立即刷新搜索结果，确保只显示当前面板的内容
+                const currentSearch = searchInput.value;
+                if (currentSearch) {
+                    filterPanels(currentSearch.toLowerCase());
+                    showAutocomplete(currentSearch); // 刷新下拉框建议
+                } else {
+                     autocompleteList.style.display = 'none';
+                }
             });
         });
 
-        // --- 搜索逻辑修复 ---
-        // 输入时触发
+        // --- 搜索逻辑 ---
+
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value;
             filterPanels(val.toLowerCase());
             showAutocomplete(val);
         });
 
-        // 聚焦时触发 (如果已经有文字)
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
 
-        // [修复] 点击时也触发 (解决聚焦状态下点击不显示的问题)
+        // [修复] 增加 stopPropagation，防止 document 点击事件立即关闭下拉框
         searchInput.addEventListener('click', (e) => {
-            if (e.target.value) showAutocomplete(e.target.value);
+            e.stopPropagation();
+            if (e.target.value) {
+                // 强制刷新一次建议列表，确保点击时总是弹出
+                showAutocomplete(e.target.value);
+            }
         });
 
         // 点击外部隐藏
         document.addEventListener('click', (e) => {
+            // 如果点击的不是搜索框区域，则关闭
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
             }
         });
 
+        // [修改] 过滤面板：只过滤当前激活的面板
         function filterPanels(text) {
-            const groups = document.querySelectorAll('.theme-group');
+            const activePanel = document.querySelector('.theme-editor-content-panel.active');
+            if (!activePanel) return;
+
+            const groups = activePanel.querySelectorAll('.theme-group');
             groups.forEach(group => {
                 const filterText = group.dataset.filterText || '';
                 if (filterText.includes(text)) {
@@ -153,14 +176,20 @@
             });
         }
 
+        // [修改] 显示自动补全：根据当前 Tab 选择对应的数据源
         function showAutocomplete(text) {
             autocompleteList.innerHTML = '';
             if (!text) {
                 autocompleteList.style.display = 'none';
                 return;
             }
-            // 过滤匹配项
-            const matches = Array.from(uniqueTitles).filter(t => t.toLowerCase().includes(text.toLowerCase()));
+            
+            // 判断当前激活的是哪个 Tab
+            const isColorTab = tabColors.classList.contains('active');
+            // 根据 Tab 选择对应的标题集合
+            const sourceSet = isColorTab ? colorTitles : layoutTitles;
+
+            const matches = Array.from(sourceSet).filter(t => t.toLowerCase().includes(text.toLowerCase()));
             
             if (matches.length === 0) {
                 autocompleteList.style.display = 'none';
@@ -170,11 +199,11 @@
             matches.slice(0, 10).forEach(match => {
                 const item = document.createElement('div');
                 item.className = 'theme-editor-autocomplete-item';
-                // 高亮匹配文字
                 const regex = new RegExp(`(${text})`, 'gi');
                 item.innerHTML = match.replace(regex, '<span class="match">$1</span>');
                 
-                item.addEventListener('click', () => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 防止点击项时冒泡关闭
                     searchInput.value = match;
                     filterPanels(match.toLowerCase());
                     autocompleteList.style.display = 'none';
@@ -227,7 +256,8 @@
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
-        function createFormattedSelectorLabel(rawSelector) {
+        // [修改] 辅助函数现在返回对象 {html, text}，方便分别存入 Set
+        function createFormattedSelectorLabelInfo(rawSelector) {
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             let commentText = "";
             const commentRegex = /\/\*([\s\S]*?)\*\//g;
@@ -248,13 +278,15 @@
             
             cleanSelector = cleanSelector.replace(/\s+/g, ' ');
             const titleText = commentText ? `${commentText}/${cleanSelector}` : cleanSelector;
-            uniqueTitles.add(titleText);
-
+            
+            // 返回纯文本和HTML
+            let html = "";
             if (commentText) {
-                return `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
+                html = `<div class="label-line-1"><span class="label-highlight">${commentText}</span>/${cleanSelector}</div>`;
             } else {
-                return `<div class="label-line-1">${cleanSelector}</div>`;
+                html = `<div class="label-line-1">${cleanSelector}</div>`;
             }
+            return { html: html, text: titleText };
         }
 
         function formatLayoutValue(prop, val) {
@@ -331,7 +363,10 @@
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
 
             replacementTasks = []; 
-            uniqueTitles.clear();
+            // [修改] 重置分类标题集合
+            colorTitles.clear();
+            layoutTitles.clear();
+
             const activeVariables = new Set(); 
 
             const cssText = customCssTextarea.value;
@@ -385,6 +420,10 @@
                         if (foundColors.length > 0) {
                             currentStructureSignature += `C:${property}:${foundColors.length}|`;
                             
+                            // [修改] 添加到颜色标题库
+                            const labelInfo = createFormattedSelectorLabelInfo(rawSelector);
+                            colorTitles.add(labelInfo.text);
+
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
                             const propLabel = document.createElement('div');
@@ -451,7 +490,7 @@
                             });
                             processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
                             
-                            if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector});
+                            if (allowDomRebuild) colorUIBlocks.push({block: propertyBlock, rawSelector: rawSelector, labelHtml: labelInfo.html, labelText: labelInfo.text});
                         }
                     }
 
@@ -462,6 +501,10 @@
                         if (values.length > 0) {
                             currentStructureSignature += `L:${property}:${values.length}|`;
                             
+                            // [修改] 添加到布局标题库
+                            const labelInfo = createFormattedSelectorLabelInfo(rawSelector);
+                            layoutTitles.add(labelInfo.text);
+
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
                             activeVariables.add(variableName);
@@ -518,7 +561,7 @@
                                 });
 
                                 propertyBlock.appendChild(inputsContainer);
-                                layoutUIBlocks.push({block: propertyBlock, rawSelector: rawSelector});
+                                layoutUIBlocks.push({block: propertyBlock, rawSelector: rawSelector, labelHtml: labelInfo.html, labelText: labelInfo.text});
                             }
                         }
                     }
@@ -546,15 +589,13 @@
                             if (item.rawSelector !== lastSelector || !currentGroup) {
                                 currentGroup = document.createElement('div');
                                 currentGroup.className = 'theme-group';
-                                
-                                const titleHtml = createFormattedSelectorLabel(item.rawSelector);
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = titleHtml;
-                                currentGroup.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
+                                // [修改] 使用 labelText 进行搜索过滤
+                                currentGroup.dataset.filterText = item.labelText.toLowerCase().trim();
 
                                 const mainLabel = document.createElement('div');
                                 mainLabel.className = 'theme-editor-main-label';
-                                mainLabel.innerHTML = titleHtml;
+                                // [修改] 直接使用 labelHtml
+                                mainLabel.innerHTML = item.labelHtml;
                                 currentGroup.appendChild(mainLabel);
                                 
                                 fragment.appendChild(currentGroup);
@@ -631,6 +672,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v26 - Dropdown Fix) loaded successfully.");
+        console.log("Theme Editor extension (v27 - Scoped Search) loaded successfully.");
     });
 })();
