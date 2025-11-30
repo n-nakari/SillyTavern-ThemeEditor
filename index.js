@@ -10,8 +10,13 @@
 
         // --- 状态变量 ---
         let isExtensionActive = true;
-        let uniqueTitles = new Set(); // 用于自动补全
-
+        let uniqueTitles = new Set();
+        let replacementTasks = [];
+        let currentValuesMap = {};
+        
+        // 防抖计时器
+        let debounceTimer;
+        
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
@@ -20,17 +25,15 @@
         title.textContent = 'Live Theme Editor';
         title.className = 'theme-editor-title';
 
-        // 头部按钮组
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
 
-        // 保存按钮
         const saveBtn = document.createElement('div');
         saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
         saveBtn.title = 'Save changes to Theme File';
         saveBtn.addEventListener('click', saveCurrentTheme);
 
-        // [功能 3] 开关按钮
+        // [优化] 开关逻辑：使用 classList 操作，更安全
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
         toggleBtn.title = 'Enable/Disable Theme Editor';
@@ -39,16 +42,13 @@
             if (isExtensionActive) {
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
-                editorContainer.style.display = 'flex';
-                // 重新启用我们的样式
-                if (document.getElementById('theme-editor-live-styles')) 
-                    document.getElementById('theme-editor-live-styles').disabled = false;
+                editorContainer.classList.remove('theme-editor-hidden');
+                // 重新触发解析以确保数据最新
+                debouncedParse();
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
-                editorContainer.style.display = 'none';
-                // 禁用我们的样式，恢复原生？或者保持样式只隐藏面板？
-                // 通常只隐藏面板即可，保留样式效果
+                editorContainer.classList.add('theme-editor-hidden');
             }
         });
 
@@ -58,14 +58,12 @@
         headerBar.appendChild(title);
         headerBar.appendChild(actionGroup);
 
-        // 主容器
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
 
         customCssBlock.parentNode.insertBefore(headerBar, customCssBlock.nextSibling);
         headerBar.parentNode.insertBefore(editorContainer, headerBar.nextSibling);
 
-        // Tabs 容器
         const tabsContainer = document.createElement('div');
         tabsContainer.className = 'theme-editor-tabs';
         
@@ -79,14 +77,13 @@
         tabLayout.textContent = 'Layout';
         tabLayout.dataset.target = 'panel-layout';
 
-        // [功能 2] 搜索框区域
         const searchWrapper = document.createElement('div');
         searchWrapper.className = 'theme-editor-search-wrapper';
 
         const searchInput = document.createElement('input');
         searchInput.type = 'search';
         searchInput.className = 'theme-editor-search-input';
-        searchInput.placeholder = 'Search selectors...';
+        searchInput.placeholder = 'Search...';
         
         const autocompleteList = document.createElement('div');
         autocompleteList.className = 'theme-editor-autocomplete-list';
@@ -96,10 +93,9 @@
 
         tabsContainer.appendChild(tabColors);
         tabsContainer.appendChild(tabLayout);
-        tabsContainer.appendChild(searchWrapper); // 放在右侧
+        tabsContainer.appendChild(searchWrapper);
         editorContainer.appendChild(tabsContainer);
 
-        // 面板内容
         const panelColors = document.createElement('div');
         panelColors.id = 'panel-colors';
         panelColors.className = 'theme-editor-content-panel active';
@@ -110,7 +106,6 @@
         panelLayout.className = 'theme-editor-content-panel';
         editorContainer.appendChild(panelLayout);
 
-        // 事件监听
         [tabColors, tabLayout].forEach(tab => {
             tab.addEventListener('click', () => {
                 [tabColors, tabLayout].forEach(t => t.classList.remove('active'));
@@ -120,19 +115,17 @@
             });
         });
 
-        // 搜索逻辑
+        // 搜索功能
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
             showAutocomplete(val);
         });
 
-        // 聚焦时也显示补全
         searchInput.addEventListener('focus', (e) => {
             if (e.target.value) showAutocomplete(e.target.value);
         });
 
-        // 点击外部关闭补全
         document.addEventListener('click', (e) => {
             if (!searchWrapper.contains(e.target)) {
                 autocompleteList.style.display = 'none';
@@ -157,23 +150,18 @@
                 autocompleteList.style.display = 'none';
                 return;
             }
-
             const matches = Array.from(uniqueTitles).filter(t => t.toLowerCase().includes(text));
-            
             if (matches.length === 0) {
                 autocompleteList.style.display = 'none';
                 return;
             }
-
             matches.slice(0, 10).forEach(match => {
                 const item = document.createElement('div');
                 item.className = 'theme-editor-autocomplete-item';
-                // 高亮匹配部分
                 const regex = new RegExp(`(${text})`, 'gi');
                 item.innerHTML = match.replace(regex, '<span class="match">$1</span>');
-                
                 item.addEventListener('click', () => {
-                    searchInput.value = match; // 这里填充原始文本（不带HTML）
+                    searchInput.value = match;
                     filterPanels(match.toLowerCase());
                     autocompleteList.style.display = 'none';
                 });
@@ -182,7 +170,6 @@
             autocompleteList.style.display = 'block';
         }
 
-        // Live Style Tag
         let liveStyleTag = document.getElementById('theme-editor-live-styles');
         if (!liveStyleTag) {
             liveStyleTag = document.createElement('style');
@@ -190,7 +177,6 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        // 禁用 SillyTavern 原生样式
         let sillyTavernStyleTag = document.getElementById('custom-css');
         if (sillyTavernStyleTag) {
             sillyTavernStyleTag.disabled = true;
@@ -209,7 +195,7 @@
             observer.observe(document.head, { childList: true });
         }
 
-        // --- 数据定义 ---
+        // --- 配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -224,9 +210,6 @@
         ];
         const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
-        let replacementTasks = [];
-        let currentValuesMap = {}; 
-
         function cleanupOldVariables() {
             const rootStyle = document.documentElement.style;
             const varsToRemove = [];
@@ -239,7 +222,7 @@
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
             replacementTasks = [];
             currentValuesMap = {};
-            uniqueTitles.clear(); // 清空搜索建议
+            uniqueTitles.clear();
         }
 
         function updateLiveCssVariable(variableName, newValue) {
@@ -255,8 +238,6 @@
                 commentText = commentMatch[1].trim();
                 cleanSelector = rawSelector.replace(commentMatch[0], '').trim();
             }
-            
-            // 存入 Set 用于自动补全 (存纯文本)
             const titleText = commentText ? `${commentText} ${cleanSelector}` : cleanSelector;
             uniqueTitles.add(titleText);
 
@@ -292,10 +273,8 @@
 
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
             nativeInputValueSetter.call(customCssTextarea, newCss);
-            
             const inputEvent = new Event('input', { bubbles: true });
             customCssTextarea.dispatchEvent(inputEvent);
-            
             if (window.$) $(customCssTextarea).trigger('input');
 
             setTimeout(() => {
@@ -310,10 +289,17 @@
         }
 
         function parseAndBuildUI() {
-            if (!isExtensionActive) return; // 如果关闭就不解析
+            if (!isExtensionActive) return;
+
+            // [优化] 记录并恢复滚动位置
+            const scrollTop = editorContainer.scrollTop;
 
             cleanupOldVariables();
             if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
+            
+            // [优化] 使用 DocumentFragment 批量插入
+            const colorFragment = document.createDocumentFragment();
+            const layoutFragment = document.createDocumentFragment();
             
             panelColors.innerHTML = '';
             panelLayout.innerHTML = '';
@@ -463,13 +449,11 @@
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-                // [修改]：创建 theme-group 容器，包裹标题和内容块
+                // [优化] 使用 Fragment 插入 Group
                 if (colorUIBlocks.length > 0) {
                     const group = document.createElement('div');
                     group.className = 'theme-group';
-                    // 存储用于搜索的纯文本 (小写)
                     const titleHtml = createFormattedSelectorLabel(rawSelector);
-                    // 提取纯文本用于搜索
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = titleHtml;
                     group.dataset.filterText = tempDiv.textContent.toLowerCase().trim();
@@ -480,7 +464,7 @@
                     
                     group.appendChild(mainLabel);
                     colorUIBlocks.forEach(block => group.appendChild(block));
-                    panelColors.appendChild(group);
+                    colorFragment.appendChild(group);
                 }
 
                 if (layoutUIBlocks.length > 0) {
@@ -497,18 +481,22 @@
 
                     group.appendChild(mainLabel);
                     layoutUIBlocks.forEach(block => group.appendChild(block));
-                    panelLayout.appendChild(group);
+                    layoutFragment.appendChild(group);
                 }
             }
             
             liveStyleTag.textContent = finalCssRules;
             
-            // 恢复搜索状态
+            // 一次性插入 DOM
+            panelColors.appendChild(colorFragment);
+            panelLayout.appendChild(layoutFragment);
+
+            // 恢复状态
             const currentSearch = document.querySelector('.theme-editor-search-input')?.value.toLowerCase();
             if (currentSearch) filterPanels(currentSearch);
+            editorContainer.scrollTop = scrollTop;
         }
 
-        let debounceTimer;
         function debouncedParse() {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(parseAndBuildUI, 500);
@@ -528,6 +516,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v18 - Search & Sticky) loaded successfully.");
+        console.log("Theme Editor extension (v19 - Performance & Layout Fixed) loaded successfully.");
     });
 })();
