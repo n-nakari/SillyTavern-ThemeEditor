@@ -13,48 +13,128 @@
         let uniqueTitles = new Set();
         let replacementTasks = [];
         let currentValuesMap = {}; 
-        
-        // 结构签名
         let lastStructureSignature = "";
         
-        // 计时器
         let debounceTimer; 
         let syncTextareaTimer;
         let isAutoSyncing = false; 
 
+        // --- [核心功能] 样式强制隔离函数 ---
+        // 使用 JS 直接写入 style 属性并加 !important，这是唯一能战胜外部 CSS !important 的方法
+        function forceStyles(element, styles) {
+            for (const [prop, value] of Object.entries(styles)) {
+                element.style.setProperty(prop, value, 'important');
+            }
+        }
+
         // --- UI 初始化 ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
+        // JS 强制样式：顶部栏
+        forceStyles(headerBar, {
+            'display': 'flex',
+            'align-items': 'center',
+            'justify-content': 'space-between',
+            'padding': '8px 12px',
+            'background-color': 'rgba(32, 32, 32, 0.95)',
+            'border': '1px solid rgba(255, 255, 255, 0.08)',
+            'border-bottom': '1px solid rgba(255, 255, 255, 0.05)',
+            'border-radius': '8px 8px 0 0',
+            'margin-top': '10px',
+            'margin-bottom': '0',
+            'box-shadow': 'none',
+            'box-sizing': 'border-box'
+        });
 
         const title = document.createElement('h4');
         title.textContent = 'Live Theme Editor';
         title.className = 'theme-editor-title';
+        // JS 强制样式：标题 (彻底重置，防止继承主题的字体或颜色)
+        forceStyles(title, {
+            'all': 'unset',
+            'display': 'block',
+            'margin': '0',
+            'padding': '0',
+            'font-family': 'sans-serif',
+            'font-weight': '600',
+            'font-size': '1.1em',
+            'color': '#fff',
+            'opacity': '0.95',
+            'letter-spacing': '0.5px',
+            'line-height': '1.5',
+            'text-shadow': 'none'
+        });
 
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
+        forceStyles(actionGroup, {
+            'display': 'flex',
+            'gap': '8px',
+            'align-items': 'center'
+        });
 
-        const saveBtn = document.createElement('div');
-        saveBtn.className = 'theme-editor-icon-btn fa-solid fa-floppy-disk';
-        saveBtn.title = 'Save changes to Theme File (Disk)';
-        saveBtn.addEventListener('click', commitToThemeFile);
+        // 按钮通用样式生成器
+        function createIconBtn(iconClass, titleText, onClick) {
+            const btn = document.createElement('div');
+            btn.className = `theme-editor-icon-btn ${iconClass}`;
+            btn.title = titleText;
+            
+            // 基础强制样式
+            const baseBtnStyles = {
+                'all': 'unset',
+                'cursor': 'pointer',
+                'color': '#888',
+                'font-size': '1.1em',
+                'padding': '4px',
+                'border-radius': '4px',
+                'display': 'flex',
+                'align-items': 'center',
+                'justify-content': 'center',
+                'background': 'transparent',
+                'border': '1px solid transparent',
+                'box-shadow': 'none',
+                'transition': 'all 0.2s ease',
+                'width': 'auto',
+                'height': 'auto'
+            };
+            forceStyles(btn, baseBtnStyles);
 
-        const toggleBtn = document.createElement('div');
-        toggleBtn.className = 'theme-editor-icon-btn fa-solid fa-toggle-on active';
-        toggleBtn.title = 'Enable/Disable Theme Editor';
-        toggleBtn.addEventListener('click', () => {
+            // 手动处理 Hover/Active 状态，防止 CSS :hover 被主题覆盖
+            btn.addEventListener('mouseenter', () => {
+                if (!btn.classList.contains('active')) {
+                    forceStyles(btn, { 'color': '#fff', 'background-color': 'rgba(255, 255, 255, 0.1)' });
+                }
+            });
+            btn.addEventListener('mouseleave', () => {
+                if (!btn.classList.contains('active')) {
+                    forceStyles(btn, { 'color': '#888', 'background-color': 'transparent' });
+                }
+            });
+
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        const saveBtn = createIconBtn('fa-solid fa-floppy-disk', 'Save changes to Theme File', commitToThemeFile);
+
+        const toggleBtn = createIconBtn('fa-solid fa-toggle-on active', 'Enable/Disable Theme Editor', () => {
             isExtensionActive = !isExtensionActive;
             if (isExtensionActive) {
                 toggleBtn.classList.remove('fa-toggle-off');
                 toggleBtn.classList.add('fa-toggle-on', 'active');
+                forceStyles(toggleBtn, { 'color': '#9cdcfe' }); // 激活色
                 editorContainer.classList.remove('theme-editor-hidden');
                 lastStructureSignature = ""; 
                 debouncedParse(true); 
             } else {
                 toggleBtn.classList.remove('fa-toggle-on', 'active');
                 toggleBtn.classList.add('fa-toggle-off');
+                forceStyles(toggleBtn, { 'color': '#888' }); // 恢复普通色
                 editorContainer.classList.add('theme-editor-hidden');
             }
         });
+        // 初始化激活状态颜色
+        forceStyles(toggleBtn, { 'color': '#9cdcfe' });
 
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
@@ -88,6 +168,49 @@
         searchInput.className = 'theme-editor-search-input';
         searchInput.placeholder = 'Search...';
         
+        // JS 强制样式：搜索输入框
+        // 即使主题设置了 input { width: 100% !important } 这里的 JS 也会覆盖它
+        const inputBaseStyles = {
+            'all': 'unset',
+            'box-sizing': 'border-box',
+            'display': 'block',
+            'background-color': 'rgba(0, 0, 0, 0.2)',
+            'border': '1px solid rgba(255, 255, 255, 0.1)',
+            'color': '#ddd',
+            'padding': '4px 10px',
+            'border-radius': '4px',
+            'font-size': '0.9em',
+            'font-family': 'sans-serif',
+            'width': '120px',
+            'height': '28px',
+            'line-height': 'normal',
+            'transition': 'all 0.3s ease',
+            'margin': '0',
+            'box-shadow': 'none'
+        };
+        forceStyles(searchInput, inputBaseStyles);
+
+        // JS 处理 Focus 状态 (模拟 CSS :focus)
+        searchInput.addEventListener('focus', () => {
+            forceStyles(searchInput, {
+                'width': '180px',
+                'background-color': 'rgba(0, 0, 0, 0.3)',
+                'border-color': 'rgba(255, 255, 255, 0.3)',
+                'color': '#fff'
+            });
+            if (searchInput.value) showAutocomplete(searchInput.value);
+        });
+        searchInput.addEventListener('blur', () => {
+            forceStyles(searchInput, {
+                'width': '120px',
+                'background-color': 'rgba(0, 0, 0, 0.2)',
+                'border-color': 'rgba(255, 255, 255, 0.1)',
+                'color': '#ddd'
+            });
+            // 延迟隐藏以便点击选项
+            setTimeout(() => { autocompleteList.style.display = 'none'; }, 200);
+        });
+        
         const autocompleteList = document.createElement('div');
         autocompleteList.className = 'theme-editor-autocomplete-list';
 
@@ -118,19 +241,11 @@
             });
         });
 
-        // 搜索
+        // 搜索逻辑
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
             showAutocomplete(val);
-        });
-        searchInput.addEventListener('focus', (e) => {
-            if (e.target.value) showAutocomplete(e.target.value);
-        });
-        document.addEventListener('click', (e) => {
-            if (!searchWrapper.contains(e.target)) {
-                autocompleteList.style.display = 'none';
-            }
         });
 
         function filterPanels(text) {
@@ -186,7 +301,6 @@
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
 
-        // [优化] 只保留位置和尺寸相关的属性
         const layoutProperties = [
             'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
             'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
@@ -208,7 +322,6 @@
             varsToRemove.forEach(v => rootStyle.removeProperty(v));
         }
 
-        // 单个更新时使用 JS 属性（用于滑块拖动）
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
@@ -217,27 +330,21 @@
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
 
-        // [优化] 标题逻辑：只获取离选择器最近的上一行注释
         function createFormattedSelectorLabel(rawSelector) {
-            // 1. 去除前面残留的 } 或空白
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             let commentText = "";
 
-            // 2. 查找所有的注释块
             const commentRegex = /\/\*([\s\S]*?)\*\//g;
             const matches = [...cleanSelector.matchAll(commentRegex)];
             
             if (matches.length > 0) {
-                // 取最后一个注释匹配
                 const lastMatch = matches[matches.length - 1];
                 const lastCommentContent = lastMatch[1].trim();
                 const endIndex = lastMatch.index + lastMatch[0].length;
                 
-                // 检查注释和后续文本之间是否只有空白（确保它是紧邻的标题）
                 const textBetween = cleanSelector.substring(endIndex);
-                if (!textBetween.includes('/*')) { // 理论上正则已保证，但双重确认
+                if (!textBetween.includes('/*')) { 
                     commentText = lastCommentContent;
-                    // 移除所有注释，只保留选择器文本
                     cleanSelector = cleanSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
                 }
             } else {
@@ -336,7 +443,6 @@
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
-            // [重要] 创建 CSS 变量批量注入块，避免逐个 JS 设置导致的黑屏
             let cssVariablesBlock = ':root {';
             
             let currentStructureSignature = "";
@@ -358,7 +464,6 @@
                 
                 let processedDeclarations = declarationsText;
                 
-                // 签名记录
                 currentStructureSignature += selector.length + "|";
 
                 let declMatch;
@@ -416,7 +521,6 @@
                                      currentValuesMap[variableName] = initialColor;
                                 }
 
-                                // [核心优化] 将变量写入 CSS 字符串，而不是调用 JS API
                                 cssVariablesBlock += `${variableName}: ${initialColor};`;
 
                                 colorReplacements.push({
@@ -482,7 +586,6 @@
                                 currentValuesMap[variableName] = initValue;
                             }
                             
-                            // [核心优化] 写入 CSS 字符串
                             cssVariablesBlock += `${variableName}: ${initValue};`;
                             
                             processedDeclarations = processedDeclarations.replace(originalValue, `var(${variableName})`);
@@ -531,10 +634,8 @@
 
             } // end rules loop
             
-            cssVariablesBlock += '}'; // 结束 :root 块
+            cssVariablesBlock += '}'; 
 
-            // [核心] 一次性写入 变量定义 + 样式规则
-            // 这保证了在规则生效的同一帧，变量已经定义好了，不会出现黑色
             liveStyleTag.textContent = cssVariablesBlock + '\n' + finalCssRules;
             
             cleanupUnusedVariables(activeVariables);
@@ -585,7 +686,6 @@
                     lastStructureSignature = currentStructureSignature;
 
                 } else if (!isAutoSyncing) {
-                    // 原位更新 UI 数值
                     const allPickers = document.querySelectorAll('toolcool-color-picker');
                     for (let picker of allPickers) {
                         const vName = picker.dataset.varName;
@@ -637,6 +737,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v24 - Instant Batching) loaded successfully.");
+        console.log("Theme Editor extension (v25 - JS Isolation) loaded successfully.");
     });
 })();
