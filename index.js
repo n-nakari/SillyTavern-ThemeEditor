@@ -24,7 +24,38 @@
 
         // --- UI 初始化 ---
         
-        // [修改] 删除原标题栏，只创建按钮组
+        // [修改] 不再创建独立的 HeaderBar 和 Title
+        // 直接创建顶部工具栏容器 (兼具 Tabs 功能)
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'theme-editor-tabs';
+        
+        // Tabs
+        const tabColors = document.createElement('div');
+        tabColors.className = 'theme-editor-tab active';
+        tabColors.textContent = 'Colors';
+        tabColors.dataset.target = 'panel-colors';
+
+        const tabLayout = document.createElement('div');
+        tabLayout.className = 'theme-editor-tab';
+        tabLayout.textContent = 'Layout';
+        tabLayout.dataset.target = 'panel-layout';
+
+        // 搜索框区域
+        const searchWrapper = document.createElement('div');
+        searchWrapper.className = 'theme-editor-search-wrapper';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'search';
+        searchInput.className = 'theme-editor-search-input';
+        searchInput.placeholder = 'Search...';
+        
+        const autocompleteList = document.createElement('div');
+        autocompleteList.className = 'theme-editor-autocomplete-list';
+
+        searchWrapper.appendChild(searchInput);
+        searchWrapper.appendChild(autocompleteList);
+
+        // [修改] 按钮组现在移到这里
         const actionGroup = document.createElement('div');
         actionGroup.className = 'theme-editor-header-actions';
 
@@ -54,46 +85,18 @@
         actionGroup.appendChild(saveBtn);
         actionGroup.appendChild(toggleBtn);
 
-        // 主容器
+        // 组装顶部栏：Tabs -> Spacer(CSS控制) -> Search -> Buttons
+        tabsContainer.appendChild(tabColors);
+        tabsContainer.appendChild(tabLayout);
+        tabsContainer.appendChild(searchWrapper);
+        tabsContainer.appendChild(actionGroup);
+
         const editorContainer = document.createElement('div');
         editorContainer.id = 'theme-editor-container';
 
-        // [修改] 直接插入容器，不再依赖 headerBar
-        customCssBlock.parentNode.insertBefore(editorContainer, customCssBlock.nextSibling);
-
-        const tabsContainer = document.createElement('div');
-        tabsContainer.className = 'theme-editor-tabs';
-        
-        const tabColors = document.createElement('div');
-        tabColors.className = 'theme-editor-tab active';
-        tabColors.textContent = 'Colors';
-        tabColors.dataset.target = 'panel-colors';
-
-        const tabLayout = document.createElement('div');
-        tabLayout.className = 'theme-editor-tab';
-        tabLayout.textContent = 'Layout';
-        tabLayout.dataset.target = 'panel-layout';
-
-        const searchWrapper = document.createElement('div');
-        searchWrapper.className = 'theme-editor-search-wrapper';
-
-        const searchInput = document.createElement('input');
-        searchInput.type = 'search';
-        searchInput.className = 'theme-editor-search-input';
-        searchInput.placeholder = 'Search...';
-        
-        const autocompleteList = document.createElement('div');
-        autocompleteList.className = 'theme-editor-autocomplete-list';
-
-        searchWrapper.appendChild(searchInput);
-        searchWrapper.appendChild(autocompleteList);
-
-        tabsContainer.appendChild(tabColors);
-        tabsContainer.appendChild(tabLayout);
-        tabsContainer.appendChild(searchWrapper); // 搜索框
-        tabsContainer.appendChild(actionGroup);   // [修改] 按钮组现在放在 Tabs 栏的最右侧
-        
-        editorContainer.appendChild(tabsContainer);
+        // 插入到页面
+        customCssBlock.parentNode.insertBefore(tabsContainer, customCssBlock.nextSibling);
+        tabsContainer.parentNode.insertBefore(editorContainer, tabsContainer.nextSibling);
 
         const panelColors = document.createElement('div');
         panelColors.id = 'panel-colors';
@@ -114,7 +117,7 @@
             });
         });
 
-        // 搜索
+        // 搜索逻辑
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             filterPanels(val);
@@ -206,7 +209,6 @@
         function updateLiveCssVariable(variableName, newValue) {
             currentValuesMap[variableName] = newValue;
             document.documentElement.style.setProperty(variableName, newValue, 'important');
-
             clearTimeout(syncTextareaTimer);
             syncTextareaTimer = setTimeout(writeChangesToTextarea, 800);
         }
@@ -214,7 +216,6 @@
         function createFormattedSelectorLabel(rawSelector) {
             let cleanSelector = rawSelector.replace(/^[}\s]+/, '').trim();
             let commentText = "";
-
             const commentRegex = /\/\*([\s\S]*?)\*\//g;
             const matches = [...cleanSelector.matchAll(commentRegex)];
             
@@ -222,7 +223,6 @@
                 const lastMatch = matches[matches.length - 1];
                 const lastCommentContent = lastMatch[1].trim();
                 const endIndex = lastMatch.index + lastMatch[0].length;
-                
                 const textBetween = cleanSelector.substring(endIndex);
                 if (!textBetween.includes('/*')) { 
                     commentText = lastCommentContent;
@@ -311,7 +311,6 @@
             }, 100);
         }
 
-        // --- 核心解析与UI构建 ---
         function parseAndBuildUI(allowDomRebuild = true) {
             if (!isExtensionActive) return;
             
@@ -366,7 +365,6 @@
                     const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
-                    // --- 颜色处理 ---
                     if (isColor) {
                         const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
@@ -421,6 +419,9 @@
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     colorPicker.dataset.varName = variableName;
+                                    // [核心修复] 添加 popup-position="fixed" 以解决被容器遮挡的问题
+                                    colorPicker.setAttribute('popup-position', 'fixed');
+                                    
                                     setTimeout(() => { colorPicker.color = initialColor; }, 0);
                                     
                                     $(colorPicker).on('change', (evt) => {
@@ -441,7 +442,6 @@
                         }
                     }
 
-                    // --- 布局处理 ---
                     else if (isLayout) {
                         const cleanValue = originalValue.replace('!important', '').trim();
                         const values = splitCSSValue(cleanValue);
@@ -509,14 +509,14 @@
                             }
                         }
                     }
-                } // end declarations
+                } 
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
-            } // end rules loop
+            } 
             
-            cssVariablesBlock += '}'; 
-            
+            cssVariablesBlock += '}';
+
             liveStyleTag.textContent = cssVariablesBlock + '\n' + finalCssRules;
             
             cleanupUnusedVariables(activeVariables);
@@ -618,6 +618,6 @@
         parseAndBuildUI(true);
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v25 - Navbar Fixed) loaded successfully.");
+        console.log("Theme Editor extension (v25 - Compact UI) loaded successfully.");
     });
 })();
