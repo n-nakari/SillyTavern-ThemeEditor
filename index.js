@@ -55,29 +55,23 @@
             document.documentElement.style.setProperty(variableName, newColor);
         }
 
-        // [新增] 辅助函数：生成美化后的标签HTML内容
-        function createFormattedLabelContent(rawSelector, property) {
+        // 格式化选择器标题：分离注释
+        function createFormattedSelectorLabel(rawSelector) {
             let commentText = "";
             let cleanSelector = rawSelector.trim();
 
-            // 尝试提取 /* ... */ 注释
-            // 匹配模式：非贪婪匹配 /* 内容 */
             const commentMatch = rawSelector.match(/\/\*([\s\S]*?)\*\//);
             
             if (commentMatch) {
-                // 提取注释内容并去除首尾空格
                 commentText = commentMatch[1].trim();
-                // 从选择器中移除注释部分
                 cleanSelector = rawSelector.replace(commentMatch[0], '').trim();
             }
 
-            // 构建第一行：如果有注释，显示 "注释 / 选择器"，否则只显示 "选择器"
-            const line1 = commentText ? `<span class="label-highlight">${commentText}</span> / ${cleanSelector}` : cleanSelector;
-            
-            // 构建第二行：--属性名
-            const line2 = `--${property}`;
-
-            return `<div class="label-line-1">${line1}</div><div class="label-line-2">${line2}</div>`;
+            if (commentText) {
+                return `<div class="label-line-1"><span class="label-highlight">${commentText}</span> / ${cleanSelector}</div>`;
+            } else {
+                return `<div class="label-line-1">${cleanSelector}</div>`;
+            }
         }
 
         function parseAndBuildUI() {
@@ -92,15 +86,21 @@
             let ruleMatch;
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
-                // 获取原始选择器字符串（包含可能的注释）
-                const rawSelectorString = ruleMatch[1]; 
-                // 为了CSS规则生成，我们需要一个干净的选择器（浏览器可能无法解析带注释的选择器作为Key）
-                // 但这里我们把带有CSS变量的内容重新拼回去，所以保持原样或者清理都可以。
-                // 简单起见，我们保留原始字符串用于替换，但清理它用于生成的CSS规则。
-                const selector = rawSelectorString.trim(); 
-                
+                const rawSelector = ruleMatch[1];
+                const selector = rawSelector.trim();
                 const declarationsText = ruleMatch[2];
                 let processedDeclarations = declarationsText;
+
+                // 检查该规则块内是否有我们关心的颜色属性
+                // 如果有，先创建一个主标题 (Main Label)
+                let hasColorProperties = false;
+                const tempCheckRegex = new RegExp(`(?:^|;)\\s*(${colorProperties.join('|')})\\s*:`, 'i');
+                if (tempCheckRegex.test(declarationsText)) {
+                     // 注意：这里只是简单预检，下面会详细解析
+                }
+
+                // 用来收集该选择器下的所有颜色UI块
+                let propertyUIBlocks = [];
 
                 const allDeclarations = declarationsText.split(';').filter(d => d.trim() !== '');
 
@@ -118,6 +118,17 @@
                         if (foundColors.length > 0) {
                             let replacementMade = false;
                             
+                            // 创建属性块容器 (.theme-editor-property-block)
+                            // 样式完全依照你的 .theme-editor-item.multi-color
+                            const propertyBlock = document.createElement('div');
+                            propertyBlock.className = 'theme-editor-property-block';
+
+                            // 添加属性名标签 (--background-color)
+                            const propLabel = document.createElement('div');
+                            propLabel.className = 'theme-editor-prop-label';
+                            propLabel.textContent = `--${property}`;
+                            propertyBlock.appendChild(propLabel);
+
                             foundColors.forEach((colorStr, index) => {
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
@@ -129,22 +140,13 @@
                                     let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                     updateLiveCssVariable(variableName, initialColor);
 
-                                    const item = document.createElement('div');
-                                    item.className = 'theme-editor-item';
-                                    if(foundColors.length > 1) item.classList.add('multi-color');
-
-                                    const label = document.createElement('div');
-                                    
+                                    // 如果是同一个属性下的多个颜色，添加子标题 (Color #1, #2...)
                                     if (foundColors.length > 1) {
-                                        label.className = 'theme-editor-sub-label';
-                                        label.textContent = `Color #${index + 1}`;
-                                    } else {
-                                        label.className = 'theme-editor-label';
-                                        // [修改] 使用 innerHTML 插入双行结构
-                                        label.innerHTML = createFormattedLabelContent(rawSelectorString, property);
+                                        const subLabel = document.createElement('div');
+                                        subLabel.className = 'theme-editor-sub-label';
+                                        subLabel.textContent = `Color #${index + 1}`;
+                                        propertyBlock.appendChild(subLabel);
                                     }
-                                    
-                                    label.title = `${selector} { ${property}: ${value} }`;
 
                                     const colorPicker = document.createElement('toolcool-color-picker');
                                     
@@ -157,28 +159,33 @@
                                         updateLiveCssVariable(variableName, newColor);
                                     });
                                     
-                                    item.appendChild(label);
-                                    item.appendChild(colorPicker);
-                                    
-                                    if (foundColors.length > 1 && index === 0) {
-                                        const mainLabel = document.createElement('div');
-                                        mainLabel.className = 'theme-editor-main-label';
-                                        // [修改] 主标题也支持双行结构
-                                        mainLabel.innerHTML = createFormattedLabelContent(rawSelectorString, property);
-                                        editorContainer.appendChild(mainLabel);
-                                    }
-                                    editorContainer.appendChild(item);
+                                    propertyBlock.appendChild(colorPicker);
                                 }
                             });
 
                             if (replacementMade) {
                                 processedDeclarations = processedDeclarations.replace(declarationString, ` ${property}: ${tempValue} `);
+                                propertyUIBlocks.push(propertyBlock);
                             }
                         }
                     }
                 });
                 
                 finalCssRules += `${selector} { ${processedDeclarations} }\n`;
+
+                // 如果该规则下确实找到了颜色属性，才将UI添加到页面
+                if (propertyUIBlocks.length > 0) {
+                    // 1. 添加大标题 (类名/注释)
+                    const mainLabel = document.createElement('div');
+                    mainLabel.className = 'theme-editor-main-label';
+                    mainLabel.innerHTML = createFormattedSelectorLabel(rawSelector);
+                    editorContainer.appendChild(mainLabel);
+
+                    // 2. 添加所有属性块
+                    propertyUIBlocks.forEach(block => {
+                        editorContainer.appendChild(block);
+                    });
+                }
             }
             
             liveStyleTag.textContent = finalCssRules;
@@ -193,6 +200,6 @@
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v9 - Comments support) loaded successfully.");
+        console.log("Theme Editor extension (v10 - Hierarchical Layout) loaded successfully.");
     });
 })();
