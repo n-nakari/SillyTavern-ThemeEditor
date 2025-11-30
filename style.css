@@ -38,6 +38,13 @@
     max-height: 500px;
     overflow-y: auto;
     background-color: rgba(30, 30, 30, 0.7);
+    flex-direction: column;
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* 开关的隐藏类 */
+.theme-editor-hidden {
+    display: none !important;
 }
 
 /* 菜单栏 */
