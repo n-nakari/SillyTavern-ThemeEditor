@@ -4,9 +4,35 @@
     align-items: flex-start;
 }
 
+/* 右侧按钮组 */
+.theme-editor-header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* 按钮通用样式 */
+.theme-editor-icon-btn {
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1.2em;
+    padding: 5px;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.theme-editor-icon-btn:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.theme-editor-icon-btn.active {
+    color: #9cdcfe;
+}
+
 /* 扩展样式 */
 #theme-editor-container {
-    padding: 10px;
+    padding: 0px;
     border-radius: 5px;
     margin: 10px 0px;
     max-height: 500px;
@@ -17,18 +43,24 @@
 /* 菜单栏 */
 .theme-editor-tabs {
     display: flex;
+    gap: 5px;
+    padding: 10px 10px 0 10px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 15px;
-    gap: 10px;
+    position: sticky;
+    top: 0;
+    background-color: rgba(30, 30, 30, 0.98);
+    z-index: 10;
 }
 
 .theme-editor-tab {
-    padding: 8px 16px;
+    padding: 6px 12px;
     cursor: pointer;
     font-weight: bold;
-    color: #aaa;
+    color: #888;
     border-radius: 5px 5px 0 0;
+    font-size: 0.9em;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .theme-editor-tab:hover {
@@ -43,27 +75,84 @@
     margin-bottom: -2px;
 }
 
+/* 搜索框 */
+.theme-editor-search-wrapper {
+    margin-left: auto;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    padding-bottom: 5px;
+}
+
+.theme-editor-search-input {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    width: 150px;
+    transition: width 0.3s;
+}
+
+.theme-editor-search-input:focus {
+    width: 200px;
+    outline: none;
+    border-color: #9cdcfe;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* 自动补全下拉框 */
+.theme-editor-autocomplete-list {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 250px;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #2b2b2b;
+    border: 1px solid #555;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    z-index: 20;
+    display: none;
+}
+
+.theme-editor-autocomplete-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 0.8em;
+    color: #ccc;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.theme-editor-autocomplete-item:hover {
+    background-color: #444;
+    color: #fff;
+}
+
+.theme-editor-autocomplete-item .match {
+    color: #9cdcfe;
+    font-weight: bold;
+}
+
 /* 内容区域切换 */
 .theme-editor-content-panel {
     display: none;
     flex-direction: column;
+    padding: 10px;
 }
 
 .theme-editor-content-panel.active {
     display: flex;
 }
 
-/* 保存按钮 */
-.theme-editor-save-btn {
-    cursor: pointer;
-    color: #aaa;
-    font-size: 1.2em;
-    padding: 5px 10px;
-    transition: color 0.2s;
-}
-
-.theme-editor-save-btn:hover {
-    color: #9cdcfe;
+/* 方便搜索隐藏 */
+.theme-group {
+    margin-bottom: 10px;
 }
 
 /* 颜色样式框 */
@@ -85,7 +174,7 @@
     font-weight: 900;
     font-size: 1.0em;
     color: #fff;
-    margin-top: 20px;
+    margin-top: 10px;
     margin-bottom: 5px;
     padding: 8px;
     border-bottom: 2px solid #aaa;
@@ -152,5 +241,5 @@ toolcool-color-picker {
 #theme-editor-container input.layout-input:focus {
     border-color: rgba(255, 255, 255, 0.6) !important;
     background-color: rgba(0, 0, 0, 0.1) !important;
-    outline: none !important;
+    box-shadow: 0 0 5px rgba(156, 220, 254, 0.5) !important;
 }
