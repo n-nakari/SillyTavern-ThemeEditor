@@ -8,6 +8,45 @@
     background-color: rgba(30, 30, 30, 0.7);
 }
 
+/* 菜单栏 */
+.theme-editor-tabs {
+    display: flex;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+.theme-editor-tab {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #aaa;
+    border-radius: 5px 5px 0 0;
+    transition: all 0.2s;
+}
+
+.theme-editor-tab:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.theme-editor-tab.active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-bottom: 2px solid #fff;
+    margin-bottom: -2px;
+}
+
+/* 内容区域切换 */
+.theme-editor-content-panel {
+    display: none;
+    flex-direction: column;
+}
+
+.theme-editor-content-panel.active {
+    display: flex;
+}
+
 /* 颜色样式框 */
 .theme-editor-property-block {
     display: flex;
@@ -66,4 +105,30 @@ toolcool-color-picker {
 /* 颜色选择器边框颜色 */
 :root {
     --tool-cool-color-picker-btn-border-color-inner: white;
+}
+
+/* 数值输入框容器 */
+.layout-inputs-container {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+/* 数值输入框 */
+.layout-input {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+.layout-input:focus {
+    outline: none;
+    border-color: #9cdcfe;
+    background-color: rgba(0, 0, 0, 0.5);
 }
