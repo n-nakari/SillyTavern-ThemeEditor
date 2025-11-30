@@ -132,21 +132,19 @@ toolcool-color-picker {
     all: unset; /* 清除继承 */
     box-sizing: border-box !important;
     display: block !important;
-    background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     color: #fff !important;
-    padding: 5px !important;
+    padding: 0px 5px !important;
     border-radius: 4px !important;
     font-size: 0.9em !important;
-    height: 30px !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    line-height: 20px !important;
+    height: 25px !important;
+    margin-bottom: 10px !important;
 }
 
 /* 输入框focus状态 */
 #theme-editor-container input.layout-input:focus {
-    border-color: #9cdcfe !important;
-    background-color: rgba(0, 0, 0, 0.5) !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    background-color: rgba(0, 0, 0, 0.1) !important;
     outline: none !important;
 }
