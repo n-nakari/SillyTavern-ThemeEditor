@@ -8,7 +8,7 @@
             return;
         }
 
-        // --- 初始化 UI ---
+        // --- UI 初始化 ---
         const headerBar = document.createElement('div');
         headerBar.className = 'theme-editor-header-bar';
 
@@ -73,25 +73,7 @@
             document.head.appendChild(liveStyleTag);
         }
 
-        let sillyTavernStyleTag = document.getElementById('custom-css');
-        if (sillyTavernStyleTag) {
-            sillyTavernStyleTag.disabled = true;
-        } else {
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    for (const node of mutation.addedNodes) {
-                        if (node.id === 'custom-css') {
-                            node.disabled = true;
-                            observer.disconnect();
-                            return;
-                        }
-                    }
-                }
-            });
-            observer.observe(document.head, { childList: true });
-        }
-
-        // --- 数据定义 ---
+        // --- 核心配置 ---
         const cssColorNames = [
             'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod', 'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
         ];
@@ -99,24 +81,32 @@
         const colorProperties = ['color', 'background-color', 'background', 'background-image', 'border', 'border-color', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'outline', 'outline-color', 'text-shadow', 'box-shadow', 'fill', 'stroke'];
         const colorValueRegex = new RegExp(`(rgba?\\([^)]+\\)|#([0-9a-fA-F]{3}){1,2}\\b|\\b(${cssColorNames.join('|')})\\b)`, 'gi');
 
+        // 需要单位的属性
         const layoutProperties = [
             'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
             'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
-            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'font-weight', 'z-index', 'opacity', 'flex-basis'
+            'top', 'bottom', 'left', 'right', 'gap', 'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'font-size', 'line-height', 'border-radius', 'border-width', 'flex-basis'
         ];
+        // 不需要单位的属性 (opacity, z-index, font-weight etc)
+        const unitlessProperties = ['z-index', 'opacity', 'font-weight', 'line-height']; 
 
         let replacementTasks = [];
         let currentValuesMap = {}; 
 
+        // --- 核心工具函数 ---
+
         function cleanupOldVariables() {
-            // 遍历所有样式属性，删除我们自己创建的变量
+            // 暴力清除所有相关的 CSS 变量
             const rootStyle = document.documentElement.style;
-            for (let i = rootStyle.length - 1; i >= 0; i--) {
+            const varsToRemove = [];
+            for (let i = 0; i < rootStyle.length; i++) {
                 const prop = rootStyle[i];
                 if (prop.startsWith('--theme-editor-')) {
-                    rootStyle.removeProperty(prop);
+                    varsToRemove.push(prop);
                 }
             }
+            varsToRemove.forEach(v => rootStyle.removeProperty(v));
+            
             replacementTasks = [];
             currentValuesMap = {};
         }
@@ -141,11 +131,22 @@
             }
         }
 
+        // [新增] 智能值处理：如果是纯数字且属性需要单位，加上px
+        function formatLayoutValue(prop, val) {
+            if (!val) return val;
+            const trimmed = val.toString().trim();
+            // 如果是纯数字 (允许小数)，且该属性通常需要单位，且不属于无单位白名单
+            if (!isNaN(trimmed) && trimmed !== '0' && !unitlessProperties.includes(prop.toLowerCase())) {
+                return trimmed + 'px';
+            }
+            return trimmed;
+        }
+
         function saveCurrentTheme() {
             const originalCss = customCssTextarea.value;
             let newCss = originalCss;
             
-            // 按照起始位置从后往前排序，防止替换后影响前面的索引
+            // 按位置倒序替换
             const tasks = replacementTasks.sort((a, b) => b.start - a.start);
             
             tasks.forEach(task => {
@@ -157,76 +158,76 @@
                 }
             });
 
-            customCssTextarea.value = newCss;
+            // 回写并触发事件
+            // 为了防止回写触发我们的 debouncedParse 再次解析（导致死循环或闪烁），
+            // 我们可以在这里暂时解绑或者设置个 flag，但简单起见，debounce 应该能处理。
+            // 关键是：写入后，TextArea 的值是最新的，下一次 Parse 会基于这个新值重新生成 ID。
+            
+            // 使用 native setter 确保触发框架监听
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+            nativeInputValueSetter.call(customCssTextarea, newCss);
             const event = new Event('input', { bubbles: true });
             customCssTextarea.dispatchEvent(event);
 
-            // 重新解析以同步状态
             setTimeout(() => {
-                parseAndBuildUI();
-                // 使用 toastr 提示如果可用，否则用 alert
                 if (window.toastr) window.toastr.success('Theme saved successfully!');
                 else alert('Theme saved successfully!');
             }, 50);
         }
 
         function parseAndBuildUI() {
-            // 1. 清理环境
+            // 1. 彻底清理
             cleanupOldVariables();
-            if (sillyTavernStyleTag) sillyTavernStyleTag.disabled = true;
+            if (document.getElementById('custom-css')) document.getElementById('custom-css').disabled = true;
             panelColors.innerHTML = '';
             panelLayout.innerHTML = '';
+            liveStyleTag.textContent = '';
             
             const cssText = customCssTextarea.value;
             let uniqueId = 0;
             let finalCssRules = '';
 
-            // 匹配规则块：选择器 { 内容 }
+            // 匹配规则块
             const ruleRegex = /([^{]+)\{([^}]+)\}/g;
             let ruleMatch;
 
             while ((ruleMatch = ruleRegex.exec(cssText)) !== null) {
                 const rawSelector = ruleMatch[1].trim();
-                const selector = rawSelector; // 用于 CSS 选择器
+                const selector = rawSelector;
                 const declarationsText = ruleMatch[2];
-                // 计算规则块内容在整个字符串中的起始偏移量（大括号后）
+                // 规则块内容起始位置（跳过 `{`）
                 const ruleBodyOffset = ruleMatch.index + ruleMatch[0].indexOf('{') + 1;
                 
                 let processedDeclarations = declarationsText;
                 let colorUIBlocks = [];
                 let layoutUIBlocks = [];
 
-                // 匹配声明： 属性 : 值
-                // 排除分号结尾，处理最后一行可能没分号的情况
+                // 匹配声明：排除末尾可能的无分号情况
                 const declarationRegex = /(?:^|;)\s*([a-zA-Z0-9-]+)\s*:\s*([^;]+)/g;
                 let declMatch;
 
                 while ((declMatch = declarationRegex.exec(declarationsText)) !== null) {
                     const fullMatch = declMatch[0];
                     const property = declMatch[1].trim();
-                    const originalValue = declMatch[2]; // 值可能包含空格
+                    const originalValue = declMatch[2]; 
                     const lowerProp = property.toLowerCase();
 
-                    // 计算值在 declarationsText 中的相对位置
-                    // declMatch.index 是匹配项开始的位置（可能包含前导分号）
-                    // 我们需要找到冒号的位置
-                    const colonRelativeIndex = fullMatch.indexOf(':');
-                    // 值的起始位置是 冒号位置 + 1 (跳过冒号) + 前导空格长度 (trimStart处理)
-                    // 但 originalValue 已经不含前导空格了吗？declMatch[2] 是正则捕获组
-                    // 为了精确，我们在 fullMatch 中搜索 originalValue
-                    const valueIndexInMatch = fullMatch.indexOf(originalValue);
+                    // 精确定位值的起始位置
+                    const colonIndex = fullMatch.indexOf(':');
+                    // 找到冒号后第一个非空白字符相对于 fullMatch 的位置，但这可能不准（因为 originalValue 已去除了前后部分空白？）
+                    // 实际上正则捕获组2 (originalValue) 包含了除分号外的所有内容（包括前导空格）
+                    // 我们要找的是 originalValue 在 fullMatch 中的起始位置。
+                    const valueRelativeStart = fullMatch.indexOf(originalValue); 
                     
-                    // 绝对起始位置 = 规则体偏移 + 匹配项偏移 + 值在匹配项中的偏移
-                    const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueIndexInMatch;
+                    // 绝对位置
+                    const valueAbsoluteStart = ruleBodyOffset + declMatch.index + valueRelativeStart;
                     const valueAbsoluteEnd = valueAbsoluteStart + originalValue.length;
 
-                    // --- 颜色处理 ---
+                    // --- 颜色 ---
                     if (colorProperties.includes(lowerProp)) {
                         const foundColors = [...originalValue.matchAll(colorValueRegex)];
                         
                         if (foundColors.length > 0) {
-                            let tempValue = originalValue;
-                            
                             const propertyBlock = document.createElement('div');
                             propertyBlock.className = 'theme-editor-property-block';
                             const propLabel = document.createElement('div');
@@ -234,10 +235,6 @@
                             propLabel.textContent = property;
                             propertyBlock.appendChild(propLabel);
 
-                            // 从后往前处理颜色变量替换（用于 Live CSS），同时记录 Task
-                            // 注意：foundColors 的 index 是相对于 originalValue 的
-                            
-                            // 这里我们先收集所有颜色信息
                             let colorReplacements = [];
 
                             foundColors.forEach((colorMatch, index) => {
@@ -245,18 +242,16 @@
                                 const variableName = `--theme-editor-color-${uniqueId}`;
                                 uniqueId++;
 
-                                // 记录保存任务
+                                // Task: 记录原始位置，用于保存
                                 replacementTasks.push({
                                     start: valueAbsoluteStart + colorMatch.index,
                                     end: valueAbsoluteStart + colorMatch.index + colorStr.length,
                                     variableName: variableName
                                 });
 
-                                // 初始化变量
                                 let initialColor = colorStr.toLowerCase() === 'transparent' ? 'rgba(0,0,0,0)' : colorStr;
                                 updateLiveCssVariable(variableName, initialColor);
 
-                                // 收集替换信息用于构建 Live CSS
                                 colorReplacements.push({
                                     str: colorStr,
                                     var: `var(${variableName})`,
@@ -264,7 +259,6 @@
                                     length: colorStr.length
                                 });
 
-                                // UI
                                 if (foundColors.length > 1) {
                                     const subLabel = document.createElement('div');
                                     subLabel.className = 'theme-editor-sub-label';
@@ -280,41 +274,29 @@
                                 propertyBlock.appendChild(colorPicker);
                             });
 
-                            // 构建 Live CSS 的值 string (倒序替换)
+                            // 生成 Live CSS 字符串
                             colorReplacements.sort((a, b) => b.index - a.index);
                             let liveValue = originalValue;
                             colorReplacements.forEach(rep => {
                                 liveValue = liveValue.substring(0, rep.index) + rep.var + liveValue.substring(rep.index + rep.length);
                             });
-
-                            // 替换 processedDeclarations 中的这一段
-                            // 这里简单的 replace 可能会有风险，如果 originalValue 在同一个规则里出现多次
-                            // 但由于我们是顺序遍历，且 declarationsText 是局部的，只要值唯一就没问题。
-                            // 更稳妥的是重建 processedDeclarations，但这里我们使用 replace 第一次出现
+                            // 替换当前声明中的值部分
                             processedDeclarations = processedDeclarations.replace(originalValue, liveValue);
-                            
                             colorUIBlocks.push(propertyBlock);
                         }
                     }
 
-                    // --- 布局处理 ---
+                    // --- 布局 ---
                     else if (layoutProperties.includes(lowerProp)) {
                         const cleanValue = originalValue.replace('!important', '').trim();
-                        // 简单的按空格分割数值
                         const values = cleanValue.split(/\s+/);
                         
                         if (values.length > 0) {
                             const variableName = `--theme-editor-layout-${uniqueId}`;
                             uniqueId++;
 
-                            // 任务：替换整个值部分 (保留 !important 结构，我们在变量里不含 !important)
-                            // 注意：如果原值有 !important，我们这里替换的是 originalValue (包含 !important)
-                            // 所以变量里只需要值。
-                            // 但为了保留原CSS里的 !important，我们应该只替换数值部分。
-                            // 简化：直接替换整个 originalValue 为 var(...)，我们在 CSS rule 末尾加了 !important，所以原内联 !important 可以忽略
-                            
                             replacementTasks.push({
-                                start: valueAbsoluteStart, // 这里的 start 是原值的起始位置
+                                start: valueAbsoluteStart, 
                                 end: valueAbsoluteEnd,
                                 variableName: variableName
                             });
@@ -342,7 +324,11 @@
                                 
                                 input.addEventListener('input', (e) => {
                                     currentValues[index] = e.target.value;
-                                    updateLiveCssVariable(variableName, currentValues.join(' '));
+                                    // 智能组合：如果原始属性需要单位，且用户输入的是纯数字，补全 px
+                                    const formattedValues = currentValues.map(v => formatLayoutValue(lowerProp, v));
+                                    // 如果原始值有 !important，我们保留它 (或者因为我们在 block 后加了 !important，这里可以省略)
+                                    // 但为了安全，只传值
+                                    updateLiveCssVariable(variableName, formattedValues.join(' '));
                                 });
 
                                 inputsContainer.appendChild(input);
@@ -352,7 +338,7 @@
                             layoutUIBlocks.push(propertyBlock);
                         }
                     }
-                } // end while declaration
+                } // end declarations loop
 
                 finalCssRules += `${selector} { ${processedDeclarations} !important }\n`;
 
@@ -371,7 +357,7 @@
                     panelLayout.appendChild(mainLabel);
                     layoutUIBlocks.forEach(block => panelLayout.appendChild(block));
                 }
-            } // end while rules
+            }
             
             liveStyleTag.textContent = finalCssRules;
         }
@@ -382,11 +368,25 @@
             debounceTimer = setTimeout(parseAndBuildUI, 500);
         }
 
-        // 监听外部的主题变化（例如通过其他方式加载了新CSS）
-        // 但最主要的是初始化时解析
+        // [核心修正] 属性劫持 (Value Hook)
+        // 这段代码监听 customCssTextarea.value 的编程方式修改（例如切换主题时）
+        // 从而触发我们的解析逻辑
+        const originalValueDescriptor = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+        Object.defineProperty(customCssTextarea, 'value', {
+            get: function() {
+                return originalValueDescriptor.get.call(this);
+            },
+            set: function(val) {
+                originalValueDescriptor.set.call(this, val);
+                // 当值被代码改变时，触发解析
+                debouncedParse();
+            }
+        });
+
+        // 初始解析 & 监听手动输入
         parseAndBuildUI();
         customCssTextarea.addEventListener('input', debouncedParse);
 
-        console.log("Theme Editor extension (v14 - Cleanup & Robust Parsing) loaded successfully.");
+        console.log("Theme Editor extension (v15 - Value Hook & Smart Units) loaded successfully.");
     });
 })();
