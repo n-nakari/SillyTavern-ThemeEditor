@@ -1,50 +1,55 @@
-/* 容器整体样式：Apple/Ins 风极简设计 */
-#st-css-extension-root {
-    width: 100%;
+/* 容器整体风格：韩系/Ins风 - 简洁、低饱和、圆角 */
+#st-css-editor-container {
     margin-top: 10px;
-    background: var(--SmartThemeBlurTintColor); /* 保持与主题一致 */
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    background: var(--SmartThemeBodyColor); /* 跟随主题背景，保持一致性 */
     border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 16px; /* 大圆角 */
+    padding: 0;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /*极其柔和的阴影*/
 }
 
-#st-css-extension-root.collapsed {
-    max-height: 50px; /* 收起高度 */
+#st-css-editor-container.collapsed {
+    height: 50px !important;
+    overflow: hidden;
 }
 
-/* 顶栏工具条 */
+/* 顶部工具栏 */
 .st-css-toolbar {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between; /* 两端对齐 */
     align-items: center;
     padding: 12px 16px;
-    background: rgba(128, 128, 128, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     border-bottom: 1px solid var(--SmartThemeBorderColor);
-    gap: 12px;
+    backdrop-filter: blur(10px);
 }
 
-/* 按钮样式：无边框，极简图标 */
+.st-css-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
+/* 按钮风格：像iOS控制中心的按钮 */
 .st-css-btn {
     width: 32px;
     height: 32px;
-    border-radius: 50%; /* 圆形按钮 */
+    border-radius: 10px;
     border: none;
-    background: transparent;
+    background: rgba(128, 128, 128, 0.1);
     color: var(--SmartThemeBodyColor);
+    filter: invert(1); /* 确保图标在不同主题下可见 */
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s, transform 0.1s;
-    font-size: 16px;
+    transition: all 0.2s ease;
+    font-size: 14px;
 }
 
 .st-css-btn:hover {
-    background: rgba(128, 128, 128, 0.15);
+    background: rgba(128, 128, 128, 0.2);
     transform: scale(1.05);
 }
 
@@ -52,94 +57,98 @@
     transform: scale(0.95);
 }
 
-/* 列表区域 */
-.st-css-content {
+/* 列表容器 */
+#st-css-list {
     padding: 16px;
     max-height: 500px;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* 隐藏滚动条但保留功能 */
     scrollbar-width: thin;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
 }
 
-/* 单个CSS规则卡片 */
-.st-css-card {
-    background: rgba(255, 255, 255, 0.03);
+/* 单个条目卡片 */
+.st-css-item {
+    background: rgba(128, 128, 128, 0.03);
     border-radius: 12px;
-    padding: 12px 16px;
-    border: 1px solid rgba(128, 128, 128, 0.1);
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid transparent;
     transition: border-color 0.2s;
 }
 
-.st-css-card:hover {
-    border-color: var(--SmartThemeQuoteColor);
+.st-css-item:hover {
+    border-color: rgba(128, 128, 128, 0.2);
 }
 
-/* 标题行 (注释 | 类名) */
+/* 标题区域 */
 .st-css-header {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-bottom: 10px;
-    font-size: 0.9rem;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed rgba(128, 128, 128, 0.1);
-    color: var(--SmartThemeBodyColor);
+    margin-bottom: 8px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.st-css-title {
-    font-weight: 700;
+.st-css-comment {
+    font-weight: 600;
     font-size: 14px;
-    color: var(--SmartThemeBodyColor);
+    opacity: 0.9;
 }
 
 .st-css-selector {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 12px;
-    opacity: 0.6;
-    background: rgba(0,0,0,0.1);
+    font-family: monospace;
+    font-size: 11px;
+    opacity: 0.5;
+    background: rgba(128, 128, 128, 0.1);
     padding: 2px 6px;
     border-radius: 4px;
 }
 
-/* 属性行 (PROPERTY) */
+/* 属性行 */
 .st-css-prop-row {
+    display: flex;
+    flex-direction: column;
     margin-bottom: 8px;
+    padding-left: 8px;
+    border-left: 2px solid rgba(128, 128, 128, 0.1);
 }
 
 .st-css-prop-name {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    opacity: 0.5;
+    opacity: 0.6;
     margin-bottom: 4px;
-    font-weight: 600;
 }
 
-/* 颜色选择器容器 */
-.st-css-pickers-container {
+.st-css-color-group {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    align-items: center;
 }
 
-/* 覆盖 Toolcool Color Picker 的一些默认样式以适配 */
-toolcool-color-picker {
-    border-radius: 50%; /* 圆形选择器 */
+/* 颜色选择器容器微调 */
+.st-css-picker-wrapper {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    overflow: hidden;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    cursor: pointer;
+    border: 1px solid rgba(128, 128, 128, 0.2);
     transition: transform 0.2s;
 }
 
-toolcool-color-picker:hover {
-    transform: translateY(-2px);
+.st-css-picker-wrapper:hover {
+    transform: scale(1.1);
+    z-index: 2;
 }
 
-/* 提示信息 */
-.st-css-empty {
-    text-align: center;
-    opacity: 0.5;
-    padding: 20px;
-    font-style: italic;
+/* 强制覆盖 toolcool-color-picker 的样式使其变小变圆 */
+toolcool-color-picker {
+    width: 100%;
+    height: 100%;
+    padding: 0;
 }
