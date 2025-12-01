@@ -13,6 +13,7 @@
     --tuner-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+/* 通用动画类 */
 .css-tuner-container *, .css-tuner-container *::before, .css-tuner-container *::after {
     box-sizing: border-box;
     transition: var(--tuner-transition);
@@ -36,7 +37,7 @@
     align-items: center;
 }
 
-/* 搜索框美化 */
+/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
@@ -54,13 +55,13 @@
     box-shadow: 0 0 0 2px rgba(162, 155, 254, 0.2);
 }
 
-/* 右侧按钮组 - 样式与面板内按钮保持完全一致 */
-.tools-btn-group {
+/* 按钮组样式统一 */
+.tools-btn-group, .tuner-controls {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
-/* 通用圆形按钮样式 */
 .tools-btn {
     width: 36px;
     height: 36px;
@@ -72,7 +73,6 @@
     background-color: var(--tuner-card-bg);
     color: var(--tuner-text-sub);
     border: 1px solid transparent;
-    flex-shrink: 0; /* 防止被挤压 */
 }
 
 .tools-btn:hover {
@@ -83,7 +83,7 @@
 }
 
 /* =========================================
-   搜索下拉栏
+   搜索下拉栏 (通用)
    ========================================= */
 .css-search-dropdown {
     position: absolute;
@@ -152,40 +152,38 @@
     z-index: 10;
 }
 
-/* --- 顶栏 (面板内) --- */
+/* --- 顶栏 (改动：透明背景，左对齐，无标题) --- */
 .tuner-header {
     display: flex;
-    /* 改为左对齐 */
-    justify-content: flex-start;
+    justify-content: flex-start; /* 左对齐 */
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid var(--tuner-border);
-    /* 背景透明 */
-    background: transparent;
-    gap: 12px; /* 按钮间距 */
+    background: transparent; /* 透明背景 */
 }
 
-/* 移除标题样式，因为已被删除，防止残留 */
-.tuner-title {
-    display: none;
-}
-
-/* 按钮容器 */
-.tuner-controls {
+/* --- 可折叠区域 (包裹搜索框和内容) --- */
+.tuner-body {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    max-height: 800px; /* 足够大即可 */
+    opacity: 1;
 }
 
-/* --- 搜索栏 (面板内) --- */
+.tuner-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* --- 搜索栏 --- */
 .tuner-sub-header {
     padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
     background-color: rgba(0,0,0,0.1);
     position: relative;
-    /* 过渡效果用于折叠 */
-    max-height: 100px;
-    opacity: 1;
-    overflow: visible;
 }
 
 #tuner-search {
@@ -214,25 +212,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    opacity: 1;
-}
-
-/* --- 折叠状态控制 (JS添加 .is-collapsed 类) --- */
-.css-tuner-container.is-collapsed .tuner-sub-header {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    border-bottom: none;
-    overflow: hidden; /* 防止溢出 */
-}
-
-.css-tuner-container.is-collapsed .tuner-content {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    overflow: hidden;
 }
 
 /* =========================================
@@ -263,21 +242,30 @@
     font-weight: 600;
     color: var(--tuner-text-main);
     word-break: break-all;
-    line-height: 1.4;
+    line-height: 1.6;
     font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
 }
 
-/* 注释部分 */
-.tuner-header-comment {
+/* --- 新增：注释标签样式 --- */
+.tuner-comment-tag {
+    display: inline-block;
+    background-color: rgba(162, 155, 254, 0.15); /* 淡紫色背景 */
     color: var(--tuner-accent);
-    opacity: 0.9;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 700;
+    margin-right: 8px;
+    border: 1px solid rgba(162, 155, 254, 0.2);
 }
 
 /* 选择器部分 */
 .tuner-header-selector {
     color: var(--tuner-text-sub);
-    opacity: 0.7;
+    opacity: 0.8;
 }
 
 /* 属性行 */
@@ -337,7 +325,7 @@
     flex-shrink: 0;
 }
 
-/* 颜色选择器 */
+/* 圆形颜色选择器 (原生) */
 input[type="color"].tuner-picker {
     width: 28px;
     height: 28px;
