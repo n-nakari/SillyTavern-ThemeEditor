@@ -20,12 +20,10 @@ const EXTENSION_HTML = `
 // 颜色匹配正则
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 
-// CSS 块匹配正则
-// Group 1: 注释内容 (可选)
-// Group 2: 间隔空白符 (用于判断是否紧邻)
-// Group 3: 选择器
-// Group 4: 属性块
-const CSS_BLOCK_REGEX = /(?:(\/\*[\s\S]*?\*\/))?([\s\r\n]*)([^{]+)\{([^}]+)\}/g;
+// CSS 块匹配正则 (修改为捕获整个头部和整个属性体，在JS里细分处理)
+// Group 1: 头部 (包含注释、换行、选择器)
+// Group 2: 属性块
+const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
 
@@ -74,7 +72,6 @@ function bindEvents() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
         
-        // 使用 jQuery 的 animate 实现平滑滚动
         if (scrollDirection === 'down') {
             content.animate({ scrollTop: content[0].scrollHeight }, 400, 'swing');
             scrollDirection = 'up';
@@ -86,7 +83,7 @@ function bindEvents() {
         }
     });
 
-    // 折叠 (使用 CSS 类切换实现平滑过渡)
+    // 折叠
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -111,31 +108,59 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const rawCommentBlock = match[1]; // e.g. /* 标题 */
-        const gap = match[2];             // 换行符等空白
-        const selector = match[3].trim();
-        const body = match[4];
+        const fullHeader = match[1]; // 包含注释和选择器的完整头部
+        const body = match[2];
 
-        // 核心逻辑：计算 Gap 中的换行符数量
-        // \n 数量 >= 2 说明中间有空行，视为断开，不显示标题
-        const newLineCount = (gap.match(/\n/g) || []).length;
-        
-        let displayTitle = selector;
+        // --- 标题处理逻辑 (参考您提供的思路) ---
+        let displayTitle = "";
+        let realSelector = ""; // 纯净的选择器，用于后续替换逻辑
 
-        if (rawCommentBlock && newLineCount < 2) {
-            // 提取注释文字，移除 /* 和 */ 及首尾空白
-            const cleanComment = rawCommentBlock.replace(/^\/\*+|\*+\/$/g, '').trim();
-            if (cleanComment) {
-                displayTitle = `${cleanComment} | ${selector}`;
+        // 1. 查找最后一个注释结束符 */
+        const lastCommentEndIndex = fullHeader.lastIndexOf('*/');
+
+        if (lastCommentEndIndex !== -1) {
+            // 找到了注释结束符，尝试找该注释的开始符 /*
+            const lastCommentStartIndex = fullHeader.lastIndexOf('/*', lastCommentEndIndex);
+            
+            if (lastCommentStartIndex !== -1) {
+                // 提取注释内容 (去掉 /* 和 */)
+                const rawCommentText = fullHeader.substring(lastCommentStartIndex + 2, lastCommentEndIndex).trim();
+                
+                // 提取注释后面的部分 (即 Gap + 选择器)
+                const afterComment = fullHeader.substring(lastCommentEndIndex + 2);
+                
+                // 真正的选择器 (去掉Gap)
+                realSelector = afterComment.trim();
+
+                // 检查 Gap 中的换行符数量
+                const newLineCount = (afterComment.match(/\n/g) || []).length;
+
+                // 如果换行符少于2个 (即没有空行)，则显示注释
+                if (newLineCount < 2 && rawCommentText) {
+                    displayTitle = `${rawCommentText} | ${realSelector}`;
+                } else {
+                    // 有空行，只显示类名
+                    displayTitle = realSelector;
+                }
+            } else {
+                // 只有结束符没有开始符? 异常情况，直接取trim
+                realSelector = fullHeader.trim();
+                displayTitle = realSelector;
             }
+        } else {
+            // 没有注释
+            realSelector = fullHeader.trim();
+            displayTitle = realSelector;
         }
+        // -------------------------------------
 
         const properties = parseProperties(body);
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
-            const card = createCard(displayTitle, colorProperties, selector);
+            // 传入 displayTitle 用于显示，realSelector 用于后续CSS更新定位
+            const card = createCard(displayTitle, colorProperties, realSelector);
             container.append(card);
         }
     }
@@ -176,7 +201,6 @@ function createCard(title, properties, selector) {
         const propName = $(`<div class="vce-prop-name">${prop.key.toUpperCase()}</div>`);
         propRow.append(propName);
 
-        // 统计该属性有多少个颜色
         const regex = new RegExp(COLOR_REGEX);
         let match;
         const colorsFound = [];
@@ -185,7 +209,6 @@ function createCard(title, properties, selector) {
             colorsFound.push(match[0]);
         }
 
-        // 只有当颜色数量 > 1 时，才显示索引 (1, 2, 3...)
         const showIndex = colorsFound.length > 1;
 
         colorsFound.forEach((color, idx) => {
@@ -203,13 +226,11 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="0"></div>');
     
-    // 如果有多颜色，显示数字
     if (displayIndex !== null) {
         wrapper.append(`<span class="vce-color-idx">${displayIndex}</span>`);
     }
 
     const pickerId = `vce-picker-${Math.random().toString(36).substr(2, 9)}`;
-    // 注意: toolcool-color-picker 是 web component
     const picker = $(`<toolcool-color-picker id="${pickerId}" color="${initialColor}" class="vce-picker"></toolcool-color-picker>`);
     const input = $(`<input type="text" class="vce-color-input" value="${initialColor}">`);
 
@@ -218,9 +239,12 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
+        
+        // 使用传入的 selector (纯类名) 进行匹配
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        // 匹配规则块
+        // 匹配逻辑：包含前面的注释(如果有) + 类名 + 括号块
+        // 这里需要足够宽容以匹配到对应的块
         const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, g1, g2, content, g4) => {
