@@ -37,7 +37,6 @@
     align-items: center;
 }
 
-/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
     width: 100%;
     border: 1px solid var(--tuner-border);
@@ -46,9 +45,9 @@
     font-size: 0.9rem;
     color: var(--tuner-text-main);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.2);
 }
 
-/* 按钮组样式统一 */
 .tools-btn-group, .tuner-controls {
     display: flex;
     gap: 8px;
@@ -63,9 +62,9 @@
     justify-content: center;
     border-radius: 50%;
     cursor: pointer;
-    background-color: rgb(217 217 217 / 70%);
-    color: rgb(122 122 122);
-    border: 1px solid rgb(193 193 193);
+    background-color: rgb(217 217 217 / 10%);
+    color: var(--tuner-text-sub);
+    border: 1px solid var(--tuner-border);
 }
 
 .tools-btn:hover {
@@ -139,24 +138,23 @@
     overflow: visible;
     position: relative;
     z-index: 10;
+    margin-top: 10px;
 }
 
-/* --- 顶栏 (改动：透明背景，左对齐，无标题) --- */
 .tuner-header {
     display: flex;
-    justify-content: flex-start; /* 左对齐 */
+    justify-content: flex-start;
     align-items: center;
     padding: 10px 0px;
-    background: transparent; /* 透明背景 */
+    background: transparent;
 }
 
-/* --- 可折叠区域 (包裹搜索框和内容) --- */
 .tuner-body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     transition: all 0.3s ease;
-    max-height: 800px; /* 足够大即可 */
+    max-height: 800px;
     opacity: 1;
 }
 
@@ -221,13 +219,12 @@
     border-color: rgba(255,255,255,0.15);
 }
 
-/* 卡片标题 */
 .tuner-card-header {
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px dashed var(--tuner-border);
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 500;
     color: var(--tuner-text-main);
     word-break: break-all;
     line-height: 1.6;
@@ -237,20 +234,13 @@
     flex-wrap: wrap;
 }
 
-/* --- 新增：注释标签样式 --- */
-.tuner-comment-tag {
-    display: inline-block;
-    background-color: rgba(162, 155, 254, 0.15); /* 淡紫色背景 */
+/* --- 注释与选择器样式 --- */
+.tuner-comment-text {
     color: var(--tuner-accent);
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-weight: bold;
     margin-right: 8px;
-    border: 1px solid rgba(162, 155, 254, 0.2);
 }
 
-/* 选择器部分 */
 .tuner-header-selector {
     color: var(--tuner-text-sub);
     opacity: 0.8;
@@ -268,117 +258,124 @@
 }
 
 .tuner-prop-name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--tuner-text-sub);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 700;
 }
 
-/* 颜色输入组 */
 .tuner-inputs-container {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
+/* --- 修改：颜色控制组 (仿DevTools) --- */
 .tuner-input-group {
-    background-color: rgba(0,0,0,0.2);
-    border-radius: 30px;
-    padding: 4px 10px;
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 6px;
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid transparent;
-    flex: 1;
-    min-width: 280px;
+    border: 1px solid var(--tuner-border);
+    flex-wrap: wrap;
 }
 
 .tuner-input-group:hover, .tuner-input-group:focus-within {
     border-color: var(--tuner-accent);
-    background-color: rgba(0,0,0,0.3);
+    background-color: rgba(0,0,0,0.45);
 }
 
-.tuner-color-idx {
-    font-size: 0.7rem;
-    background: rgba(255,255,255,0.1);
-    width: 18px;
-    height: 18px;
+/* 颜色预览圆球 */
+.tuner-preview-wrapper {
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid rgba(255,255,255,0.2);
+    flex-shrink: 0;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+}
+
+.tuner-color-preview {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* 隐藏原生颜色选择器，覆盖在预览之上 */
+input[type="color"].tuner-native-picker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    padding: 0;
+    border: none;
+}
+
+/* 吸管按钮 */
+.tuner-eye-dropper {
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    flex-shrink: 0;
-}
-
-/* 圆形颜色选择器 (原生) */
-input[type="color"].tuner-picker {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 2px solid rgba(255,255,255,0.2);
-    border-radius: 50%;
-    background: none;
     cursor: pointer;
-    overflow: hidden;
-    flex-shrink: 0;
+    color: var(--tuner-text-sub);
+    transition: color 0.2s;
 }
-input[type="color"].tuner-picker::-webkit-color-swatch-wrapper {
-    padding: 0;
-}
-input[type="color"].tuner-picker::-webkit-color-swatch {
-    border: none;
-    border-radius: 50%;
+.tuner-eye-dropper:hover {
+    color: var(--tuner-accent);
 }
 
-/* 透明度滑条 */
-input[type="range"].tuner-alpha-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 80px;
-    height: 6px;
-    background: transparent;
-    cursor: pointer;
-    margin: 0 4px;
+/* RGBA 输入框容器 */
+.tuner-rgba-inputs {
+    display: flex;
+    gap: 4px;
+    align-items: center;
 }
 
-input[type="range"].tuner-alpha-slider::-webkit-slider-runnable-track {
+/* 单个 RGBA 输入框 */
+.tuner-rgba-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 38px;
+}
+
+.tuner-rgba-box input {
     width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-    border: none;
-}
-
-input[type="range"].tuner-alpha-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    border: 2px solid rgba(0,0,0,0.2);
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: var(--tuner-accent);
-    margin-top: -5px;
-    box-shadow: 0 0 5px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-}
-
-input[type="range"].tuner-alpha-slider:hover::-webkit-slider-thumb {
-    transform: scale(1.2);
-    background: #fff;
-}
-
-/* 文本输入框 */
-input[type="text"].tuner-text {
-    background: transparent;
-    border: none;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--tuner-border);
+    border-radius: 4px;
     color: var(--tuner-text-main);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    flex: 1;
-    min-width: 140px;
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 2px 0;
     outline: none;
+}
+
+.tuner-rgba-box input:focus {
+    border-color: var(--tuner-accent);
+    background: rgba(255,255,255,0.05);
+}
+
+.tuner-rgba-label {
+    font-size: 0.6rem;
+    color: var(--tuner-text-sub);
+    margin-top: 2px;
+    text-transform: uppercase;
 }
 
 /* 滚动条 */
