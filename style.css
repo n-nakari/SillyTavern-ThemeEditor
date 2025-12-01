@@ -1,45 +1,42 @@
-/* 容器整体风格：韩系/Ins风 - 简洁、低饱和、圆角 */
-#st-css-editor-container {
+/* 容器主样式 */
+#st-css-editor-root {
     margin-top: 10px;
-    background: var(--SmartThemeBodyColor); /* 跟随主题背景，保持一致性 */
+    width: 100%;
+    background: var(--SmartThemeBlurTintColor); /* 使用ST主题变量实现半透明 */
     border: 1px solid var(--SmartThemeBorderColor);
-    border-radius: 16px; /* 大圆角 */
-    padding: 0;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /*极其柔和的阴影*/
-}
-
-#st-css-editor-container.collapsed {
-    height: 50px !important;
-    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    font-family: 'Segoe UI', sans-serif;
 }
 
 /* 顶部工具栏 */
 .st-css-toolbar {
     display: flex;
-    justify-content: space-between; /* 两端对齐 */
+    justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid var(--SmartThemeBorderColor);
-    backdrop-filter: blur(10px);
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* 按钮组 */
 .st-css-btn-group {
     display: flex;
     gap: 8px;
 }
 
-/* 按钮风格：像iOS控制中心的按钮 */
+/* 按钮样式 - Apple风格圆形/圆角按钮 */
 .st-css-btn {
     width: 32px;
     height: 32px;
-    border-radius: 10px;
     border: none;
-    background: rgba(128, 128, 128, 0.1);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
     color: var(--SmartThemeBodyColor);
-    filter: invert(1); /* 确保图标在不同主题下可见 */
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -49,7 +46,7 @@
 }
 
 .st-css-btn:hover {
-    background: rgba(128, 128, 128, 0.2);
+    background: rgba(255, 255, 255, 0.2);
     transform: scale(1.05);
 }
 
@@ -57,98 +54,101 @@
     transform: scale(0.95);
 }
 
-/* 列表容器 */
-#st-css-list {
-    padding: 16px;
-    max-height: 500px;
+/* 内容区域包装 */
+.st-css-content-wrapper {
+    max-height: 400px; /* 限制高度，内部滚动 */
     overflow-y: auto;
-    overflow-x: hidden;
-    /* 隐藏滚动条但保留功能 */
+    padding: 15px;
     scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
-/* 单个条目卡片 */
-.st-css-item {
-    background: rgba(128, 128, 128, 0.03);
+.st-css-content-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+.st-css-content-wrapper::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+/* 条目卡片 - Ins风小条目 */
+.st-css-card {
+    background: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 12px;
-    border: 1px solid transparent;
-    transition: border-color 0.2s;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.st-css-item:hover {
-    border-color: rgba(128, 128, 128, 0.2);
-}
-
-/* 标题区域 */
-.st-css-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.st-css-comment {
+/* 条目标题 */
+.st-css-card-header {
+    font-size: 13px;
     font-weight: 600;
-    font-size: 14px;
-    opacity: 0.9;
-}
-
-.st-css-selector {
-    font-family: monospace;
-    font-size: 11px;
-    opacity: 0.5;
-    background: rgba(128, 128, 128, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
+    opacity: 0.7;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 属性行 */
 .st-css-prop-row {
+    margin-bottom: 8px;
+}
+
+.st-css-prop-row:last-child {
+    margin-bottom: 0;
+}
+
+/* 属性名 */
+.st-css-prop-title {
+    font-size: 11px;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+
+/* 颜色容器 (处理渐变等多颜色情况) */
+.st-css-colors-container {
     display: flex;
     flex-direction: column;
-    margin-bottom: 8px;
-    padding-left: 8px;
-    border-left: 2px solid rgba(128, 128, 128, 0.1);
+    gap: 6px;
 }
 
-.st-css-prop-name {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    opacity: 0.6;
-    margin-bottom: 4px;
-}
-
-.st-css-color-group {
+/* 颜色选择器包裹 - 胶囊状/社交账号风格 */
+.st-css-color-wrapper {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
     align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 6px;
+    border-radius: 20px; /* 胶囊圆角 */
+    width: fit-content;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
 }
 
-/* 颜色选择器容器微调 */
-.st-css-picker-wrapper {
-    position: relative;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    overflow: hidden;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    border: 1px solid rgba(128, 128, 128, 0.2);
-    transition: transform 0.2s;
+.st-css-color-wrapper:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 
-.st-css-picker-wrapper:hover {
-    transform: scale(1.1);
-    z-index: 2;
+/* 颜色代码文本 */
+.st-css-color-code {
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    margin-left: 8px;
+    margin-right: 4px;
+    opacity: 0.8;
+    user-select: text;
+    cursor: text;
 }
 
-/* 强制覆盖 toolcool-color-picker 的样式使其变小变圆 */
-toolcool-color-picker {
-    width: 100%;
-    height: 100%;
-    padding: 0;
+/* 空状态 */
+.st-css-empty {
+    text-align: center;
+    padding: 20px;
+    opacity: 0.5;
+    font-size: 13px;
 }
