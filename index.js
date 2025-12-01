@@ -20,13 +20,13 @@ const EXTENSION_HTML = `
 // 颜色匹配正则
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 
-// CSS 块匹配正则
-// Group 1: 完整的注释块 (可选)
-// Group 2: 间隔 (用于判断空行)
-// Group 3: 选择器
-// Group 4: 属性块
-const CSS_BLOCK_REGEX = /(?:(\/\*[\s\S]*?\*\/))?([\s\r\n]*)([^{]+)\{([^}]+)\}/g;
+// CSS 块匹配正则 (改进版)
+// Group 1: 前缀 (包含注释、空格、换行)
+// Group 2: 选择器
+// Group 3: 属性块
+const CSS_BLOCK_REGEX = /((?:\s*\/\*[\s\S]*?\*\/)*\s*)([^{]+)\{([^}]+)\}/g;
 
+let isCollapsed = false;
 let scrollDirection = 'down';
 
 jQuery(async () => {
@@ -50,6 +50,7 @@ function initUI() {
 }
 
 function bindEvents() {
+    // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         const icon = $('#vce-btn-refresh i');
@@ -57,16 +58,18 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
+    // 保存
     $('#vce-btn-save').on('click', () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
         } else {
             saveSettingsDebounced();
-            toastr.info('Saved Settings (Native save button not found)', 'Visual CSS Editor');
+            toastr.info('Saved Settings', 'Visual CSS Editor');
         }
     });
 
+    // 回顶/回底 (平滑滚动)
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
@@ -82,6 +85,7 @@ function bindEvents() {
         }
     });
 
+    // 折叠 (平滑过渡)
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -96,9 +100,6 @@ function bindEvents() {
     });
 }
 
-/**
- * 核心逻辑修改部分：完全参考提供的思路进行标题格式化
- */
 function readAndRenderCSS() {
     const cssText = $('#customCSS').val() || '';
     const container = $('#vce-content');
@@ -109,27 +110,31 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const rawCommentBlock = match[1]; // 例如 "/* 气泡框 */"
-        const gap = match[2];             // 例如 "\n" 或 "\n\n"
-        const selector = match[3].trim(); // 例如 ".mes"
-        const body = match[4];            // 属性内容
+        const prefix = match[1] || ""; // 包含所有注释和空白
+        const selector = match[2].trim();
+        const body = match[3];
 
-        // 计算换行符数量：如果 gap 中包含2个或更多换行符，说明中间有空行
-        // 参考逻辑：newlineCount < 2 代表紧邻， >= 2 代表隔了一行
-        const newLineCount = (gap.match(/\n/g) || []).length;
-        
-        // 默认标题就是类名
         let displayTitle = selector;
 
-        // 只有当存在注释 且 没有被空行隔开时，才提取注释
-        if (rawCommentBlock && newLineCount < 2) {
-            // 参考你提供的例子逻辑：提取 /* */ 中间的内容
-            const commentMatch = rawCommentBlock.match(/\/\*([\s\S]*?)\*\//);
-            
-            if (commentMatch && commentMatch[1]) {
-                const cleanComment = commentMatch[1].trim(); // 去除首尾空格
-                // 如果提取到了内容，拼接格式： 注释 | 类名
+        // 核心修正逻辑：分析前缀
+        // 匹配前缀中 "最后一条注释" 以及 "它后面的空白"
+        // 1. \/\*([\s\S]*?)\*\/  -> 捕获注释内容（不含符号）
+        // 2. ([ \t\r\n]*)$      -> 捕获注释后直到选择器前的所有空白
+        const lastCommentRegex = /\/\*([\s\S]*?)\*\/([ \t\r\n]*)$/;
+        const commentMatch = prefix.match(lastCommentRegex);
+
+        if (commentMatch) {
+            const rawContent = commentMatch[1]; // 注释内部文字
+            const gap = commentMatch[2];        // 间隔空白
+
+            // 计算间隔中的换行符数量
+            const newLineCount = (gap.match(/\n/g) || []).length;
+
+            // 只有当换行符小于1（即紧邻或仅隔一行）时才视为有效标题
+            if (newLineCount < 1) {
+                const cleanComment = rawContent.trim();
                 if (cleanComment) {
+                    // 强制格式：注释 | .类名
                     displayTitle = `${cleanComment} | ${selector}`;
                 }
             }
@@ -171,7 +176,6 @@ function hasColor(val) {
 
 function createCard(title, properties, selector) {
     const card = $('<div class="vce-card"></div>');
-    // 直接显示处理好的 displayTitle
     const header = $(`<div class="vce-card-header">${title}</div>`);
     card.append(header);
 
@@ -182,6 +186,7 @@ function createCard(title, properties, selector) {
         const propName = $(`<div class="vce-prop-name">${prop.key.toUpperCase()}</div>`);
         propRow.append(propName);
 
+        // 统计颜色数量
         const regex = new RegExp(COLOR_REGEX);
         let match;
         const colorsFound = [];
@@ -220,15 +225,17 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
-        const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
+        // 构造正则以定位整个块
+        const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const blockRegex = new RegExp(`((?:\\s*\\/\\*[\\s\\S]*?\\*\\/)*\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, g1, g2, content, g4) => {
             const propRegex = new RegExp(`(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
             
             const newContent = content.replace(propRegex, (m, pPrefix, pValue, pSuffix) => {
                 let currentIdx = 0;
+                // 仅替换第 colorIndex 个颜色
                 const newValue = pValue.replace(new RegExp(COLOR_REGEX), (matchColor) => {
                     if (currentIdx === colorIndex) {
                         currentIdx++;
