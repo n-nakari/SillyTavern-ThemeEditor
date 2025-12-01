@@ -60,7 +60,7 @@
     font-size: 0.9em;
     color: #ccc;
     border-bottom: 1px solid rgba(255,255,255,0.03);
-    white-space: pre-wrap; /* 允许换行 */
+    white-space: pre-wrap; 
     word-break: break-all;
     display: flex;
     gap: 8px;
@@ -157,10 +157,10 @@
 }
 
 /* =========================================
-   扩展头部 (Simplified Header)
+   菜单栏 (Tabs) - 恢复原有样式
    ========================================= */
 
-.theme-editor-header {
+.theme-editor-tabs {
     display: flex;
     align-items: center;
     gap: 20px;
@@ -177,7 +177,8 @@
 
 .theme-editor-tab {
     padding: 12px 2px;
-    color: #fff; /* 默认激活色 */
+    cursor: default;
+    color: #fff; /* 激活色 */
     font-size: 1.1em;
     font-weight: 600;
     border-bottom: 2px solid #fff;
@@ -300,7 +301,7 @@
    ========================================= */
 
 .theme-editor-content-panel {
-    display: flex; /* 只有一个面板，总是显示 */
+    display: flex;
     flex-direction: column;
     padding: 15px;
     gap: 12px;
