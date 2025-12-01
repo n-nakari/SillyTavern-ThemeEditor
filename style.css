@@ -1,3 +1,5 @@
+--- START OF FILE style (4).css ---
+
 /* =========================================
    全局过渡与变量定义
    ========================================= */
@@ -237,7 +239,7 @@
     flex-wrap: wrap;
 }
 
-/* --- 注释标签样式 --- */
+/* --- 注释标签样式 (代码风格) --- */
 .tuner-comment-tag {
     display: inline-block;
     background-color: rgba(162, 155, 254, 0.15); /* 淡紫色背景 */
@@ -248,6 +250,7 @@
     font-weight: 700;
     margin-right: 8px;
     border: 1px solid rgba(162, 155, 254, 0.2);
+    font-family: 'JetBrains Mono', monospace; /* 代码字体 */
 }
 
 /* 选择器部分 */
