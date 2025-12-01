@@ -2,10 +2,10 @@
    全局过渡与变量定义
    ========================================= */
 :root {
-    --tuner-bg-color: rgba(30, 30, 35, 0.95);
+    --tuner-bg-color: rgba(30, 30, 35, 0.6);
     --tuner-card-bg: rgba(255, 255, 255, 0.04);
     --tuner-card-hover: rgba(255, 255, 255, 0.07);
-    --tuner-border: rgba(255, 255, 255, 0.1);
+    --tuner-border: rgba(255, 255, 255, 0.08);
     --tuner-accent: var(--smart-theme-color, #a29bfe);
     --tuner-text-main: #ececec;
     --tuner-text-sub: #a0a0a0;
@@ -16,6 +16,7 @@
 /* 通用动画类 */
 .css-tuner-container *, .css-tuner-container *::before, .css-tuner-container *::after {
     box-sizing: border-box;
+    transition: var(--tuner-transition);
 }
 
 /* =========================================
@@ -36,17 +37,18 @@
     align-items: center;
 }
 
+/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
     width: 100%;
     border: 1px solid var(--tuner-border);
     border-radius: 20px;
     padding: 8px 16px;
-    background: rgba(0, 0, 0, 0.2);
     font-size: 0.9rem;
     color: var(--tuner-text-main);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* 按钮组样式统一 */
 .tools-btn-group, .tuner-controls {
     display: flex;
     gap: 8px;
@@ -61,10 +63,9 @@
     justify-content: center;
     border-radius: 50%;
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--tuner-text-sub);
-    border: 1px solid var(--tuner-border);
-    transition: var(--tuner-transition);
+    background-color: rgb(217 217 217 / 70%);
+    color: rgb(122 122 122);
+    border: 1px solid rgb(193 193 193);
 }
 
 .tools-btn:hover {
@@ -75,7 +76,7 @@
 }
 
 /* =========================================
-   搜索下拉栏
+   搜索下拉栏 (通用)
    ========================================= */
 .css-search-dropdown {
     position: absolute;
@@ -89,12 +90,16 @@
     overflow-y: auto;
     z-index: 2000;
     box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    display: none;
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    pointer-events: none;
     padding: 8px 0;
 }
 
 .css-search-dropdown.active {
-    display: block;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 .css-search-item {
@@ -102,7 +107,7 @@
     cursor: pointer;
     font-size: 0.9em;
     color: var(--tuner-text-sub);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -113,30 +118,35 @@
     background-color: rgba(255, 255, 255, 0.05);
     color: var(--tuner-text-main);
     border-left-color: var(--tuner-accent);
+    padding-left: 20px;
 }
 
 .search-highlight {
     color: var(--tuner-accent);
     font-weight: 800;
     text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
 }
 
 /* =========================================
    扩展主容器
    ========================================= */
 .css-tuner-container {
+    backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
+    overflow: visible;
     position: relative;
     z-index: 10;
-    margin-bottom: 20px;
 }
 
 .tuner-header {
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    padding: 10px 0;
+    padding: 10px 0px;
+    background: transparent;
 }
 
 .tuner-body {
@@ -144,19 +154,14 @@
     flex-direction: column;
     overflow: hidden;
     transition: all 0.3s ease;
-    max-height: 1000px;
+    max-height: 1200px; 
     opacity: 1;
-    border: 1px solid var(--tuner-border);
-    border-radius: var(--tuner-radius);
-    background: rgba(0, 0, 0, 0.2);
 }
 
 .tuner-body.collapsed {
     max-height: 0;
     opacity: 0;
     pointer-events: none;
-    margin: 0;
-    border: none;
 }
 
 .tuner-sub-header {
@@ -171,6 +176,7 @@
     background: transparent;
     border: none;
     border-bottom: 2px solid var(--tuner-border);
+    border-radius: 0;
     padding: 8px 0;
     color: var(--tuner-text-main);
     font-size: 0.9rem;
@@ -178,16 +184,20 @@
 
 #tuner-search:focus {
     border-color: var(--tuner-accent);
-    outline: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .tuner-content {
     padding: 20px;
     max-height: 600px;
     overflow-y: auto;
+    background-color: rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
     gap: 16px;
+    /* 保证颜色选择器弹出时不被裁剪 */
+    padding-bottom: 100px; 
 }
 
 /* =========================================
@@ -196,35 +206,56 @@
 .tuner-card {
     background-color: var(--tuner-card-bg);
     border: 1px solid var(--tuner-border);
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 16px;
-    transition: background 0.2s;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .tuner-card:hover {
     background-color: var(--tuner-card-hover);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.15);
 }
 
 .tuner-card-header {
     margin-bottom: 12px;
-    padding-bottom: 8px;
+    padding-bottom: 10px;
     border-bottom: 1px dashed var(--tuner-border);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 600;
     color: var(--tuner-text-main);
+    word-break: break-all;
+    line-height: 1.6;
     font-family: 'JetBrains Mono', monospace;
-    line-height: 1.5;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
 }
 
+/* 注释标签样式 */
 .tuner-comment-tag {
+    display: inline-block;
+    background-color: rgba(162, 155, 254, 0.15);
     color: var(--tuner-accent);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
     font-weight: 700;
     margin-right: 8px;
+    border: 1px solid rgba(162, 155, 254, 0.2);
+}
+
+.tuner-header-selector {
+    color: var(--tuner-text-sub);
+    opacity: 0.8;
 }
 
 .tuner-prop-row {
     display: flex;
     flex-direction: column;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .tuner-prop-row:last-child {
@@ -232,55 +263,52 @@
 }
 
 .tuner-prop-name {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--tuner-text-sub);
-    margin-bottom: 6px;
-    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 700;
 }
 
+/* 颜色输入组 */
 .tuner-inputs-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
 }
 
 .tuner-input-group {
-    background-color: rgba(0,0,0,0.3);
-    border-radius: 6px;
-    padding: 4px;
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 30px;
+    padding: 4px 6px 4px 12px; /* 调整padding以适应Pickr按钮 */
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     border: 1px solid transparent;
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
 }
 
-.tuner-input-group:hover {
-    border-color: rgba(255,255,255,0.2);
+.tuner-input-group:hover, .tuner-input-group:focus-within {
+    border-color: var(--tuner-accent);
+    background-color: rgba(0,0,0,0.3);
 }
 
-/* 颜色触发块（替代原生input type=color） */
-.tuner-swatch-trigger {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    border: 2px solid rgba(255,255,255,0.2);
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%);
-    background-size: 10px 10px;
-    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
-    position: relative;
+.tuner-color-idx {
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.1);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
     flex-shrink: 0;
 }
 
-.tuner-swatch-inner {
-    width: 100%;
-    height: 100%;
-    border-radius: 4px;
-}
-
+/* 文本输入框 */
 input[type="text"].tuner-text {
     background: transparent;
     border: none;
@@ -288,187 +316,41 @@ input[type="text"].tuner-text {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
     flex: 1;
+    min-width: 120px;
     outline: none;
-    padding: 0 8px;
+    text-transform: lowercase;
+}
+
+/* Pickr 样式覆盖 (使其适配暗色主题) */
+.pickr {
+    display: flex;
+    align-items: center;
+}
+.pickr .pcr-button {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.2);
+}
+.pickr .pcr-button::before {
+    border-radius: 50% !important;
+}
+.pickr .pcr-button::after {
+    border-radius: 50% !important;
 }
 
 /* 滚动条 */
-.tuner-content::-webkit-scrollbar { width: 6px; }
-.tuner-content::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.15); border-radius: 10px; }
-
-/* =========================================
-   高级颜色选择器弹窗 (Advanced Picker Modal)
-   ========================================= */
-.tuner-picker-modal {
-    position: fixed;
-    z-index: 99999;
-    background: #2b2b2b;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
-    border-radius: 8px;
-    padding: 12px;
-    width: 260px;
-    display: none;
-    user-select: none;
-    font-family: sans-serif;
+.tuner-content::-webkit-scrollbar {
+    width: 5px;
 }
-
-.tuner-picker-modal.active {
-    display: block;
-    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+.tuner-content::-webkit-scrollbar-track {
+    background: transparent;
 }
-
-@keyframes popIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
+.tuner-content::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 10px;
 }
-
-/* 饱和度/明度面板 (SV) */
-.tp-sv-panel {
-    width: 100%;
-    height: 150px;
-    position: relative;
-    background: red; /* 动态改变 */
-    border-radius: 4px;
-    margin-bottom: 10px;
-    cursor: crosshair;
+.tuner-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255,255,255,0.3);
 }
-
-.tp-sv-white {
-    position: absolute; inset: 0;
-    background: linear-gradient(to right, #fff, rgba(255,255,255,0));
-}
-.tp-sv-black {
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, #000, rgba(0,0,0,0));
-}
-
-.tp-cursor {
-    width: 12px;
-    height: 12px;
-    border: 2px solid white;
-    box-shadow: 0 0 2px rgba(0,0,0,0.5);
-    border-radius: 50%;
-    position: absolute;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
-/* 控制行：吸管、预览、色相、Alpha */
-.tp-controls-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.tp-eye-dropper {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #aaa;
-    flex-shrink: 0;
-}
-.tp-eye-dropper:hover { color: #fff; }
-
-.tp-preview {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.2);
-    background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%);
-    background-size: 8px 8px;
-    flex-shrink: 0;
-    position: relative;
-    overflow: hidden;
-}
-.tp-preview-inner {
-    width: 100%; height: 100%;
-}
-
-.tp-sliders {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.tp-slider-track {
-    width: 100%;
-    height: 10px;
-    border-radius: 5px;
-    position: relative;
-    cursor: pointer;
-}
-
-.tp-slider-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 0 3px rgba(0,0,0,0.5);
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
-/* 色相条背景 */
-.tp-hue-track {
-    background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
-}
-/* 透明度条背景 */
-.tp-alpha-track {
-    background-image: linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%);
-    background-size: 8px 8px;
-    background-color: #333;
-}
-.tp-alpha-gradient {
-    position: absolute; inset: 0; border-radius: 5px;
-    /* JS动态修改 */
-    background: linear-gradient(to right, transparent, red);
-}
-
-/* 输入框区域 */
-.tp-inputs-row {
-    display: flex;
-    gap: 4px;
-    justify-content: space-between;
-}
-
-.tp-input-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-}
-
-.tp-input-box {
-    width: 45px;
-    background: #1a1a1a;
-    border: 1px solid #444;
-    color: #ececec;
-    border-radius: 4px;
-    padding: 4px;
-    text-align: center;
-    font-size: 12px;
-}
-.tp-input-box:focus { border-color: var(--tuner-accent); outline: none; }
-
-.tp-label {
-    font-size: 10px;
-    color: #888;
-    font-weight: bold;
-}
-
-/* 覆盖层，用于点击关闭 */
-.tuner-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: 99990;
-    display: none;
-}
-.tuner-overlay.active { display: block; }
