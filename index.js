@@ -7,24 +7,28 @@ const extensionName = "CssColorTuner";
 let cssTextArea = null;
 let container = null;
 let contentArea = null;
+let tunerBody = null; // 新增：用于折叠的包裹层
 
-// 缓存上一次内容
+// 上一次解析的 CSS 内容哈希或长度
 let lastCssContent = "";
 
-// 颜色正则
+// 颜色匹配正则
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
-// 全局数据块缓存
+// 缓存解析后的块
 let currentParsedBlocks = [];
 
+// 滚动按钮状态 (top 或 bottom)
+let scrollDirection = 'bottom'; 
+
 /**
- * 解析颜色为 RGBA 对象
+ * 核心工具：将任意 CSS 颜色解析为 RGBA 对象
  */
 function getColorRgba(str) {
     const ctx = document.createElement('canvas').getContext('2d');
     ctx.clearRect(0,0,1,1);
     ctx.fillStyle = str;
-    const computed = ctx.fillStyle; 
+    const computed = ctx.fillStyle;
 
     let r = 0, g = 0, b = 0, a = 1;
 
@@ -61,8 +65,7 @@ function toRgbaString(r, g, b, a) {
 }
 
 /**
- * 解析CSS核心函数
- * 严格修改：注释提取逻辑
+ * 解析CSS字符串 (重点：注释清理)
  */
 function parseCssColors(cssString) {
     const blocks = [];
@@ -76,29 +79,29 @@ function parseCssColors(cssString) {
         
         let finalComment = "";
         
-        // --- 核心修正：严格提取最后一个注释 ---
         if (rawComments) {
-            // 1. 按 '*/' 分割，因为正则捕获的是一大坨注释块
+            // 1. 分割多个注释块
             const commentParts = rawComments.split('*/');
+            // 2. 过滤有效块
+            const validComments = commentParts
+                .map(c => c.trim())
+                .filter(c => c.includes('/*'));
             
-            // 2. 过滤掉空字符串和不含 '/*' 的部分
-            const validParts = commentParts.filter(part => part.trim().includes('/*'));
-            
-            if (validParts.length > 0) {
-                // 3. 取最后一个（紧邻选择器的那个）
-                let targetComment = validParts[validParts.length - 1];
+            if (validComments.length > 0) {
+                // 3. 取最后一个注释 (紧邻选择器的那一个)
+                let lastRaw = validComments[validComments.length - 1];
                 
-                // 4. 清理：去掉 '/*' 和空白
-                // 此时 targetComment 可能是 "\n  /* 注释内容"
-                targetComment = targetComment.replace(/\/\*/, '').trim();
+                // 4. 去除 /*
+                let cleanStep1 = lastRaw.replace(/^\/\*/, '').trim();
                 
-                // 5. 再次确保没有残留（防止多层嵌套或异常字符），并且完全去除标点
-                // 这里只去除了注释符本身，如果用户写了 "注释 |" 这种，保留内容
-                finalComment = targetComment;
+                // 5. 去除所有标点符号 (保留空格、中文、字母、数字、下划线、减号)
+                // 这里列出了常见的英文和中文标点
+                let cleanStep2 = cleanStep1.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~，。！？；：“”‘’（）【】《》、]/g, '');
+                
+                finalComment = cleanStep2.trim();
             }
         }
-        // ------------------------------------
-
+        
         const properties = [];
         const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
         let propMatch;
@@ -143,10 +146,11 @@ function parseCssColors(cssString) {
     return blocks;
 }
 
+// UI 构建
 function createTunerUI() {
     if ($('.css-tuner-container').length > 0) return;
 
-    // 1. 顶部工具栏：新增 向下滚动 按钮
+    // 1. 顶部工具栏 (修改了回顶按钮)
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -155,28 +159,30 @@ function createTunerUI() {
             </div>
             <div class="tools-btn-group">
                 <div class="tools-btn" id="css-top-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
-                <div class="tools-btn" id="css-top-up" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
-                <div class="tools-btn" id="css-top-down" title="跳到底部"><i class="fa-solid fa-arrow-down"></i></div>
+                <div class="tools-btn" id="css-top-scroll" title="滚动到底部/顶部"><i class="fa-solid fa-arrow-down"></i></div>
             </div>
         </div>
     `);
 
-    // 2. 调色板容器：头部移除标题文字，按钮左移
+    // 2. 调色板容器 (修改了header，增加了body包裹)
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
                 <div class="tuner-controls">
                     <div class="tools-btn" id="tuner-refresh" title="刷新列表"><i class="fa-solid fa-sync-alt"></i></div>
-                    <div class="tools-btn" id="tuner-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
+                    <div class="tools-btn" id="tuner-save" title="保存并更新"><i class="fa-solid fa-save"></i></div>
                     <div class="tools-btn" id="tuner-up" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
                     <div class="tools-btn" id="tuner-collapse" title="折叠/展开"><i class="fa-solid fa-chevron-up"></i></div>
                 </div>
             </div>
-            <div class="tuner-sub-header">
-                <input type="text" id="tuner-search" placeholder="搜索类名、属性或注释..." autocomplete="off">
-                <div class="css-search-dropdown" id="tuner-search-results"></div>
+            
+            <div class="tuner-body">
+                <div class="tuner-sub-header">
+                    <input type="text" id="tuner-search" placeholder="搜索类名、属性或注释..." autocomplete="off">
+                    <div class="css-search-dropdown" id="tuner-search-results"></div>
+                </div>
+                <div class="tuner-content" id="tuner-content-area"></div>
             </div>
-            <div class="tuner-content" id="tuner-content-area"></div>
         </div>
     `);
 
@@ -185,6 +191,7 @@ function createTunerUI() {
     container.insertAfter(textAreaBlock);
     
     contentArea = $('#tuner-content-area');
+    tunerBody = container.find('.tuner-body');
     cssTextArea = $('#customCSS');
 
     bindEvents();
@@ -207,10 +214,10 @@ function saveSettings() {
 }
 
 function bindEvents() {
-    // Top Bar Search
     const topSearchInput = $('#css-top-search');
     const topResultsContainer = $('#css-search-results');
 
+    // CSS代码搜索
     topSearchInput.on('input', function() {
         const query = $(this).val();
         topResultsContainer.empty().removeClass('active');
@@ -246,10 +253,10 @@ function bindEvents() {
         }
     });
 
-    // Tuner Search (Internal)
     const tunerSearchInput = $('#tuner-search');
     const tunerResultsContainer = $('#tuner-search-results');
 
+    // 内部搜索
     tunerSearchInput.on('input', function() {
         const query = $(this).val().toLowerCase();
         
@@ -270,11 +277,10 @@ function bindEvents() {
         const results = currentParsedBlocks.filter(b => 
             (b.comment && b.comment.toLowerCase().includes(query)) || 
             (b.selector && b.selector.toLowerCase().includes(query))
-        ).slice(0, 15);
+        ).slice(0, 15); 
 
         if (results.length > 0) {
             results.forEach(block => {
-                // 搜索栏结果格式也保持一致
                 let displayText = block.selector;
                 if (block.comment) {
                     displayText = `${block.comment} | ${block.selector}`;
@@ -288,7 +294,7 @@ function bindEvents() {
                 item.on('click', () => {
                     const targetCard = $(`#${block.id}`);
                     if (targetCard.length) {
-                        targetCard.show();
+                        targetCard.show(); 
                         contentArea[0].scrollTo({
                             top: targetCard[0].offsetTop - contentArea[0].offsetTop - 10,
                             behavior: 'smooth'
@@ -305,15 +311,37 @@ function bindEvents() {
     });
 
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('.css-tools-search-wrapper').length) topResultsContainer.removeClass('active');
-        if (!$(e.target).closest('.tuner-sub-header').length) tunerResultsContainer.removeClass('active');
+        if (!$(e.target).closest('.css-tools-search-wrapper').length) {
+            topResultsContainer.removeClass('active');
+        }
+        if (!$(e.target).closest('.tuner-sub-header').length) {
+            tunerResultsContainer.removeClass('active');
+        }
     });
 
     $('#css-top-save, #tuner-save').on('click', saveSettings);
     
-    // CSS 顶部按钮逻辑
-    $('#css-top-up').on('click', () => cssTextArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
-    $('#css-top-down').on('click', () => cssTextArea[0].scrollTo({ top: cssTextArea[0].scrollHeight, behavior: 'smooth' }));
+    // --- 修改：CSS框 滚动到底部/顶部 逻辑 ---
+    $('#css-top-scroll').on('click', function() {
+        const el = cssTextArea[0];
+        const icon = $(this).find('i');
+        
+        if (scrollDirection === 'bottom') {
+            // 去底部
+            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+            // 改变图标为向上
+            icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
+            scrollDirection = 'top';
+            $(this).attr('title', '回到顶部');
+        } else {
+            // 去顶部
+            el.scrollTo({ top: 0, behavior: 'smooth' });
+            // 改变图标为向下
+            icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
+            scrollDirection = 'bottom';
+            $(this).attr('title', '滚动到底部');
+        }
+    });
 
     $('#tuner-refresh').on('click', function() {
         const icon = $(this).find('i');
@@ -324,11 +352,11 @@ function bindEvents() {
 
     $('#tuner-up').on('click', () => contentArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
 
-    // 折叠逻辑：使用类名控制整个容器状态
+    // --- 修改：折叠逻辑 (折叠 body) ---
     $('#tuner-collapse').on('click', function() {
-        container.toggleClass('is-collapsed');
+        tunerBody.toggleClass('collapsed');
         const icon = $(this).find('i');
-        if (container.hasClass('is-collapsed')) {
+        if (tunerBody.hasClass('collapsed')) {
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         } else {
             icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
@@ -369,11 +397,10 @@ function renderTunerBlocks(blocks) {
     }
 
     blocks.forEach(block => {
-        // --- 核心样式：格式化标题 ---
+        // --- 标题渲染：有注释则加标签，无注释只有选择器 ---
         let titleHtml = '';
         if (block.comment) {
-            // 格式：注释 | .class (中间有空格)
-            titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.comment)}</span> <span style="opacity:0.3; margin:0 4px;">|</span> <span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
+            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.3; margin-right:8px;">|</span><span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
         } else {
             titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
         }
@@ -393,14 +420,14 @@ function renderTunerBlocks(blocks) {
             prop.colors.forEach((colorObj, index) => {
                 const colorVal = colorObj.value;
                 const rgba = getColorRgba(colorVal);
+
                 const group = $(`<div class="tuner-input-group"></div>`);
                 
                 if (prop.colors.length > 1) {
                     group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
                 }
 
-                // 三联动控件
-                const colorPicker = $(`<input type="color" class="tuner-picker" value="${rgba.hex}" title="选取基色">`);
+                const colorPicker = $(`<input type="color" class="tuner-picker" value="${rgba.hex}" title="选取基色 (吸管)">`);
                 const alphaSlider = $(`<input type="range" class="tuner-alpha-slider" min="0" max="1" step="0.01" value="${rgba.a}" title="透明度: ${rgba.a}">`);
                 const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="颜色值">`);
 
@@ -413,9 +440,15 @@ function renderTunerBlocks(blocks) {
                     const b = parseInt(currentRgbHex.substr(5,2), 16);
                     const newValue = toRgbaString(r, g, b, currentAlpha);
 
-                    if (triggerType !== 'text') textInput.val(newValue);
-                    if (triggerType !== 'picker') colorPicker.val(currentRgbHex);
-                    if (triggerType !== 'slider') alphaSlider.val(currentAlpha);
+                    if (triggerType !== 'text') {
+                        textInput.val(newValue);
+                    }
+                    if (triggerType !== 'picker') {
+                        colorPicker.val(currentRgbHex);
+                    }
+                    if (triggerType !== 'slider') {
+                        alphaSlider.val(currentAlpha);
+                    }
                     
                     try { colorPicker.css('background-color', newValue); } catch(e) {}
                     updateCssContent(block.selector, prop.name, index, newValue);
@@ -461,9 +494,11 @@ function renderTunerBlocks(blocks) {
 function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
+    
     if (match) {
         const fullBlockMatch = match[0];
         const blockContent = match[2];
@@ -509,6 +544,7 @@ $(document).ready(function() {
     eventSource.on(event_types.SETTINGS_UPDATED, function() {
         setTimeout(() => {
             if ($('#customCSS').length) {
+                console.log(extensionName + ": Theme changed detected");
                 refreshTuner(true);
             }
         }, 500);
