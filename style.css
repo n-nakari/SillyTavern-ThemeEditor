@@ -1,272 +1,360 @@
-/* --- 基础过渡与动画 --- */
-.css-tuner-container, .tuner-block, .menu_button, input, .css-search-item {
-    transition: all 0.2s ease-in-out;
+/* =========================================
+   全局过渡与变量定义
+   ========================================= */
+:root {
+    --tuner-bg-color: rgba(30, 30, 35, 0.6);
+    --tuner-card-bg: rgba(255, 255, 255, 0.04);
+    --tuner-card-hover: rgba(255, 255, 255, 0.07);
+    --tuner-border: rgba(255, 255, 255, 0.08);
+    --tuner-accent: var(--smart-theme-color, #a29bfe);
+    --tuner-text-main: #ececec;
+    --tuner-text-sub: #a0a0a0;
+    --tuner-radius: 12px;
+    --tuner-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* --- 容器主样式 --- */
-.css-tuner-container {
-    width: 100%;
-    margin-top: 10px;
-    background-color: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--smart-border-color, rgba(255, 255, 255, 0.1));
-    border-radius: 6px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+/* 通用动画类 */
+.css-tuner-container *, .css-tuner-container *::before, .css-tuner-container *::after {
+    box-sizing: border-box;
+    transition: var(--tuner-transition);
 }
 
-/* --- 顶部工具栏 (CSS框上方) --- */
+/* =========================================
+   顶部工具栏 (CSS框上方)
+   ========================================= */
 .css-tools-bar {
     display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 12px;
+    margin-bottom: 12px;
     align-items: center;
-    position: relative;
+    padding: 0 4px;
 }
 
 .css-tools-search-wrapper {
     position: relative;
     flex: 1;
+    display: flex;
+    align-items: center;
 }
 
-/* 搜索输入框美化 */
+/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.15);
-}
-#css-top-search:focus {
-    border-color: var(--smart-theme-color, #a29bfe);
-    background-color: rgba(0,0,0,0.4);
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--tuner-border);
+    border-radius: 20px; /* 胶囊形状 */
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    color: var(--tuner-text-main);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* --- 搜索下拉结果 (浏览器风格) --- */
+#css-top-search:focus {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-color: var(--tuner-accent);
+    box-shadow: 0 0 0 2px rgba(162, 155, 254, 0.2);
+}
+
+/* 右侧图标按钮组 */
+.tools-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
+.tools-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    background-color: var(--tuner-card-bg);
+    color: var(--tuner-text-sub);
+    border: 1px solid transparent;
+}
+
+.tools-btn:hover {
+    background-color: var(--tuner-accent);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* =========================================
+   搜索下拉栏 (浏览器风格)
+   ========================================= */
 .css-search-dropdown {
     position: absolute;
-    top: 105%;
+    top: 110%;
     left: 0;
     right: 0;
-    background-color: var(--smart-background-color, #1e1e1e);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px;
-    max-height: 250px;
+    background-color: #1e1e1e; /* 纯色背景防止文字重叠 */
+    border: 1px solid var(--tuner-border);
+    border-radius: 12px;
+    max-height: 300px;
     overflow-y: auto;
-    z-index: 1000;
-    display: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 2000;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     opacity: 0;
-    transform: translateY(-5px);
-    /* JS 显示时会移除 opacity 和 transform 实现淡入 */
+    transform: translateY(-10px) scale(0.98);
+    pointer-events: none;
+    padding: 8px 0;
 }
 
 .css-search-dropdown.active {
-    display: block;
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 .css-search-item {
-    padding: 10px 12px;
+    padding: 10px 16px;
     cursor: pointer;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
     font-size: 0.9em;
-    color: var(--smart-text-color, #ccc);
-    font-family: monospace;
-    white-space: pre; /* 保留空格 */
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.css-search-item:last-child {
-    border-bottom: none;
+    color: var(--tuner-text-sub);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 3px solid transparent;
 }
 
 .css-search-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    padding-left: 16px; /* 悬浮微动效果 */
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--tuner-text-main);
+    border-left-color: var(--tuner-accent);
+    padding-left: 20px;
 }
 
-/* 搜索高亮样式 */
 .search-highlight {
-    color: var(--smart-theme-color, #ffd700);
-    font-weight: bold;
-    background-color: rgba(255, 215, 0, 0.1);
-    border-radius: 2px;
-    padding: 0 2px;
+    color: var(--tuner-accent);
+    font-weight: 800;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
 }
 
-/* --- 调色板顶栏 --- */
+/* =========================================
+   扩展主容器
+   ========================================= */
+.css-tuner-container {
+    margin-top: 20px;
+    background: var(--tuner-bg-color);
+    border: 1px solid var(--tuner-border);
+    border-radius: 16px;
+    backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- 顶栏 --- */
 .tuner-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    background-color: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--tuner-border);
+    background: linear-gradient(to right, rgba(255,255,255,0.02), transparent);
 }
 
 .tuner-title {
+    font-size: 1.1rem;
     font-weight: 700;
-    font-size: 1.1em;
-    color: var(--smart-text-color, #fff);
+    color: var(--tuner-text-main);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     letter-spacing: 0.5px;
 }
 
-.tuner-controls {
-    display: flex;
-    gap: 5px;
+.tuner-title i {
+    color: var(--tuner-accent);
+    filter: drop-shadow(0 0 5px rgba(162,155,254,0.4));
 }
 
-/* --- 调色板搜索栏 --- */
+/* --- 搜索栏 (面板内) --- */
 .tuner-sub-header {
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    background-color: rgba(0, 0, 0, 0.1);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--tuner-border);
+    background-color: rgba(0,0,0,0.1);
 }
 
-/* --- 调色板内容区域 --- */
+#tuner-search {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--tuner-border);
+    border-radius: 0;
+    padding: 8px 0;
+    color: var(--tuner-text-main);
+    font-size: 0.9rem;
+}
+
+#tuner-search:focus {
+    border-color: var(--tuner-accent);
+    background: transparent;
+    box-shadow: none;
+}
+
+/* --- 内容区域 --- */
 .tuner-content {
-    padding: 12px;
-    max-height: 500px;
+    padding: 20px;
+    max-height: 600px;
     overflow-y: auto;
-    /* 滚动条平滑 */
-    scroll-behavior: smooth;
-    transition: max-height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), padding 0.3s;
+    background-color: rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .tuner-content.collapsed {
     max-height: 0;
-    padding: 0 12px; /* 保留左右padding避免抖动，上下设为0 */
-    border: none;
-    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
 }
 
-/* --- 单个CSS块 --- */
-.tuner-block {
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
+/* =========================================
+   卡片设计 (Ins风/简洁卡片)
+   ========================================= */
+.tuner-card {
+    background-color: var(--tuner-card-bg);
+    border: 1px solid var(--tuner-border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.tuner-card:hover {
+    background-color: var(--tuner-card-hover);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.15);
+}
+
+/* 卡片标题 */
+.tuner-card-header {
     margin-bottom: 12px;
-    padding: 12px;
-}
-
-.tuner-block:hover {
-    background-color: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.15);
-    transform: translateX(2px); /* 悬浮微动 */
-}
-
-/* 标题区域 */
-.tuner-block-header {
-    margin-bottom: 10px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 0.95em;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--tuner-border);
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     gap: 8px;
-    flex-wrap: wrap;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed rgba(255,255,255,0.1);
 }
 
-.tuner-title-comment {
-    font-weight: bold;
-    color: var(--smart-text-color, #eee);
-    font-size: 1.05em;
+.tuner-card-comment {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--tuner-text-main);
 }
 
-.tuner-title-selector {
-    color: #888;
-    font-family: monospace;
-    font-size: 0.85em;
-}
-
-/* 分隔线样式（如果需要） */
-.tuner-separator {
-    color: #555;
-    font-size: 0.8em;
+.tuner-card-selector {
+    font-size: 0.85rem;
+    color: var(--tuner-text-sub);
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.8;
 }
 
 /* 属性行 */
-.tuner-property-row {
-    margin-top: 8px;
-    padding-left: 8px;
+.tuner-prop-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
 }
 
-.tuner-property-name {
-    font-size: 0.85em;
-    color: #aaa;
-    margin-bottom: 6px;
-    font-family: monospace;
-    font-weight: 600;
+.tuner-prop-row:last-child {
+    margin-bottom: 0;
 }
 
-/* 颜色选择器组 */
-.tuner-color-inputs {
+.tuner-prop-name {
+    font-size: 0.8rem;
+    color: var(--tuner-text-sub);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+/* 颜色输入组 */
+.tuner-inputs-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
 }
 
-.tuner-color-wrapper {
+.tuner-input-group {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 30px; /* 圆角胶囊 */
+    padding: 4px 6px;
+    padding-right: 12px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(0,0,0,0.3);
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.05);
+    gap: 8px;
+    border: 1px solid transparent;
 }
 
-.tuner-color-index {
-    font-size: 0.75em;
-    color: #777;
-    font-weight: bold;
-    user-select: none;
+.tuner-input-group:hover, .tuner-input-group:focus-within {
+    border-color: var(--tuner-accent);
+    background-color: rgba(0,0,0,0.3);
 }
 
-/* 颜色控件 */
+.tuner-color-idx {
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.1);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+/* 圆形颜色选择器 */
 input[type="color"].tuner-picker {
-    border: none;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
     background: none;
-    border-radius: 3px;
-    transition: transform 0.2s;
+    cursor: pointer;
+    overflow: hidden; /* 裁剪原生方块 */
 }
-input[type="color"].tuner-picker:hover {
-    transform: scale(1.1);
+input[type="color"].tuner-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
 }
-
-input[type="text"].tuner-text-input {
-    width: 90px;
-    padding: 3px 6px;
-    font-size: 0.85em;
-    font-family: monospace;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
-    color: var(--smart-text-color, #ddd);
-    border-radius: 3px;
-}
-input[type="text"].tuner-text-input:focus {
-    background: rgba(0,0,0,0.5);
-    border-color: var(--smart-theme-color, #a29bfe);
+input[type="color"].tuner-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
 }
 
-/* 滚动条美化 */
+/* 文本输入框 */
+input[type="text"].tuner-text {
+    background: transparent;
+    border: none;
+    color: var(--tuner-text-main);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    width: 130px;
+    outline: none;
+}
+
+/* 滚动条 */
 .tuner-content::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
+}
+.tuner-content::-webkit-scrollbar-track {
+    background: transparent;
 }
 .tuner-content::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 10px;
 }
 .tuner-content::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(255,255,255,0.3);
 }
