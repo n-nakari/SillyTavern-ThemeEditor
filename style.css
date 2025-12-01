@@ -1,3 +1,5 @@
+--- START OF FILE style (4).css ---
+
 /* =========================================
    全局过渡与变量定义
    ========================================= */
@@ -141,20 +143,22 @@
     z-index: 10;
 }
 
+/* --- 顶栏 --- */
 .tuner-header {
     display: flex;
-    justify-content: flex-start;
+    justify-content: flex-start; /* 左对齐 */
     align-items: center;
     padding: 10px 0px;
-    background: transparent;
+    background: transparent; /* 透明背景 */
 }
 
+/* --- 可折叠区域 (包裹搜索框和内容) --- */
 .tuner-body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
     transition: all 0.3s ease;
-    max-height: 1200px; 
+    max-height: 800px; /* 足够大即可 */
     opacity: 1;
 }
 
@@ -164,6 +168,7 @@
     pointer-events: none;
 }
 
+/* --- 搜索栏 --- */
 .tuner-sub-header {
     padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
@@ -188,6 +193,7 @@
     box-shadow: none;
 }
 
+/* --- 内容区域 --- */
 .tuner-content {
     padding: 20px;
     max-height: 600px;
@@ -196,8 +202,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    /* 保证颜色选择器弹出时不被裁剪 */
-    padding-bottom: 100px; 
 }
 
 /* =========================================
@@ -219,6 +223,7 @@
     border-color: rgba(255,255,255,0.15);
 }
 
+/* 卡片标题 */
 .tuner-card-header {
     margin-bottom: 12px;
     padding-bottom: 10px;
@@ -234,10 +239,10 @@
     flex-wrap: wrap;
 }
 
-/* 注释标签样式 */
+/* --- 注释标签样式 --- */
 .tuner-comment-tag {
     display: inline-block;
-    background-color: rgba(162, 155, 254, 0.15);
+    background-color: rgba(162, 155, 254, 0.15); /* 淡紫色背景 */
     color: var(--tuner-accent);
     padding: 2px 8px;
     border-radius: 6px;
@@ -247,11 +252,13 @@
     border: 1px solid rgba(162, 155, 254, 0.2);
 }
 
+/* 选择器部分 */
 .tuner-header-selector {
     color: var(--tuner-text-sub);
     opacity: 0.8;
 }
 
+/* 属性行 */
 .tuner-prop-row {
     display: flex;
     flex-direction: column;
@@ -281,13 +288,13 @@
 .tuner-input-group {
     background-color: rgba(0,0,0,0.2);
     border-radius: 30px;
-    padding: 4px 6px 4px 12px; /* 调整padding以适应Pickr按钮 */
+    padding: 6px 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     border: 1px solid transparent;
     flex: 1;
-    min-width: 220px;
+    min-width: 200px;
 }
 
 .tuner-input-group:hover, .tuner-input-group:focus-within {
@@ -298,8 +305,8 @@
 .tuner-color-idx {
     font-size: 0.7rem;
     background: rgba(255,255,255,0.1);
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -308,36 +315,25 @@
     flex-shrink: 0;
 }
 
+/* Toolcool Color Picker 样式调整 */
+toolcool-color-picker.tuner-toolcool {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
 /* 文本输入框 */
 input[type="text"].tuner-text {
     background: transparent;
     border: none;
     color: var(--tuner-text-main);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     flex: 1;
-    min-width: 120px;
+    min-width: 140px;
     outline: none;
-    text-transform: lowercase;
-}
-
-/* Pickr 样式覆盖 (使其适配暗色主题) */
-.pickr {
-    display: flex;
-    align-items: center;
-}
-.pickr .pcr-button {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 50% !important;
-    overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.2);
-}
-.pickr .pcr-button::before {
-    border-radius: 50% !important;
-}
-.pickr .pcr-button::after {
-    border-radius: 50% !important;
+    padding: 4px 0;
 }
 
 /* 滚动条 */
