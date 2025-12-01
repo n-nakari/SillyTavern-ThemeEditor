@@ -8,379 +8,57 @@ let cssTextArea = null;
 let container = null;
 let contentArea = null;
 let tunerBody = null;
+
+// 上一次解析的 CSS 内容哈希或长度
 let lastCssContent = "";
-let currentParsedBlocks = [];
-let scrollDirection = 'bottom';
+
+// Pickr 实例存储，用于清理
+let pickrInstances = [];
 
 // 颜色匹配正则
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
-/* ==========================================================================
-   Helper: Color Math & Parsing (HSV, RGB, Hex)
-   ========================================================================== */
-const ColorUtils = {
-    // 解析任意 CSS 颜色为 RGBA 对象 {r, g, b, a}
-    parse: function(str) {
-        const ctx = document.createElement('canvas').getContext('2d');
-        ctx.fillStyle = 'transparent'; // Reset
-        ctx.fillStyle = str;
-        let computed = ctx.fillStyle;
-        
-        let r = 0, g = 0, b = 0, a = 1;
+// 缓存解析后的块
+let currentParsedBlocks = [];
+let scrollDirection = 'bottom'; 
 
-        // 如果是 HEX
-        if (computed.startsWith('#')) {
-            const hex = computed;
-            r = parseInt(hex.substring(1, 3), 16);
-            g = parseInt(hex.substring(3, 5), 16);
-            b = parseInt(hex.substring(5, 7), 16);
-        } else if (computed.startsWith('rgb')) {
-            const parts = computed.match(/[\d.]+/g);
-            if (parts) {
-                r = parseInt(parts[0]);
-                g = parseInt(parts[1]);
-                b = parseInt(parts[2]);
-                if (parts.length > 3) a = parseFloat(parts[3]);
-            }
-        }
-        
-        // 尝试从原始字符串解析透明度（Canvas 有时会丢失透明度如果不是rgba语法）
-        if (str.includes('rgba') || str.includes('hsla')) {
-            const match = str.match(/,\s*([\d.]+)\s*\)/);
-            if (match) a = parseFloat(match[1]);
-        }
-        
-        return { r, g, b, a };
-    },
+// ===========================================
+// 1. 动态加载 Pickr 库 (资源注入)
+// ===========================================
+function loadPickrResources() {
+    if (document.getElementById('pickr-css-cdn')) return;
 
-    rgbToHsv: function(r, g, b) {
-        r /= 255; g /= 255; b /= 255;
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h, s, v = max;
-        const d = max - min;
-        s = max === 0 ? 0 : d / max;
+    // 加载 Monolith 主题 CSS (类似于截图的样式)
+    const link = document.createElement('link');
+    link.id = 'pickr-css-cdn';
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/pickr/1.9.0/themes/monolith.min.css';
+    document.head.appendChild(link);
 
-        if (max === min) h = 0;
-        else {
-            switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
-            }
-            h /= 6;
-        }
-        return { h: h * 360, s: s * 100, v: v * 100 };
-    },
-
-    hsvToRgb: function(h, s, v) {
-        let r, g, b;
-        h /= 360; s /= 100; v /= 100;
-        const i = Math.floor(h * 6);
-        const f = h * 6 - i;
-        const p = v * (1 - s);
-        const q = v * (1 - f * s);
-        const t = v * (1 - (1 - f) * s);
-        switch (i % 6) {
-            case 0: r = v; g = t; b = p; break;
-            case 1: r = q; g = v; b = p; break;
-            case 2: r = p; g = v; b = t; break;
-            case 3: r = p; g = q; b = v; break;
-            case 4: r = t; g = p; b = v; break;
-            case 5: r = v; g = p; b = q; break;
-        }
-        return { 
-            r: Math.round(r * 255), 
-            g: Math.round(g * 255), 
-            b: Math.round(b * 255) 
+    // 加载 Pickr JS
+    if (!window.Pickr) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pickr/1.9.0/pickr.min.js';
+        script.onload = () => {
+            console.log('Pickr Loaded');
+            refreshTuner(true); // 库加载完成后刷新一次界面
         };
-    },
-
-    toRgbaString: function(r, g, b, a) {
-        const alpha = Math.round(a * 100) / 100;
-        if (alpha === 1) return `rgb(${r}, ${g}, ${b})`; // 优化：如果a是1，用rgb
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-};
-
-/* ==========================================================================
-   Advanced Color Picker UI Class
-   ========================================================================== */
-class AdvancedColorPicker {
-    constructor() {
-        this.h = 0; this.s = 100; this.v = 100; this.a = 1;
-        this.currentCallback = null;
-        this.active = false;
-        this.initDOM();
-        this.bindEvents();
-    }
-
-    initDOM() {
-        // 创建遮罩
-        this.overlay = $('<div class="tuner-overlay"></div>').appendTo('body');
-        
-        // 创建主窗口
-        this.modal = $(`
-            <div class="tuner-picker-modal">
-                <div class="tp-sv-panel">
-                    <div class="tp-sv-white"></div>
-                    <div class="tp-sv-black"></div>
-                    <div class="tp-cursor"></div>
-                </div>
-                
-                <div class="tp-controls-row">
-                    <div class="tp-eye-dropper" title="吸管工具"><i class="fa-solid fa-eye-dropper"></i></div>
-                    <div class="tp-preview"><div class="tp-preview-inner"></div></div>
-                    <div class="tp-sliders">
-                        <div class="tp-slider-track tp-hue-track">
-                            <div class="tp-slider-thumb" id="tp-thumb-hue"></div>
-                        </div>
-                        <div class="tp-slider-track tp-alpha-track">
-                            <div class="tp-alpha-gradient"></div>
-                            <div class="tp-slider-thumb" id="tp-thumb-alpha"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tp-inputs-row">
-                    <div class="tp-input-group">
-                        <input type="number" class="tp-input-box" id="tp-in-r" min="0" max="255">
-                        <span class="tp-label">R</span>
-                    </div>
-                    <div class="tp-input-group">
-                        <input type="number" class="tp-input-box" id="tp-in-g" min="0" max="255">
-                        <span class="tp-label">G</span>
-                    </div>
-                    <div class="tp-input-group">
-                        <input type="number" class="tp-input-box" id="tp-in-b" min="0" max="255">
-                        <span class="tp-label">B</span>
-                    </div>
-                    <div class="tp-input-group">
-                        <input type="number" class="tp-input-box" id="tp-in-a" min="0" max="1" step="0.01">
-                        <span class="tp-label">A</span>
-                    </div>
-                </div>
-            </div>
-        `).appendTo('body');
-
-        this.dom = {
-            sv: this.modal.find('.tp-sv-panel'),
-            cursor: this.modal.find('.tp-cursor'),
-            hue: this.modal.find('.tp-hue-track'),
-            hueThumb: this.modal.find('#tp-thumb-hue'),
-            alpha: this.modal.find('.tp-alpha-track'),
-            alphaThumb: this.modal.find('#tp-thumb-alpha'),
-            alphaGrad: this.modal.find('.tp-alpha-gradient'),
-            preview: this.modal.find('.tp-preview-inner'),
-            dropper: this.modal.find('.tp-eye-dropper'),
-            inR: this.modal.find('#tp-in-r'),
-            inG: this.modal.find('#tp-in-g'),
-            inB: this.modal.find('#tp-in-b'),
-            inA: this.modal.find('#tp-in-a')
-        };
-    }
-
-    bindEvents() {
-        const self = this;
-        let isDraggingSV = false;
-        let isDraggingHue = false;
-        let isDraggingAlpha = false;
-
-        // 1. SV Panel Drag
-        const updateSV = (e) => {
-            const offset = self.dom.sv.offset();
-            let x = e.pageX - offset.left;
-            let y = e.pageY - offset.top;
-            const w = self.dom.sv.width();
-            const h = self.dom.sv.height();
-
-            x = Math.max(0, Math.min(x, w));
-            y = Math.max(0, Math.min(y, h));
-
-            self.s = (x / w) * 100;
-            self.v = 100 - (y / h) * 100;
-            self.updateUI(true);
-            self.emitChange();
-        };
-
-        this.dom.sv.on('mousedown', (e) => { isDraggingSV = true; updateSV(e); });
-        
-        // 2. Hue Drag
-        const updateHue = (e) => {
-            const offset = self.dom.hue.offset();
-            let x = e.pageX - offset.left;
-            const w = self.dom.hue.width();
-            x = Math.max(0, Math.min(x, w));
-            self.h = (x / w) * 360;
-            self.updateUI(true);
-            self.emitChange();
-        };
-        this.dom.hue.on('mousedown', (e) => { isDraggingHue = true; updateHue(e); });
-
-        // 3. Alpha Drag
-        const updateAlpha = (e) => {
-            const offset = self.dom.alpha.offset();
-            let x = e.pageX - offset.left;
-            const w = self.dom.alpha.width();
-            x = Math.max(0, Math.min(x, w));
-            self.a = parseFloat((x / w).toFixed(2));
-            self.updateUI(true);
-            self.emitChange();
-        };
-        this.dom.alpha.on('mousedown', (e) => { isDraggingAlpha = true; updateAlpha(e); });
-
-        // Global Mouse Events
-        $(document).on('mousemove', (e) => {
-            if (!self.active) return;
-            if (isDraggingSV) updateSV(e);
-            if (isDraggingHue) updateHue(e);
-            if (isDraggingAlpha) updateAlpha(e);
-        });
-
-        $(document).on('mouseup', () => {
-            isDraggingSV = false; isDraggingHue = false; isDraggingAlpha = false;
-        });
-
-        // 4. Inputs
-        const inputChange = () => {
-            const r = parseInt(self.dom.inR.val()) || 0;
-            const g = parseInt(self.dom.inG.val()) || 0;
-            const b = parseInt(self.dom.inB.val()) || 0;
-            const a = parseFloat(self.dom.inA.val());
-            
-            const hsv = ColorUtils.rgbToHsv(r, g, b);
-            self.h = hsv.h; self.s = hsv.s; self.v = hsv.v;
-            self.a = isNaN(a) ? 1 : a;
-            self.updateUI(false); // Don't update inputs (avoid loop)
-            self.emitChange();
-        };
-
-        this.dom.inR.on('input', inputChange);
-        this.dom.inG.on('input', inputChange);
-        this.dom.inB.on('input', inputChange);
-        this.dom.inA.on('input', inputChange);
-
-        // 5. Dropper
-        this.dom.dropper.on('click', async () => {
-            if (!window.EyeDropper) {
-                toastr.warning("你的浏览器不支持吸管工具", "CssTuner");
-                return;
-            }
-            try {
-                const ed = new EyeDropper();
-                const result = await ed.open();
-                const rgba = ColorUtils.parse(result.sRGBHex);
-                const hsv = ColorUtils.rgbToHsv(rgba.r, rgba.g, rgba.b);
-                self.h = hsv.h; self.s = hsv.s; self.v = hsv.v;
-                // Keep current alpha or reset to 1? usually pipette is solid color
-                self.a = 1; 
-                self.updateUI(true);
-                self.emitChange();
-            } catch (e) {
-                // Cancelled
-            }
-        });
-
-        // 6. Close
-        this.overlay.on('click', () => this.close());
-    }
-
-    open(initialColorStr, targetElement, onChange) {
-        this.currentCallback = onChange;
-        const rgba = ColorUtils.parse(initialColorStr);
-        const hsv = ColorUtils.rgbToHsv(rgba.r, rgba.g, rgba.b);
-        
-        this.h = hsv.h; this.s = hsv.s; this.v = hsv.v; this.a = rgba.a;
-        
-        this.updateUI(true);
-        this.active = true;
-        this.overlay.addClass('active');
-        this.modal.addClass('active');
-
-        // Positioning
-        const rect = targetElement.getBoundingClientRect();
-        const modalHeight = 280; // approx
-        const modalWidth = 260;
-        
-        let top = rect.bottom + 10;
-        let left = rect.left;
-
-        if (top + modalHeight > window.innerHeight) {
-            top = rect.top - modalHeight - 10;
-        }
-        if (left + modalWidth > window.innerWidth) {
-            left = window.innerWidth - modalWidth - 20;
-        }
-        
-        this.modal.css({ top: top + 'px', left: left + 'px' });
-    }
-
-    close() {
-        this.active = false;
-        this.overlay.removeClass('active');
-        this.modal.removeClass('active');
-        this.currentCallback = null;
-    }
-
-    updateUI(updateInputs = true) {
-        const rgb = ColorUtils.hsvToRgb(this.h, this.s, this.v);
-        const baseColor = ColorUtils.hsvToRgb(this.h, 100, 100);
-        const rgbaString = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${this.a})`;
-        const baseString = `rgb(${baseColor.r}, ${baseColor.g}, ${baseColor.b})`;
-
-        // SV Background
-        this.dom.sv.css('background-color', baseString);
-
-        // SV Cursor Position
-        this.dom.cursor.css({
-            left: `${this.s}%`,
-            top: `${100 - this.v}%`,
-            backgroundColor: rgbaString
-        });
-
-        // Hue Thumb
-        this.dom.hueThumb.css('left', `${(this.h / 360) * 100}%`);
-
-        // Alpha Gradient & Thumb
-        this.dom.alphaGrad.css('background', `linear-gradient(to right, transparent, rgb(${rgb.r},${rgb.g},${rgb.b}))`);
-        this.dom.alphaThumb.css('left', `${this.a * 100}%`);
-
-        // Preview
-        this.dom.preview.css('background-color', rgbaString);
-
-        // Inputs
-        if (updateInputs) {
-            this.dom.inR.val(rgb.r);
-            this.dom.inG.val(rgb.g);
-            this.dom.inB.val(rgb.b);
-            this.dom.inA.val(this.a);
-        }
-    }
-
-    emitChange() {
-        if (this.currentCallback) {
-            const rgb = ColorUtils.hsvToRgb(this.h, this.s, this.v);
-            const str = ColorUtils.toRgbaString(rgb.r, rgb.g, rgb.b, this.a);
-            this.currentCallback(str);
-        }
+        document.head.appendChild(script);
     }
 }
 
-const colorPicker = new AdvancedColorPicker();
-
-
-/* ==========================================================================
-   Core Logic: Parsing & UI Generation
-   ========================================================================== */
+// ===========================================
+// 2. 颜色解析与注释提取 (核心逻辑重写)
+// ===========================================
 
 /**
- * 解析CSS字符串 (修改版：只取紧邻选择器的最后一条注释，且去除标点)
+ * 将CSS字符串解析为块对象
+ * 修改点：只提取紧邻选择器的最后一个注释，并清除标点符号
  */
 function parseCssColors(cssString) {
     const blocks = [];
+    // 正则：捕获所有前置注释（Group 1），选择器（Group 2），内容（Group 3）
     const ruleRegex = /(?:((?:\/\*[\s\S]*?\*\/[\s\r\n]*)+))?([^{}]+)\{([^}]+)\}/g;
-    
-    // 标点符号正则 (含中英文常见标点)
-    const punctuationRegex = /[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~，。！？；：“”‘’（）【】《》、\s]/g;
     
     let match;
     while ((match = ruleRegex.exec(cssString)) !== null) {
@@ -391,33 +69,28 @@ function parseCssColors(cssString) {
         let finalComment = "";
         
         if (rawComments) {
-            // 1. 分割多个注释块 (split by */)
-            // 比如 "/* A */ /* B */" -> ["/* A ", " /* B ", ""]
+            // 1. 按照 */ 分割多个注释块
             const commentParts = rawComments.split('*/');
             
-            // 2. 找到最后一个包含 content 的块
-            // 反向查找第一个非空且包含 /* 的
-            let lastValidRaw = null;
-            for (let i = commentParts.length - 1; i >= 0; i--) {
-                if (commentParts[i].includes('/*')) {
-                    lastValidRaw = commentParts[i];
-                    break;
-                }
-            }
-
-            if (lastValidRaw) {
-                // 3. 去除 /* 以及多余空格
-                let clean = lastValidRaw.replace(/.*?\/\*/, '').trim();
-                // 4. 去除标点符号 (保留中文、字母、数字)
-                // 这里用 replace 将标点替换为空
-                clean = clean.replace(punctuationRegex, '');
+            // 2. 找到倒数第一个非空的注释块 (即紧邻选择器的那个)
+            // 过滤掉纯空白的项
+            const validParts = commentParts.filter(part => part.trim().length > 0);
+            
+            if (validParts.length > 0) {
+                const lastCommentRaw = validParts[validParts.length - 1];
                 
-                if (clean.length > 0) {
-                    finalComment = clean;
-                }
+                // 3. 去掉开头的 /*
+                let cleanText = lastCommentRaw.replace(/^\s*\/\*/, '').trim();
+
+                // 4. 清除标点符号 (保留中文、英文、数字、空格、下划线、减号)
+                // 只要不是这些字符，统统替换为空
+                cleanText = cleanText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s_-]/g, '').trim();
+                
+                finalComment = cleanText;
             }
         }
         
+        // 提取属性中的颜色
         const properties = [];
         const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
         let propMatch;
@@ -426,7 +99,8 @@ function parseCssColors(cssString) {
             const propName = propMatch[1].trim();
             const propValue = propMatch[2].trim();
             
-            if (propName.startsWith('--')) continue; 
+            // 忽略 CSS 变量定义 和 使用 var() 的值
+            if (propName.startsWith('--')) continue;
             if (propValue.includes('var(')) continue;
 
             const colors = [];
@@ -434,17 +108,25 @@ function parseCssColors(cssString) {
             colorRegex.lastIndex = 0;
             
             while ((colorMatch = colorRegex.exec(propValue)) !== null) {
-                colors.push({ value: colorMatch[0], index: colorMatch.index });
+                colors.push({
+                    value: colorMatch[0],
+                    index: colorMatch.index 
+                });
             }
             
             if (colors.length > 0) {
-                properties.push({ name: propName, fullValue: propValue, colors: colors });
+                properties.push({
+                    name: propName,
+                    fullValue: propValue,
+                    colors: colors
+                });
             }
         }
         
         if (properties.length > 0) {
+            const uniqueId = `tuner-block-${blocks.length}`;
             blocks.push({
-                id: `tuner-block-${blocks.length}`,
+                id: uniqueId,
                 selector,
                 comment: finalComment,
                 properties
@@ -454,10 +136,14 @@ function parseCssColors(cssString) {
     return blocks;
 }
 
-// UI 构建
+// ===========================================
+// 3. UI 构建与渲染 (引入Pickr)
+// ===========================================
+
 function createTunerUI() {
     if ($('.css-tuner-container').length > 0) return;
 
+    // 顶部工具栏
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -471,12 +157,14 @@ function createTunerUI() {
         </div>
     `);
 
+    // 调色板容器
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
                 <div class="tuner-controls">
                     <div class="tools-btn" id="tuner-refresh" title="刷新列表"><i class="fa-solid fa-sync-alt"></i></div>
-                    <div class="tools-btn" id="tuner-up" title="回到列表顶部"><i class="fa-solid fa-arrow-up"></i></div>
+                    <div class="tools-btn" id="tuner-save" title="保存并更新"><i class="fa-solid fa-save"></i></div>
+                    <div class="tools-btn" id="tuner-up" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
                     <div class="tools-btn" id="tuner-collapse" title="折叠/展开"><i class="fa-solid fa-chevron-up"></i></div>
                 </div>
             </div>
@@ -502,131 +190,32 @@ function createTunerUI() {
     bindEvents();
 }
 
-function bindEvents() {
-    const topSearchInput = $('#css-top-search');
-    const topResultsContainer = $('#css-search-results');
-
-    // CSS代码搜索 (Top Bar)
-    topSearchInput.on('input', function() {
-        const query = $(this).val();
-        topResultsContainer.empty().removeClass('active');
-        if (!query) return;
-
-        const text = cssTextArea.val();
-        const lines = text.split('\n');
-        const results = [];
-        let count = 0;
-
-        for (let i = 0; i < lines.length; i++) {
-            if (count > 50) break;
-            const line = lines[i];
-            if (line.toLowerCase().includes(query.toLowerCase())) {
-                results.push({ lineIndex: i, content: line.trim() });
-                count++;
-            }
-        }
-
-        if (results.length > 0) {
-            results.forEach(res => {
-                const item = $(`<div class="css-search-item"><i class="fa-solid fa-code fa-xs" style="opacity:0.5"></i> ${escapeHtml(res.content)}</div>`);
-                item.on('click', () => {
-                    jumpToLine(res.lineIndex);
-                    topResultsContainer.removeClass('active');
-                });
-                topResultsContainer.append(item);
-            });
-            topResultsContainer.addClass('active');
-        }
-    });
-
-    // 内部搜索 (Tuner)
-    const tunerSearchInput = $('#tuner-search');
-    tunerSearchInput.on('input', function() {
-        const query = $(this).val().toLowerCase();
-        contentArea.find('.tuner-card').each(function() {
-            const block = $(this);
-            const text = block.text().toLowerCase();
-            block.toggle(text.includes(query));
-        });
-    });
-
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('.css-tools-search-wrapper').length) topResultsContainer.removeClass('active');
-    });
-
-    $('#css-top-save').on('click', saveSettings);
-    
-    $('#css-top-scroll').on('click', function() {
-        const el = cssTextArea[0];
-        const icon = $(this).find('i');
-        if (scrollDirection === 'bottom') {
-            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-            icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
-            scrollDirection = 'top';
-        } else {
-            el.scrollTo({ top: 0, behavior: 'smooth' });
-            icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
-            scrollDirection = 'bottom';
-        }
-    });
-
-    $('#tuner-refresh').on('click', () => refreshTuner(true));
-    $('#tuner-up').on('click', () => contentArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
-    $('#tuner-collapse').on('click', function() {
-        tunerBody.toggleClass('collapsed');
-        $(this).find('i').toggleClass('fa-chevron-up fa-chevron-down');
-    });
-}
-
-function saveSettings() {
-    cssTextArea.trigger('input');
-    const systemUpdateBtn = $('#ui-preset-update-button');
-    if (systemUpdateBtn.length && systemUpdateBtn.is(':visible')) {
-        systemUpdateBtn.click();
-        toastr.success("主题文件已更新", "CssColorTuner");
-    } else {
-        saveSettingsDebounced();
-        toastr.success("全局配置已保存", "CssColorTuner");
-    }
-}
-
-function jumpToLine(lineIndex) {
-    const el = cssTextArea[0];
-    const text = el.value;
-    const lines = text.split('\n');
-    let charIndex = 0;
-    for (let i = 0; i < lineIndex; i++) charIndex += lines[i].length + 1; 
-    el.focus();
-    el.setSelectionRange(charIndex, charIndex);
-    const lh = 20; // Approx line height
-    el.scrollTo({ top: lineIndex * lh, behavior: 'smooth' });
-}
-
-function refreshTuner(force = false) {
-    if (!cssTextArea || !cssTextArea.length) cssTextArea = $('#customCSS');
-    const cssText = cssTextArea.val();
-    if (!force && cssText === lastCssContent) return;
-    
-    lastCssContent = cssText;
-    currentParsedBlocks = parseCssColors(cssText);
-    renderTunerBlocks(currentParsedBlocks);
-}
-
 function renderTunerBlocks(blocks) {
+    // 1. 清理旧的 Pickr 实例
+    pickrInstances.forEach(p => p.destroyAndRemove());
+    pickrInstances = [];
+    
     contentArea.empty();
 
+    if (!window.Pickr) {
+        contentArea.append('<div style="padding:20px;text-align:center;">正在加载颜色选择器资源...</div>');
+        return;
+    }
+
     if (blocks.length === 0) {
-        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub);">未检测到可编辑颜色</div>');
+        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub); opacity:0.7;">未检测到可编辑颜色</div>');
         return;
     }
 
     blocks.forEach(block => {
-        // --- 标题格式化：注释 | 选择器 ---
+        // --- 标题格式化 ---
+        // 格式： 注释 | 选择器
         let titleHtml = '';
         if (block.comment) {
-            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.4">|</span> ${escapeHtml(block.selector)}`;
+            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.3; margin-right:8px;">|</span><span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
         } else {
-            titleHtml = escapeHtml(block.selector);
+            // 如果没有注释，只显示选择器
+            titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
         }
 
         const blockEl = $(`<div class="tuner-card" id="${block.id}">
@@ -642,42 +231,79 @@ function renderTunerBlocks(blocks) {
             const inputsContainer = row.find('.tuner-inputs-container');
 
             prop.colors.forEach((colorObj, index) => {
-                const colorVal = colorObj.value;
-
-                // 构建输入组
+                const colorVal = colorObj.value; // 原始颜色字符串
+                
                 const group = $(`<div class="tuner-input-group"></div>`);
                 
-                // 1. 颜色触发块 (Swatch)
-                const swatchTrigger = $(`<div class="tuner-swatch-trigger" title="点击打开调色板">
-                    <div class="tuner-swatch-inner" style="background-color: ${colorVal}"></div>
-                </div>`);
+                if (prop.colors.length > 1) {
+                    group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
+                }
 
-                // 2. 文本输入框
-                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}">`);
+                // 创建 Pickr 的挂载点
+                const pickrBtn = $(`<div class="tuner-pickr-btn"></div>`);
+                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="直接输入颜色值">`);
 
-                // 更新函数
-                const updateValue = (newVal) => {
-                    swatchTrigger.find('.tuner-swatch-inner').css('background-color', newVal);
-                    textInput.val(newVal);
-                    updateCssContent(block.selector, prop.name, index, newVal);
-                };
-
-                // 事件绑定：点击 Swatch 打开高级取色器
-                swatchTrigger.on('click', function(e) {
-                    e.stopPropagation();
-                    const currentVal = textInput.val();
-                    colorPicker.open(currentVal, this, (newColor) => {
-                        updateValue(newColor);
-                    });
-                });
-
-                // 事件绑定：文本框输入
-                textInput.on('change', function() {
-                    updateValue($(this).val());
-                });
-
-                group.append(swatchTrigger).append(textInput);
+                group.append(pickrBtn);
+                group.append(textInput);
                 inputsContainer.append(group);
+
+                // --- 初始化 Pickr ---
+                // 注意：必须在元素 append 到 DOM 后初始化，或者使用 el 引用
+                try {
+                    const pickr = Pickr.create({
+                        el: pickrBtn[0],
+                        theme: 'monolith', // 类似于截图的样式
+                        default: colorVal,
+                        swatches: null,
+                        padding: 8,
+                        components: {
+                            preview: true,
+                            opacity: true,
+                            hue: true,
+                            interaction: {
+                                hex: true,
+                                rgba: true,
+                                hsla: false,
+                                input: true,
+                                save: true
+                            }
+                        },
+                        i18n: {
+                            'btn:save': '应用'
+                        }
+                    });
+
+                    pickrInstances.push(pickr);
+
+                    // Pickr 改变 -> 更新输入框 -> 更新 CSS
+                    pickr.on('save', (color, instance) => {
+                        const newColor = color.toRGBA().toString(0); // 0表示自动精度，输出 rgba(...)
+                        textInput.val(newColor);
+                        updateCssContent(block.selector, prop.name, index, newColor);
+                        instance.hide();
+                    });
+
+                    // 实时预览变化（可选）
+                    pickr.on('change', (color, source, instance) => {
+                        // 只有当用户拖动时才更新，防止循环
+                        if (source === 'slider' || source === 'input') {
+                            const newColor = color.toRGBA().toString(0);
+                            textInput.val(newColor);
+                            // 实时更新CSS可能太卡，这里只更新输入框，保存时更新CSS
+                            // 或者添加 debounce。这里为了响应速度，暂只在 save 时提交，或者手动输入框 change
+                        }
+                    });
+
+                    // 文本框改变 -> 更新 Pickr 颜色 -> 更新 CSS
+                    textInput.on('change', function() {
+                        const newVal = $(this).val();
+                        pickr.setColor(newVal); // 同步给 Pickr
+                        updateCssContent(block.selector, prop.name, index, newVal);
+                    });
+
+                } catch (e) {
+                    console.error("Pickr init failed", e);
+                }
             });
 
             blockEl.append(row);
@@ -687,27 +313,207 @@ function renderTunerBlocks(blocks) {
     });
 }
 
+// ===========================================
+// 4. 辅助函数与事件绑定 (保持大部分原有逻辑)
+// ===========================================
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function saveSettings() {
+    cssTextArea.trigger('input');
+    const systemUpdateBtn = $('#ui-preset-update-button');
+    if (systemUpdateBtn.length && systemUpdateBtn.is(':visible')) {
+        systemUpdateBtn.click();
+        toastr.success("主题文件已更新", "CSS Color Tuner");
+    } else {
+        saveSettingsDebounced();
+        toastr.success("全局配置已保存", "CSS Color Tuner");
+    }
+}
+
+function bindEvents() {
+    const topSearchInput = $('#css-top-search');
+    const topResultsContainer = $('#css-search-results');
+
+    // CSS代码搜索
+    topSearchInput.on('input', function() {
+        const query = $(this).val();
+        topResultsContainer.empty().removeClass('active');
+        if (!query) return;
+
+        const text = cssTextArea.val();
+        const lines = text.split('\n');
+        const results = [];
+        let count = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            if (count > 100) break;
+            const line = lines[i];
+            if (line.toLowerCase().includes(query.toLowerCase())) {
+                results.push({ lineIndex: i, content: line.trim() });
+                count++;
+            }
+        }
+
+        if (results.length > 0) {
+            results.forEach(res => {
+                const escapedQuery = escapeRegExp(query);
+                const highlightRegex = new RegExp(`(${escapedQuery})`, 'gi');
+                const highlightedContent = escapeHtml(res.content).replace(highlightRegex, '<span class="search-highlight">$1</span>');
+                const item = $(`<div class="css-search-item"><i class="fa-solid fa-code fa-xs" style="opacity:0.5"></i> ${highlightedContent}</div>`);
+                item.on('click', () => {
+                    jumpToLine(res.lineIndex);
+                    topResultsContainer.removeClass('active');
+                });
+                topResultsContainer.append(item);
+            });
+            setTimeout(() => topResultsContainer.addClass('active'), 10);
+        }
+    });
+
+    const tunerSearchInput = $('#tuner-search');
+    const tunerResultsContainer = $('#tuner-search-results');
+
+    // 内部搜索
+    tunerSearchInput.on('input', function() {
+        const query = $(this).val().toLowerCase();
+        
+        contentArea.find('.tuner-card').each(function() {
+            const block = $(this);
+            const text = block.find('.tuner-card-header').text().toLowerCase();
+            const props = block.find('.tuner-prop-name').text().toLowerCase();
+            if (text.includes(query) || props.includes(query)) {
+                block.show();
+            } else {
+                block.hide();
+            }
+        });
+
+        tunerResultsContainer.empty().removeClass('active');
+        if (!query) return;
+
+        const results = currentParsedBlocks.filter(b => 
+            (b.comment && b.comment.toLowerCase().includes(query)) || 
+            (b.selector && b.selector.toLowerCase().includes(query))
+        ).slice(0, 15); 
+
+        if (results.length > 0) {
+            results.forEach(block => {
+                let displayText = block.selector;
+                if (block.comment) {
+                    displayText = `${block.comment} | ${block.selector}`;
+                }
+
+                const escapedQuery = escapeRegExp(query);
+                const highlightRegex = new RegExp(`(${escapedQuery})`, 'gi');
+                const highlightedContent = escapeHtml(displayText).replace(highlightRegex, '<span class="search-highlight">$1</span>');
+
+                const item = $(`<div class="css-search-item">${highlightedContent}</div>`);
+                item.on('click', () => {
+                    const targetCard = $(`#${block.id}`);
+                    if (targetCard.length) {
+                        targetCard.show(); 
+                        contentArea[0].scrollTo({
+                            top: targetCard[0].offsetTop - contentArea[0].offsetTop - 10,
+                            behavior: 'smooth'
+                        });
+                        targetCard.css('transition', 'background 0.2s').css('background', 'var(--tuner-card-hover)');
+                        setTimeout(() => targetCard.css('background', ''), 400);
+                    }
+                    tunerResultsContainer.removeClass('active');
+                });
+                tunerResultsContainer.append(item);
+            });
+            setTimeout(() => tunerResultsContainer.addClass('active'), 10);
+        }
+    });
+
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.css-tools-search-wrapper').length) {
+            topResultsContainer.removeClass('active');
+        }
+        if (!$(e.target).closest('.tuner-sub-header').length) {
+            tunerResultsContainer.removeClass('active');
+        }
+    });
+
+    $('#css-top-save, #tuner-save').on('click', saveSettings);
+    
+    $('#css-top-scroll').on('click', function() {
+        const el = cssTextArea[0];
+        const icon = $(this).find('i');
+        
+        if (scrollDirection === 'bottom') {
+            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+            icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
+            scrollDirection = 'top';
+            $(this).attr('title', '回到顶部');
+        } else {
+            el.scrollTo({ top: 0, behavior: 'smooth' });
+            icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
+            scrollDirection = 'bottom';
+            $(this).attr('title', '滚动到底部');
+        }
+    });
+
+    $('#tuner-refresh').on('click', function() {
+        const icon = $(this).find('i');
+        icon.addClass('fa-spin');
+        refreshTuner(true);
+        setTimeout(() => icon.removeClass('fa-spin'), 600);
+    });
+
+    $('#tuner-up').on('click', () => contentArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
+
+    $('#tuner-collapse').on('click', function() {
+        tunerBody.toggleClass('collapsed');
+        const icon = $(this).find('i');
+        if (tunerBody.hasClass('collapsed')) {
+            icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+        } else {
+            icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+        }
+    });
+}
+
+function jumpToLine(lineIndex) {
+    const el = cssTextArea[0];
+    const text = el.value;
+    const lines = text.split('\n');
+    let charIndex = 0;
+    for (let i = 0; i < lineIndex; i++) {
+        charIndex += lines[i].length + 1; 
+    }
+    el.focus();
+    el.setSelectionRange(charIndex, charIndex);
+    const avgLineHeight = el.scrollHeight / lines.length || 20;
+    el.scrollTo({ top: lineIndex * avgLineHeight, behavior: 'smooth' });
+}
+
+function refreshTuner(force = false) {
+    if (!cssTextArea || !cssTextArea.length) cssTextArea = $('#customCSS');
+    const cssText = cssTextArea.val();
+    if (!force && cssText === lastCssContent) return;
+    
+    lastCssContent = cssText;
+    currentParsedBlocks = parseCssColors(cssText);
+    renderTunerBlocks(currentParsedBlocks);
+}
+
 function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // 正则定位到对应的块
+    // 重新构建Regex以定位块
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
-    let match;
-    // 需要找到完全匹配的那个块 (可能存在同名选择器，这里简单处理找第一个或遍历)
-    // 实际应用中 selector 是唯一的 key 吗？通常在 Tuner 解析里是按顺序来的。
-    // 为了简单起见，我们假设 cssTextArea 没被外部剧烈修改，利用 lastCssContent 重新定位可能更好，
-    // 但这里直接 replace 也可以。
+    let match = blockRegex.exec(originalCss);
     
-    // 更稳妥的方式：重新读取整个文本，定位到对应位置替换。
-    // 由于我们解析时没有存绝对位置(index)，这里尝试用正则替换。
-    
-    const newCss = originalCss.replace(blockRegex, (fullBlockMatch, matchedSelector, blockContent) => {
-        // 如果选择器匹配
-        if (matchedSelector !== selector) return fullBlockMatch;
-
-        // 在 blockContent 中查找属性
+    if (match) {
+        const fullBlockMatch = match[0];
+        const blockContent = match[2];
         const propRegex = new RegExp(`(${propName})\\s*:\\s*([^;]+);`, 'g');
         
         const newBlockContent = blockContent.replace(propRegex, (fullPropMatch, pName, pValue) => {
@@ -723,14 +529,12 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
             return `${pName}: ${newPropValue};`;
         });
         
-        return fullBlockMatch.replace(blockContent, newBlockContent);
-    });
-    
-    if (newCss !== originalCss) {
+        const newFullBlock = fullBlockMatch.replace(blockContent, newBlockContent);
+        const newCss = originalCss.replace(fullBlockMatch, newFullBlock);
+        
         lastCssContent = newCss; 
         cssTextArea.val(newCss);
-        // 不触发 input 以免重绘整个 Tuner 导致弹窗关闭，但需要让 ST 知道变了
-        // 这里我们只更新内部状态，Save 时再触发 input
+        cssTextArea.trigger('input'); 
     }
 }
 
@@ -744,15 +548,21 @@ $(document).ready(function() {
         if ($('#CustomCSS-textAreaBlock').length) {
             console.log(extensionName + " Loaded");
             clearInterval(checkExist);
+            
+            // 先加载Pickr资源，再构建UI
+            loadPickrResources();
             createTunerUI();
-            setTimeout(() => refreshTuner(true), 300);
+            
+            // 延时等待资源加载完毕进行第一次渲染
+            setTimeout(() => refreshTuner(true), 500);
         }
     }, 1000);
 
     eventSource.on(event_types.SETTINGS_UPDATED, function() {
         setTimeout(() => {
-            if ($('#customCSS').length && !colorPicker.active) {
-                refreshTuner(false);
+            if ($('#customCSS').length) {
+                console.log(extensionName + ": Theme changed detected");
+                refreshTuner(true);
             }
         }, 500);
     });
