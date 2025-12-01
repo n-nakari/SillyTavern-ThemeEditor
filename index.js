@@ -23,47 +23,38 @@ let scrollDirection = 'bottom';
 
 /**
  * 解析CSS字符串
- * 更新逻辑：
- * 1. 提取选择器上方的所有注释
- * 2. 如果有多个，取最后一个（紧邻选择器那个）
- * 3. 去除 /* 和 * /
- * 4. 彻底去除标点符号
+ * 逻辑：如果有多个注释块，只取紧邻选择器的最后一个，并去除所有标点符号
  */
 function parseCssColors(cssString) {
     const blocks = [];
-    // 捕获选择器前的所有注释块 (非贪婪匹配，允许跨行)
+    // 匹配规则： (可选的注释块) (选择器) { (内容) }
+    // 注释块可能包含多个 /* ... */
     const ruleRegex = /(?:((?:\/\*[\s\S]*?\*\/[\s\r\n]*)+))?([^{}]+)\{([^}]+)\}/g;
     
     let match;
     while ((match = ruleRegex.exec(cssString)) !== null) {
-        const rawComments = match[1];
+        const rawCommentBlock = match[1]; // 获取整个注释区域
         const selector = match[2].trim();
         const content = match[3];
         
         let finalComment = "";
         
-        if (rawComments) {
-            // 1. 以 */ 分割，处理多个连续注释的情况
-            // 例如 /* A */ /* B */，split 后会得到数组
-            const commentParts = rawComments.split('*/');
+        if (rawCommentBlock) {
+            // 提取所有独立的注释 /* ... */
+            const comments = rawCommentBlock.match(/\/\*[\s\S]*?\*\//g);
             
-            // 2. 过滤掉空字符串或纯空白字符，并找出包含 /* 的部分
-            const validBlocks = commentParts
-                .map(c => c.trim())
-                .filter(c => c.length > 0 && c.includes('/*'));
-            
-            if (validBlocks.length > 0) {
-                // 3. 取最后一个有效块 (紧邻选择器的那一个)
-                let lastRaw = validBlocks[validBlocks.length - 1];
+            if (comments && comments.length > 0) {
+                // 只取最后一个注释 (紧邻选择器)
+                let lastComment = comments[comments.length - 1];
                 
-                // 4. 去除 /* 开头
-                let cleanStep1 = lastRaw.replace(/\/\*/, '').trim();
+                // 1. 去除首尾的 /* 和 */
+                let innerText = lastComment.replace(/^\/\*|\*\/$/g, '').trim();
                 
-                // 5. 去除所有标点符号 (包括中英文常见标点)
-                // 排除列表：! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \ ] ^ _ ` { | } ~ 以及中文全角标点
-                let cleanStep2 = cleanStep1.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~，。！？；：“”‘’（）【】《》、]/g, '');
+                // 2. 去除所有标点符号 (保留中文、英文、数字、空格)
+                // 这里的正则涵盖了常见的中文和英文标点符号
+                let cleanText = innerText.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~，。！？；：“”‘’（）【】《》、]/g, '');
                 
-                finalComment = cleanStep2.trim();
+                finalComment = cleanText.trim();
             }
         }
         
@@ -351,8 +342,7 @@ function refreshTuner(force = false) {
 
 /**
  * 渲染 Tuner 块的核心逻辑
- * 格式更新：[注释] | 选择器
- * 控件：toolcool-color-picker + 文本框
+ * 格式：[注释] | 选择器
  */
 function renderTunerBlocks(blocks) {
     contentArea.empty();
@@ -363,12 +353,18 @@ function renderTunerBlocks(blocks) {
     }
 
     blocks.forEach(block => {
-        // --- 标题渲染 (更新: 注释 | 选择器) ---
+        // --- 标题渲染: [注释] | 选择器 ---
         let titleHtml = '';
         if (block.comment) {
-            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.3; margin-right:8px;">|</span><span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
+            // 注意：tuner-comment-tag 是代码风格的标签
+            titleHtml = `
+                <code class="tuner-comment-tag">${escapeHtml(block.comment)}</code>
+                <span class="tuner-header-divider">|</span>
+                <span class="tuner-header-selector">${escapeHtml(block.selector)}</span>
+            `;
         } else {
-            titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
+            // 没有注释则只显示选择器
+            titleHtml = `<span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
         }
 
         const blockEl = $(`<div class="tuner-card" id="${block.id}">
@@ -376,6 +372,7 @@ function renderTunerBlocks(blocks) {
         </div>`);
 
         block.properties.forEach(prop => {
+            // 属性名作为副标题
             const row = $(`<div class="tuner-prop-row">
                 <div class="tuner-prop-name">${escapeHtml(prop.name)}</div>
                 <div class="tuner-inputs-container"></div>
@@ -392,7 +389,7 @@ function renderTunerBlocks(blocks) {
                     group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
                 }
 
-                // 创建 toolcool-color-picker 元素 (带吸管和RGBA)
+                // 创建 toolcool-color-picker 元素
                 const toolcoolPicker = $('<toolcool-color-picker></toolcool-color-picker>')
                     .addClass('tuner-toolcool')
                     .attr({
@@ -404,7 +401,7 @@ function renderTunerBlocks(blocks) {
 
                 // 1. 监听 Picker 变化 -> 更新文本框 & 更新 CSS
                 toolcoolPicker.on('change', (evt) => {
-                    const newColor = evt.detail.rgba; // 使用 rgba 格式
+                    const newColor = evt.detail.rgba; // 使用 rgba 格式，兼容透明度
                     textInput.val(newColor);
                     updateCssContent(block.selector, prop.name, index, newColor);
                 });
@@ -412,7 +409,8 @@ function renderTunerBlocks(blocks) {
                 // 2. 监听 文本框 变化 -> 更新 Picker 颜色 & 更新 CSS
                 textInput.on('change', function() {
                     const val = $(this).val();
-                    toolcoolPicker.attr('color', val); 
+                    toolcoolPicker.attr('color', val); // toolcool 会自动解析合法颜色字符串
+                    // 只有当颜色合法时才更新CSS，这里依赖 toolcool 的内部解析，或者直接写入
                     updateCssContent(block.selector, prop.name, index, val);
                 });
 
@@ -432,6 +430,7 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
+    // 重新构造正则以匹配对应的块
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
