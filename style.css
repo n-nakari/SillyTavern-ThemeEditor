@@ -1,36 +1,147 @@
 /* =========================================
+   CSS 工具栏 (Search + Save + Top)
+   ========================================= */
+
+.css-extra-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+    margin-top: 10px;
+    padding: 0 5px;
+}
+
+.css-search-wrapper {
+    flex-grow: 1; /* 占据剩余空间 */
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.css-search-input {
+    all: unset;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ddd !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    font-size: 1.0em !important;
+    transition: all 0.3s ease !important;
+    font-family: sans-serif !important;
+}
+
+.css-search-input:focus {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    border-color: #9cdcfe !important;
+    color: #fff !important;
+}
+
+.css-autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #252525;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    z-index: 10000;
+    display: none;
+    margin-top: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.css-autocomplete-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: #ccc;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    white-space: pre-wrap; /* 允许换行 */
+    word-break: break-all;
+    display: flex;
+    gap: 8px;
+}
+
+.css-autocomplete-item:hover {
+    background-color: #333;
+    color: #fff;
+}
+
+.css-autocomplete-item .line-num {
+    color: #888;
+    min-width: 30px;
+    text-align: right;
+    font-family: monospace;
+    user-select: none;
+}
+
+.css-autocomplete-item .match {
+    color: #9cdcfe;
+    font-weight: bold;
+    background-color: rgba(156, 220, 254, 0.1);
+}
+
+.css-icon-btn {
+    cursor: pointer;
+    color: #888;
+    font-size: 1.2em;
+    padding: 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.css-icon-btn:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* =========================================
    核心容器与隔离层
    ========================================= */
 
-/* 主容器：毛玻璃深色背景，强制重置滚动条样式 */
+/* 主容器 */
 #theme-editor-container {
     padding: 0;
-    /* 配合顶部栏，只保留下部圆角，视觉上连接在一起 */
     border-radius: 0 0 8px 8px;
+    margin: 0 0 10px 0;
     max-height: 500px;
-    overflow-y: auto !important; /* 强制显示滚动行为 */
-    background-color: rgba(32, 32, 32, 0.95) !important; /* 深色背景 */
+    overflow-y: auto !important; 
+    background-color: rgba(32, 32, 32, 0.95) !important; 
+    border: 1px solid rgba(255, 255, 255, 0.08) !important; 
+    border-top: none !important; 
+    box-shadow: none !important;
     display: flex;
     flex-direction: column;
-    text-align: left !important;
+    color: #eee !important;
+    font-size: 16px !important; 
+    text-align: left !important; 
+    font-family: sans-serif !important; 
 }
 
-/* 强制自定义滚动条 - 独立样式，不随主题变化 */
+/* 滚动条样式 */
 #theme-editor-container::-webkit-scrollbar {
     width: 8px !important;
     height: 8px !important;
     display: block !important;
-    background: transparent !important;
+    background: rgba(0, 0, 0, 0.1) !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.3) !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
     border-radius: 4px !important;
+    border: 2px solid transparent !important; 
     background-clip: content-box !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.5) !important;
+    background-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 #theme-editor-container::-webkit-scrollbar-track {
@@ -41,68 +152,57 @@
     background: transparent !important;
 }
 
-/* 隐藏类 */
 .theme-editor-hidden {
     display: none !important;
 }
 
 /* =========================================
-   菜单栏 (Tabs) - 现在的顶部工具栏
+   扩展头部 (Simplified Header)
    ========================================= */
 
-.theme-editor-tabs {
+.theme-editor-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0px 15px; /* 上下Padding由子元素撑开 */
+    gap: 20px;
+    padding: 0px 15px 0 15px;
     position: sticky;
     top: 0;
     z-index: 10;
-    background-color: rgba(0, 0, 0, 1) !important;
+    background-color: rgba(32, 32, 32, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
     border-radius: 8px 8px 0 0 !important;
     margin-top: 10px !important;
 }
 
 .theme-editor-tab {
-    padding: 5px 0 3px;
-    cursor: pointer;
-    color: #777;
-    font-size: 1em;
+    padding: 12px 2px;
+    color: #fff; /* 默认激活色 */
+    font-size: 1.1em;
     font-weight: 600;
-    transition: all 0.2s;
-}
-
-.theme-editor-tab:hover {
-    color: #ccc;
-}
-
-.theme-editor-tab.active {
-    color: #fff;
     border-bottom: 2px solid #fff;
+    margin-bottom: -1px;
 }
-
-/* =========================================
-   按钮组 (Action Buttons)
-   ========================================= */
 
 .theme-editor-header-actions {
     display: flex !important;
+    gap: 8px !important;
+    margin-left: 10px !important;
     align-items: center !important;
 }
 
-/* [修改] 强制隔离按钮样式 */
 .theme-editor-icon-btn {
     cursor: pointer !important;
     color: #888 !important;
     font-size: 1.2em !important;
-    padding: 5px !important;
-    border-radius: 0 !important;
+    padding: 6px !important;
+    border-radius: 4px !important;
     transition: all 0.2s ease !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     background: transparent !important;
-    border: none !important;
+    border: 1px solid transparent !important;
     box-shadow: none !important;
     width: auto !important;
     height: auto !important;
@@ -118,58 +218,45 @@
 }
 
 /* =========================================
-   搜索框区域
+   搜索框区域 (Extension)
    ========================================= */
 
 .theme-editor-search-wrapper {
-    /* [关键] 将搜索框推到右边，按钮自然跟在它后面 */
-    margin-left: auto;
+    margin-left: auto; 
     position: relative;
     display: flex;
     align-items: center;
     overflow: visible !important;
 }
 
-/* [修改] 搜索输入框 - 极强力隔离 */
 .theme-editor-search-input {
+    all: unset !important;
     box-sizing: border-box !important;
     display: block !important;
-    background-color: rgba(32, 32, 32, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #ddd !important;
-    padding: 0px 5px !important;
-    border-radius: 4px !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important; 
     font-size: 1.0em !important;
-    width: 120px !important;
+    width: 140px !important;
     transition: all 0.3s ease !important;
     outline: none !important;
     box-shadow: none !important;
-    height: 20px !important;
+    height: 30px !important;
     line-height: normal !important;
     font-family: sans-serif !important;
-    margin: 2px 0 !important;
+    margin: 0 !important;
 }
 
 .theme-editor-search-input:focus {
-    width: 180px !important;
+    width: 200px !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
     border-color: #9cdcfe !important;
     color: #fff !important;
 }
 
-/* 清除按钮样式 */
-#theme-editor-container .theme-editor-search-input::-webkit-search-cancel-button {
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.5) !important;
-    transition: color 0.2s;
-}
-
-/* 聚焦或悬停时：完全变白 */
-#theme-editor-container .theme-editor-search-input:focus::-webkit-search-cancel-button,
-#theme-editor-container .theme-editor-search-input:hover::-webkit-search-cancel-button {
-    color: rgba(255, 255, 255, 1) !important;
-}
-
-/* 自动补全列表 */
+/* 扩展自动补全列表 */
 .theme-editor-autocomplete-list {
     position: absolute;
     top: 100%;
@@ -178,9 +265,11 @@
     max-height: 250px;
     overflow-y: auto;
     background-color: #252525;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 4px;
-    box-shadow: none;
+    box-shadow: none; 
+    border-bottom: 2px solid rgba(0,0,0,0.3);
+    z-index: 9999 !important;
     display: none;
     margin-top: 2px;
 }
@@ -190,6 +279,7 @@
     cursor: pointer;
     font-size: 1.0em;
     color: #bbb;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -210,20 +300,17 @@
    ========================================= */
 
 .theme-editor-content-panel {
-    display: none;
+    display: flex; /* 只有一个面板，总是显示 */
     flex-direction: column;
-    padding: 0 15px;
+    padding: 15px;
+    gap: 12px;
 }
 
-.theme-editor-content-panel.active {
-    display: flex;
-}
-
-/* 分组容器 */
 .theme-group {
     display: flex;
     flex-direction: column;
-    padding: 15px 0 7px;
+    background-color: transparent; 
+    padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
@@ -231,25 +318,21 @@
     border-bottom: none;
 }
 
-/* =========================================
-   选择器标题 (Main Label)
-   ========================================= */
-
 .theme-editor-main-label {
-    font-size: 1em;
+    font-weight: 600;
+    font-size: 1.1em;
     color: #fff;
     margin-bottom: 10px;
     width: 100%;
     word-break: break-all;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-start; 
 }
 
-/* 注释标签样式 */
 .label-highlight {
     color: #fff;
-    font-size: 1em;
+    font-size: 1.1em;
     font-weight: normal;
     background-color: rgba(255, 255, 255, 0.2);
     padding: 2px 5px 0;
@@ -258,103 +341,50 @@
     display: inline-block;
 }
 
-/* =========================================
-   属性控制块 (Property Block)
-   ========================================= */
-
 .theme-editor-property-block {
     display: flex;
     flex-direction: column;
-    padding-left: 10px;
-    border-left: 2px solid rgba(255, 255, 255, 0.3);
-    transition: border-color 0.2s;
     margin-bottom: 8px;
+    padding-left: 10px;
+    border-left: 2px solid rgba(255, 255, 255, 0.3); 
+    transition: border-color 0.2s;
 }
 
 .theme-editor-property-block:hover {
-    border-left-color: #9cdcfe;
+    border-left-color: #9cdcfe; 
 }
 
 .theme-editor-prop-label {
-    font-size: 1em;
+    font-size: 1.1em;
     color: #ccc;
     margin-bottom: 4px;
+    font-family: monospace; 
 }
 
 .theme-editor-sub-label {
-    font-size: 0.9em;
-    color: #ccc;
+    font-size: 0.95em;
+    color: #ccc; 
     margin: 4px 0;
 }
 
-/* =========================================
-   组件：颜色选择器
-   ========================================= */
-
-/* 覆盖颜色选择器变量 */
+/* 颜色选择器变量 */
 :root {
-    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5) !important;
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.3) !important;
+    --tool-cool-color-picker-btn-border-color: rgba(255, 255, 255, 0.5) !important;
+    --tool-cool-color-picker-btn-border-radius: 3px !important;
 }
 
-toolcool-color-picker-popup {
+toolcool-color-picker {
     width: 100%;
-    border-radius: 4px;
-    overflow: visible;
+    border-radius: 3px;
+    overflow: visible; 
     cursor: pointer;
     box-shadow: none;
-    position: relative !important;
+    position: relative;
     z-index: 1;
 }
 
-/* =========================================
-   组件：数值输入框 (Layout Inputs)
-   ========================================= */
-
-.layout-inputs-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    width: 100%;
-    align-items: center;
-    justify-content: flex-start;
-}
-
-/* 单个输入框 */
-#theme-editor-container input.layout-input {
-    all: unset;
-    box-sizing: border-box !important;
-    display: inline-block !important;
-    
-    background-color: rgba(0, 0, 0, 0.25) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    border-radius: 4px !important;
-    color: rgba(255, 255, 255, 1) !important;
-    
-    padding: 0px 6px !important;
-    font-size: 1em !important;
-    height: 25px !important;
-   
-    width: auto !important;
-    min-width: 60% !important;
-    max-width: 100% !important;
-    flex-grow: 0 !important;
-    text-align: left !important;
-    transition: border-color 0.2s ease !important;
-}
-
-/* 输入框悬停 & 聚焦 */
-#theme-editor-container input.layout-input:hover {
-    border-color: rgba(255, 255, 255, 0.5) !important;
-}
-
-#theme-editor-container input.layout-input:focus {
-    border-color: #9cdcfe !important;
-}
-
-/* =========================================
-   搜索跳转高亮动画
-   ========================================= */
-
+/* 高亮动画 */
 @keyframes theme-editor-flash {
     0% { background-color: rgba(156, 220, 254, 0.3); border-radius: 6px; }
     100% { background-color: transparent; }
