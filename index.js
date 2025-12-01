@@ -20,10 +20,12 @@ const EXTENSION_HTML = `
 // 颜色匹配正则
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 
-// CSS 块匹配正则 (修改为捕获整个头部和整个属性体，在JS里细分处理)
-// Group 1: 头部 (包含注释、换行、选择器)
-// Group 2: 属性块
-const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
+// CSS 块匹配正则
+// Group 1: 完整的注释块 (可选)
+// Group 2: 间隔 (用于判断空行)
+// Group 3: 选择器
+// Group 4: 属性块
+const CSS_BLOCK_REGEX = /(?:(\/\*[\s\S]*?\*\/))?([\s\r\n]*)([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
 
@@ -48,7 +50,6 @@ function initUI() {
 }
 
 function bindEvents() {
-    // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         const icon = $('#vce-btn-refresh i');
@@ -56,7 +57,6 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存
     $('#vce-btn-save').on('click', () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
@@ -67,7 +67,6 @@ function bindEvents() {
         }
     });
 
-    // 回顶/回底
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
@@ -83,7 +82,6 @@ function bindEvents() {
         }
     });
 
-    // 折叠
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -98,6 +96,9 @@ function bindEvents() {
     });
 }
 
+/**
+ * 核心逻辑修改部分：完全参考提供的思路进行标题格式化
+ */
 function readAndRenderCSS() {
     const cssText = $('#customCSS').val() || '';
     const container = $('#vce-content');
@@ -108,59 +109,38 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const fullHeader = match[1]; // 包含注释和选择器的完整头部
-        const body = match[2];
+        const rawCommentBlock = match[1]; // 例如 "/* 气泡框 */"
+        const gap = match[2];             // 例如 "\n" 或 "\n\n"
+        const selector = match[3].trim(); // 例如 ".mes"
+        const body = match[4];            // 属性内容
 
-        // --- 标题处理逻辑 (参考您提供的思路) ---
-        let displayTitle = "";
-        let realSelector = ""; // 纯净的选择器，用于后续替换逻辑
+        // 计算换行符数量：如果 gap 中包含2个或更多换行符，说明中间有空行
+        // 参考逻辑：newlineCount < 2 代表紧邻， >= 2 代表隔了一行
+        const newLineCount = (gap.match(/\n/g) || []).length;
+        
+        // 默认标题就是类名
+        let displayTitle = selector;
 
-        // 1. 查找最后一个注释结束符 */
-        const lastCommentEndIndex = fullHeader.lastIndexOf('*/');
-
-        if (lastCommentEndIndex !== -1) {
-            // 找到了注释结束符，尝试找该注释的开始符 /*
-            const lastCommentStartIndex = fullHeader.lastIndexOf('/*', lastCommentEndIndex);
+        // 只有当存在注释 且 没有被空行隔开时，才提取注释
+        if (rawCommentBlock && newLineCount < 2) {
+            // 参考你提供的例子逻辑：提取 /* */ 中间的内容
+            const commentMatch = rawCommentBlock.match(/\/\*([\s\S]*?)\*\//);
             
-            if (lastCommentStartIndex !== -1) {
-                // 提取注释内容 (去掉 /* 和 */)
-                const rawCommentText = fullHeader.substring(lastCommentStartIndex + 2, lastCommentEndIndex).trim();
-                
-                // 提取注释后面的部分 (即 Gap + 选择器)
-                const afterComment = fullHeader.substring(lastCommentEndIndex + 2);
-                
-                // 真正的选择器 (去掉Gap)
-                realSelector = afterComment.trim();
-
-                // 检查 Gap 中的换行符数量
-                const newLineCount = (afterComment.match(/\n/g) || []).length;
-
-                // 如果换行符少于2个 (即没有空行)，则显示注释
-                if (newLineCount < 2 && rawCommentText) {
-                    displayTitle = `${rawCommentText} | ${realSelector}`;
-                } else {
-                    // 有空行，只显示类名
-                    displayTitle = realSelector;
+            if (commentMatch && commentMatch[1]) {
+                const cleanComment = commentMatch[1].trim(); // 去除首尾空格
+                // 如果提取到了内容，拼接格式： 注释 | 类名
+                if (cleanComment) {
+                    displayTitle = `${cleanComment} | ${selector}`;
                 }
-            } else {
-                // 只有结束符没有开始符? 异常情况，直接取trim
-                realSelector = fullHeader.trim();
-                displayTitle = realSelector;
             }
-        } else {
-            // 没有注释
-            realSelector = fullHeader.trim();
-            displayTitle = realSelector;
         }
-        // -------------------------------------
 
         const properties = parseProperties(body);
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
-            // 传入 displayTitle 用于显示，realSelector 用于后续CSS更新定位
-            const card = createCard(displayTitle, colorProperties, realSelector);
+            const card = createCard(displayTitle, colorProperties, selector);
             container.append(card);
         }
     }
@@ -191,6 +171,7 @@ function hasColor(val) {
 
 function createCard(title, properties, selector) {
     const card = $('<div class="vce-card"></div>');
+    // 直接显示处理好的 displayTitle
     const header = $(`<div class="vce-card-header">${title}</div>`);
     card.append(header);
 
@@ -239,12 +220,8 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
-        
-        // 使用传入的 selector (纯类名) 进行匹配
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        // 匹配逻辑：包含前面的注释(如果有) + 类名 + 括号块
-        // 这里需要足够宽容以匹配到对应的块
         const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, g1, g2, content, g4) => {
