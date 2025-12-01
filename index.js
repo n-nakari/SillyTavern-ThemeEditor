@@ -8,19 +8,51 @@ let cssTextArea = null;
 let container = null;
 let contentArea = null;
 
+// 上一次解析的 CSS 内容哈希或长度，用于避免重复渲染
+let lastCssContent = "";
+
 // 颜色匹配正则 (增强版：支持 hex, rgb, rgba, hsl, hsla, transparent, 英文名)
-// 使用 \b 边界防止匹配到变量名中的单词
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
 /**
+ * 核心工具：将任意 CSS 颜色字符串转换为 #RRGGBB 格式
+ * 解决了 "rgba/name 显示为黑色" 的问题
+ */
+function getColorHex(str) {
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.fillStyle = str;
+    let computed = ctx.fillStyle; // 浏览器会尝试转换为 hex 或 rgba
+
+    // 如果已经是 #RRGGBB
+    if (computed.startsWith('#') && computed.length === 7) {
+        return computed;
+    }
+    
+    // 如果是 #RGB (3位)，转换为 6位
+    if (computed.startsWith('#') && computed.length === 4) {
+        return '#' + computed[1] + computed[1] + computed[2] + computed[2] + computed[3] + computed[3];
+    }
+
+    // 如果是 rgba(r, g, b, a) 或 rgb(r, g, b)
+    if (computed.startsWith('rgb')) {
+        const parts = computed.match(/[\d.]+/g);
+        if (!parts || parts.length < 3) return '#000000'; // 转换失败回退
+
+        const r = parseInt(parts[0]).toString(16).padStart(2, '0');
+        const g = parseInt(parts[1]).toString(16).padStart(2, '0');
+        const b = parseInt(parts[2]).toString(16).padStart(2, '0');
+        
+        return `#${r}${g}${b}`;
+    }
+
+    return '#000000'; // 实在无法识别
+}
+
+/**
  * 解析CSS字符串
- * 1. 过滤变量定义 (--variable: ...)
- * 2. 智能提取最后一条注释
  */
 function parseCssColors(cssString) {
     const blocks = [];
-    
-    // 正则：提取 (注释)? 选择器 { 内容 }
     const ruleRegex = /(?:((?:\/\*[\s\S]*?\*\/[\s\r\n]*)+))?([^{}]+)\{([^}]+)\}/g;
     
     let match;
@@ -29,7 +61,6 @@ function parseCssColors(cssString) {
         const selector = match[2].trim();
         const content = match[3];
         
-        // 提取最后一条注释
         let finalComment = "";
         if (rawComments) {
             const commentParts = rawComments.split('*/');
@@ -43,7 +74,6 @@ function parseCssColors(cssString) {
             }
         }
         
-        // 解析属性
         const properties = [];
         const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
         let propMatch;
@@ -52,12 +82,9 @@ function parseCssColors(cssString) {
             const propName = propMatch[1].trim();
             const propValue = propMatch[2].trim();
             
-            // 过滤 CSS 变量定义 (以 -- 开头)
             if (propName.startsWith('--')) continue;
-            // 过滤包含 var() 的值
             if (propValue.includes('var(')) continue;
 
-            // 查找颜色
             const colors = [];
             let colorMatch;
             colorRegex.lastIndex = 0;
@@ -86,13 +113,14 @@ function parseCssColors(cssString) {
             });
         }
     }
-    
     return blocks;
 }
 
 // UI 构建
 function createTunerUI() {
-    // 1. 顶部工具栏
+    // 防止重复创建
+    if ($('.css-tuner-container').length > 0) return;
+
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -106,13 +134,12 @@ function createTunerUI() {
         </div>
     `);
 
-    // 2. 调色板容器
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
                 <div class="tuner-title"><i class="fa-solid fa-palette"></i> 调色板</div>
                 <div class="tuner-controls">
-                    <div class="tools-btn" id="tuner-refresh" title="刷新列表"><i class="fa-solid fa-sync-alt"></i></div>
+                    <div class="tools-btn" id="tuner-refresh" title="刷新列表 (重新读取CSS)"><i class="fa-solid fa-sync-alt"></i></div>
                     <div class="tools-btn" id="tuner-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
                     <div class="tools-btn" id="tuner-up" title="回到扩展顶部"><i class="fa-solid fa-arrow-up"></i></div>
                     <div class="tools-btn" id="tuner-collapse" title="折叠"><i class="fa-solid fa-chevron-up"></i></div>
@@ -135,30 +162,25 @@ function createTunerUI() {
     bindEvents();
 }
 
-// 辅助：转义正则
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// 核心：保存设置（持久化修复）
 function saveSettings() {
-    // 1. 触发 Textarea 的 Input 事件，通知 SillyTavern 变量已变
+    // 触发 input 事件以通知 ST 变量变动
     cssTextArea.trigger('input');
     
-    // 2. 尝试点击原生 "更新主题" 按钮 (如果有)
-    // 这是关键：只有这样才会写入 .json 文件，而不是只存在于内存或临时配置
+    // 尝试点击系统保存/更新按钮
     const systemUpdateBtn = $('#ui-preset-update-button');
     if (systemUpdateBtn.length && systemUpdateBtn.is(':visible')) {
         systemUpdateBtn.click();
         toastr.success("主题文件已更新", "CSS Color Tuner");
     } else {
-        // 如果没有选中主题，或者是默认主题（不能更新），则保存全局配置
         saveSettingsDebounced();
         toastr.success("全局配置已保存", "CSS Color Tuner");
     }
 }
 
-// 绑定事件
 function bindEvents() {
     const searchInput = $('#css-top-search');
     const resultsContainer = $('#css-search-results');
@@ -167,19 +189,16 @@ function bindEvents() {
     searchInput.on('input', function() {
         const query = $(this).val();
         resultsContainer.empty().removeClass('active');
-        
         if (!query) return;
 
         const text = cssTextArea.val();
         const lines = text.split('\n');
         const results = [];
-        
-        // 限制结果数量，防止卡顿
         let count = 0;
+
         for (let i = 0; i < lines.length; i++) {
             if (count > 100) break;
             const line = lines[i];
-            // 不区分大小写匹配
             if (line.toLowerCase().includes(query.toLowerCase())) {
                 results.push({ lineIndex: i, content: line.trim() });
                 count++;
@@ -188,11 +207,9 @@ function bindEvents() {
 
         if (results.length > 0) {
             results.forEach(res => {
-                // 高亮处理
                 const escapedQuery = escapeRegExp(query);
                 const highlightRegex = new RegExp(`(${escapedQuery})`, 'gi');
                 const highlightedContent = escapeHtml(res.content).replace(highlightRegex, '<span class="search-highlight">$1</span>');
-
                 const item = $(`<div class="css-search-item"><i class="fa-solid fa-code fa-xs" style="opacity:0.5"></i> ${highlightedContent}</div>`);
                 item.on('click', () => {
                     jumpToLine(res.lineIndex);
@@ -204,26 +221,24 @@ function bindEvents() {
         }
     });
 
-    // 点击外部关闭搜索
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.css-tools-search-wrapper').length) {
             resultsContainer.removeClass('active');
         }
     });
 
-    // 保存与回顶
     $('#css-top-save, #tuner-save').on('click', saveSettings);
 
     $('#css-top-up').on('click', function() {
         cssTextArea[0].scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    // 调色板功能
+    // 调色板刷新按钮
     $('#tuner-refresh').on('click', function() {
         const icon = $(this).find('i');
         icon.addClass('fa-spin');
-        // 确保从 DOM 读取最新值
-        refreshTuner();
+        // 强制刷新，忽略缓存检查
+        refreshTuner(true);
         setTimeout(() => icon.removeClass('fa-spin'), 600);
     });
 
@@ -241,16 +256,12 @@ function bindEvents() {
         }
     });
 
-    // 面板内搜索
     $('#tuner-search').on('input', function() {
         const query = $(this).val().toLowerCase();
         contentArea.find('.tuner-card').each(function() {
             const block = $(this);
-            // 搜索 标题(注释) 和 副标题(选择器)
             const text = block.find('.tuner-card-header').text().toLowerCase();
-            // 也搜索属性名
             const props = block.find('.tuner-prop-name').text().toLowerCase();
-            
             if (text.includes(query) || props.includes(query)) {
                 block.show();
             } else {
@@ -264,30 +275,30 @@ function jumpToLine(lineIndex) {
     const el = cssTextArea[0];
     const text = el.value;
     const lines = text.split('\n');
-    
     let charIndex = 0;
     for (let i = 0; i < lineIndex; i++) {
         charIndex += lines[i].length + 1; 
     }
-
     el.focus();
     el.setSelectionRange(charIndex, charIndex);
-    
-    // 估算行高滚动
     const totalLines = lines.length;
     const scrollHeight = el.scrollHeight;
     const avgLineHeight = totalLines > 0 ? scrollHeight / totalLines : 20;
-    
-    el.scrollTo({
-        top: lineIndex * avgLineHeight,
-        behavior: 'smooth'
-    });
+    el.scrollTo({ top: lineIndex * avgLineHeight, behavior: 'smooth' });
 }
 
-// 刷新逻辑
-function refreshTuner() {
-    // 显式获取 Textarea 的值，防止缓存
+// 刷新逻辑 (读取文本域 -> 解析 -> 渲染)
+function refreshTuner(force = false) {
+    if (!cssTextArea || !cssTextArea.length) {
+        cssTextArea = $('#customCSS');
+    }
+    
     const cssText = cssTextArea.val();
+    
+    // 如果内容没变且不是强制刷新，则跳过
+    if (!force && cssText === lastCssContent) return;
+    
+    lastCssContent = cssText;
     const blocks = parseCssColors(cssText);
     renderTunerBlocks(blocks);
 }
@@ -302,7 +313,6 @@ function renderTunerBlocks(blocks) {
     }
 
     blocks.forEach(block => {
-        // 标题逻辑：有注释显注释，无注释显类名
         let titleHtml = '';
         if (block.comment) {
             titleHtml = `
@@ -326,42 +336,43 @@ function renderTunerBlocks(blocks) {
             const inputsContainer = row.find('.tuner-inputs-container');
 
             prop.colors.forEach((colorObj, index) => {
-                const colorVal = colorObj.value;
+                const colorVal = colorObj.value; // 可能是 "red", "rgba(...)"
+                
+                // 关键修正：计算初始的 HEX 值给选择器
+                const hexForPicker = getColorHex(colorVal);
+
                 const group = $(`<div class="tuner-input-group"></div>`);
                 
-                // 序号
                 if (prop.colors.length > 1) {
                     group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
-                }
-
-                // 辅助颜色选择器 (Hex only)
-                let hexForPicker = "#000000";
-                // 简单的Hex检测
-                if (colorVal.startsWith('#') && (colorVal.length === 7 || colorVal.length === 4)) {
-                    hexForPicker = colorVal;
                 }
 
                 const picker = $(`<input type="color" class="tuner-picker" value="${hexForPicker}" title="点击取色">`);
                 const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="输入颜色值 (支持 rgba/hex/name)">`);
 
-                // 联动
+                // 初始化选择器背景色，让它看起来也是该颜色
+                try { picker.css('background-color', colorVal); } catch(e) {}
+
+                // 事件：选择器变动 -> 更新文本框
                 picker.on('input', function() {
-                    textInput.val(this.value).trigger('input');
+                    const pickedHex = this.value; // #RRGGBB
+                    textInput.val(pickedHex).trigger('input');
+                    // 更新自己的背景色以便预览
+                    $(this).css('background-color', pickedHex);
                 });
 
+                // 事件：文本框变动 -> 更新选择器 (并尝试转换)
                 textInput.on('input', function() {
                     const newValue = $(this).val();
-                    try {
-                        picker.css('background-color', newValue);
-                        if (newValue.startsWith('#') && newValue.length === 7) {
-                            picker.val(newValue);
-                        }
-                    } catch(e) {}
+                    const newHex = getColorHex(newValue);
+                    
+                    // 更新选择器视觉
+                    picker.val(newHex);
+                    try { picker.css('background-color', newValue); } catch(e) {}
+                    
+                    // 更新 CSS 源码
                     updateCssContent(block.selector, prop.name, index, newValue);
                 });
-
-                // 初始化 Picker 背景
-                try { picker.css('background-color', colorVal); } catch(e) {}
 
                 group.append(picker);
                 group.append(textInput);
@@ -379,7 +390,7 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // 正则：找到那个块
+    // 定位到具体的 CSS 块
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
@@ -388,13 +399,12 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
         const fullBlockMatch = match[0];
         const blockContent = match[2];
         
-        // 找到属性 (加边界符防止匹配到 background-image 当找 background 时)
-        // 但CSS属性很多带有-，直接用 propName + \s*: 比较稳妥
+        // 定位到具体的属性
         const propRegex = new RegExp(`(${propName})\\s*:\\s*([^;]+);`, 'g');
         
         const newBlockContent = blockContent.replace(propRegex, (fullPropMatch, pName, pValue) => {
             let currentColorIndex = 0;
-            // 必须使用完全相同的 colorRegex 来确保索引一致
+            // 使用完全一致的正则替换第N个颜色
             const newPropValue = pValue.replace(colorRegex, (matchedColor) => {
                 if (currentColorIndex === colorIndex) {
                     currentColorIndex++;
@@ -407,8 +417,16 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
         });
         
         const newFullBlock = fullBlockMatch.replace(blockContent, newBlockContent);
+        
+        // 只替换发生变化的那一部分
         const newCss = originalCss.replace(fullBlockMatch, newFullBlock);
         
+        // 更新缓存，避免触发不必要的重绘
+        lastCssContent = newCss; 
+        
+        // 写入 Textarea
+        // 注意：不调用 refreshTuner()，否则会导致输入焦点丢失，
+        // 这里只修改文本域，保留输入框焦点在当前元素上
         cssTextArea.val(newCss);
         cssTextArea.trigger('input'); 
     }
@@ -420,12 +438,31 @@ function escapeHtml(text) {
 }
 
 $(document).ready(function() {
+    // 1. 等待 Textarea 出现
     const checkExist = setInterval(function() {
         if ($('#CustomCSS-textAreaBlock').length) {
             console.log(extensionName + " Loaded");
             clearInterval(checkExist);
+            
+            // 初始化界面
             createTunerUI();
-            setTimeout(refreshTuner, 300);
+            
+            // 初始读取一次
+            setTimeout(() => refreshTuner(true), 300);
         }
     }, 1000);
+
+    // 2. 监听 SillyTavern 设置更新事件 (用于捕捉主题切换)
+    // 当用户选择不同的 UI Preset 时，ST 会触发此事件
+    eventSource.on(event_types.SETTINGS_UPDATED, function() {
+        // 设置更新后，Textarea 的值可能已经被 ST 替换了
+        // 我们延迟一点时间来读取新值
+        setTimeout(() => {
+            // 检查当前 Textarea 是否存在（防止页面切换导致丢失）
+            if ($('#customCSS').length) {
+                console.log(extensionName + ": Theme changed detected, refreshing tuner...");
+                refreshTuner(true); // 强制刷新
+            }
+        }, 500);
+    });
 });
