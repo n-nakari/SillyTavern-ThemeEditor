@@ -7,84 +7,128 @@ const extensionName = "CssColorTuner";
 let cssTextArea = null;
 let container = null;
 let contentArea = null;
-let bodyWrapper = null;
+
+// 上一次解析的 CSS 内容哈希或长度
 let lastCssContent = "";
 
 // 颜色匹配正则
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
-/**
- * 核心工具：解析颜色，返回 { hex, alpha }
- * 用于将 rgba(0,0,0,0.5) 解析为 hex=#000000, alpha=0.5
- */
-function getHexAndAlpha(str) {
-    const ctx = document.createElement('canvas').getContext('2d');
-    
-    // 1. 处理 transparent 特例
-    if (str === 'transparent') {
-        return { hex: '#000000', alpha: 0 };
-    }
-
-    ctx.fillStyle = str;
-    let computed = ctx.fillStyle; 
-
-    let hex = '#000000';
-    let alpha = 1;
-
-    // 解析浏览器计算出的颜色
-    if (computed.startsWith('#')) {
-        // Hex 格式 (#rrggbb)
-        if (computed.length === 7) {
-            hex = computed;
-        } else if (computed.length === 9) {
-            // Hex8 (#rrggbbaa) - 虽然 canvas fillStyle 通常不返回这个，但以防万一
-            hex = computed.substring(0, 7);
-            const aVal = parseInt(computed.substring(7), 16);
-            alpha = parseFloat((aVal / 255).toFixed(2));
-        } else if (computed.length === 4) {
-             hex = '#' + computed[1] + computed[1] + computed[2] + computed[2] + computed[3] + computed[3];
+// 注入必要的补充样式 (用于RGBA滑块和弹出层)
+function injectStyles() {
+    if ($('#css-tuner-extra-style').length) return;
+    const style = `
+    <style id="css-tuner-extra-style">
+        /* 颜色预览块 */
+        .tuner-color-preview-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            cursor: pointer; position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 10px 10px;
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
         }
-    } else if (computed.startsWith('rgba')) {
-        // rgba(r, g, b, a)
-        const parts = computed.match(/[\d.]+/g);
-        if (parts && parts.length >= 4) {
-            const r = parseInt(parts[0]).toString(16).padStart(2, '0');
-            const g = parseInt(parts[1]).toString(16).padStart(2, '0');
-            const b = parseInt(parts[2]).toString(16).padStart(2, '0');
-            hex = `#${r}${g}${b}`;
-            alpha = parseFloat(parts[3]);
+        .tuner-color-preview-inner {
+            width: 100%; height: 100%; border-radius: 50%;
+            box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
         }
-    } else if (computed.startsWith('rgb')) {
-        // rgb(r, g, b)
-        const parts = computed.match(/[\d.]+/g);
-        if (parts && parts.length >= 3) {
-            const r = parseInt(parts[0]).toString(16).padStart(2, '0');
-            const g = parseInt(parts[1]).toString(16).padStart(2, '0');
-            const b = parseInt(parts[2]).toString(16).padStart(2, '0');
-            hex = `#${r}${g}${b}`;
+        /* 弹出层 */
+        .tuner-popover {
+            position: absolute; top: 36px; left: 0;
+            background: #2b2b2b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; padding: 10px;
+            z-index: 9999; display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            width: 160px;
         }
-    }
-
-    return { hex, alpha };
+        .tuner-popover.active { display: block; }
+        /* 弹出层内的控件 */
+        .tuner-popover-row { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+        .tuner-popover-row:last-child { margin-bottom: 0; }
+        .tuner-popover label { font-size: 12px; color: #aaa; width: 20px; }
+        .tuner-native-picker { width: 100%; height: 30px; cursor: pointer; border: none; padding: 0; background: none; }
+        .tuner-alpha-slider { flex: 1; cursor: pointer; }
+        
+        /* 内部搜索的下拉栏 */
+        .tuner-search-wrapper { position: relative; width: 100%; }
+        .tuner-internal-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #1e1e1e; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 0 0 8px 8px; max-height: 200px;
+            overflow-y: auto; z-index: 100; display: none;
+        }
+        .tuner-internal-dropdown.active { display: block; }
+        .tuner-internal-item {
+            padding: 8px 12px; font-size: 0.85em; color: #ccc; cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between;
+        }
+        .tuner-internal-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .tuner-internal-item .item-sel { font-family: monospace; opacity: 0.6; font-size: 0.8em; }
+    </style>
+    `;
+    $('head').append(style);
 }
 
 /**
- * 辅助：将 hex + alpha 合并为 rgba 字符串
+ * 颜色转换工具集
  */
-function hexToRgba(hex, alpha) {
-    if (alpha == 0) return 'transparent'; // 可选：如果你想显示 transparent 字样
-    
-    // 也可以是 rgba(0,0,0,0)
-    let r = parseInt(hex.slice(1, 3), 16);
-    let g = parseInt(hex.slice(3, 5), 16);
-    let b = parseInt(hex.slice(5, 7), 16);
-    
-    if (alpha >= 1) {
-        return hex; // 不透明直接返回 Hex
+const ColorUtils = {
+    // 任意颜色转 HEX (用于给原生 input type=color 赋值)
+    toHex: (str) => {
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = str;
+        let c = ctx.fillStyle;
+        if (c.startsWith('#')) {
+            if (c.length === 9) return c.substring(0, 7); // 去掉 Hex8 的 alpha
+            return c;
+        }
+        if (c.startsWith('rgba')) {
+            const p = c.match(/[\d.]+/g);
+            if (!p) return '#000000';
+            const r = parseInt(p[0]).toString(16).padStart(2,'0');
+            const g = parseInt(p[1]).toString(16).padStart(2,'0');
+            const b = parseInt(p[2]).toString(16).padStart(2,'0');
+            return `#${r}${g}${b}`;
+        }
+        return '#000000';
+    },
+    // 任意颜色获取 Alpha (0-1)
+    getAlpha: (str) => {
+        // 创建临时元素计算样式，因为 canvas 有时会简化 alpha
+        const div = document.createElement('div');
+        div.style.color = str;
+        document.body.appendChild(div);
+        const computed = window.getComputedStyle(div).color; // returns rgb() or rgba()
+        document.body.removeChild(div);
+
+        if (computed.startsWith('rgba')) {
+            const p = computed.match(/[\d.]+/g);
+            return p && p[3] ? parseFloat(p[3]) : 1;
+        }
+        // transparent 特殊处理
+        if (str.toLowerCase() === 'transparent') return 0;
+        return 1;
+    },
+    // Hex + Alpha -> Rgba 字符串
+    hexAlphaToRgba: (hex, alpha) => {
+        let r = 0, g = 0, b = 0;
+        if (hex.length === 4) {
+            r = parseInt("0x" + hex[1] + hex[1]);
+            g = parseInt("0x" + hex[2] + hex[2]);
+            b = parseInt("0x" + hex[3] + hex[3]);
+        } else if (hex.length === 7) {
+            r = parseInt("0x" + hex[1] + hex[2]);
+            g = parseInt("0x" + hex[3] + hex[4]);
+            b = parseInt("0x" + hex[5] + hex[6]);
+        }
+        // 如果 alpha 是 1，返回 hex 还是 rgb？为了保持一致性，返回 rgb/rgba
+        if (alpha >= 1) return `rgb(${r}, ${g}, ${b})`;
+        // 保留3位小数
+        const a = Math.round(alpha * 1000) / 1000;
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
     }
-    
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+};
 
 /**
  * 解析CSS字符串
@@ -99,15 +143,19 @@ function parseCssColors(cssString) {
         const selector = match[2].trim();
         const content = match[3];
         
+        // --- 核心修改：标题格式化逻辑 ---
         let finalComment = "";
         if (rawComments) {
             const commentParts = rawComments.split('*/');
+            // 过滤空项，找出有效的注释部分
             const cleanParts = commentParts
                 .map(c => c.trim())
                 .filter(c => c.length > 0 && c.includes('/*')); 
             
             if (cleanParts.length > 0) {
+                // 只取最后一个注释
                 let lastRaw = cleanParts[cleanParts.length - 1];
+                // 去掉开头的 /* 和换行符
                 finalComment = lastRaw.replace(/^\/\*[\s\r\n]*/, '').trim();
             }
         }
@@ -146,7 +194,7 @@ function parseCssColors(cssString) {
         if (properties.length > 0) {
             blocks.push({
                 selector,
-                comment: finalComment,
+                comment: finalComment, // 传递清洗后的注释
                 properties
             });
         }
@@ -157,8 +205,8 @@ function parseCssColors(cssString) {
 // UI 构建
 function createTunerUI() {
     if ($('.css-tuner-container').length > 0) return;
+    injectStyles();
 
-    // 顶部工具栏
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -172,24 +220,25 @@ function createTunerUI() {
         </div>
     `);
 
-    // 调色板容器 (修改了header布局，增加了body-wrapper)
+    // 注意：这里在 search input 下面加了 tuner-internal-dropdown
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
+                <div class="tuner-title"><i class="fa-solid fa-palette"></i> 调色板</div>
                 <div class="tuner-controls">
-                    <div class="tools-btn" id="tuner-refresh" title="刷新列表"><i class="fa-solid fa-sync-alt"></i></div>
+                    <div class="tools-btn" id="tuner-refresh" title="刷新列表 (重新读取CSS)"><i class="fa-solid fa-sync-alt"></i></div>
                     <div class="tools-btn" id="tuner-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
-                    <div class="tools-btn" id="tuner-scroll-toggle" title="滚动到底部/顶部"><i class="fa-solid fa-arrow-down"></i></div>
+                    <div class="tools-btn" id="tuner-up" title="回到扩展顶部"><i class="fa-solid fa-arrow-up"></i></div>
                     <div class="tools-btn" id="tuner-collapse" title="折叠"><i class="fa-solid fa-chevron-up"></i></div>
                 </div>
             </div>
-            <div class="tuner-body-wrapper" id="tuner-body-wrapper">
-                <div class="tuner-sub-header">
+            <div class="tuner-sub-header">
+                <div class="tuner-search-wrapper">
                     <input type="text" id="tuner-search" placeholder="搜索类名、属性或注释..." autocomplete="off">
-                    <div class="css-search-dropdown" id="tuner-search-dropdown"></div>
+                    <div class="tuner-internal-dropdown" id="tuner-internal-results"></div>
                 </div>
-                <div class="tuner-content" id="tuner-content-area"></div>
             </div>
+            <div class="tuner-content" id="tuner-content-area"></div>
         </div>
     `);
 
@@ -198,7 +247,6 @@ function createTunerUI() {
     container.insertAfter(textAreaBlock);
     
     contentArea = $('#tuner-content-area');
-    bodyWrapper = $('#tuner-body-wrapper');
     cssTextArea = $('#customCSS');
 
     bindEvents();
@@ -221,13 +269,13 @@ function saveSettings() {
 }
 
 function bindEvents() {
-    const topSearchInput = $('#css-top-search');
-    const topResults = $('#css-search-results');
-
-    // 1. 顶部搜索逻辑
-    topSearchInput.on('input', function() {
+    const searchInput = $('#css-top-search');
+    const resultsContainer = $('#css-search-results');
+    
+    // 顶部搜索逻辑
+    searchInput.on('input', function() {
         const query = $(this).val();
-        topResults.empty().removeClass('active');
+        resultsContainer.empty().removeClass('active');
         if (!query) return;
 
         const text = cssTextArea.val();
@@ -236,9 +284,10 @@ function bindEvents() {
         let count = 0;
 
         for (let i = 0; i < lines.length; i++) {
-            if (count > 50) break;
-            if (lines[i].toLowerCase().includes(query.toLowerCase())) {
-                results.push({ lineIndex: i, content: lines[i].trim() });
+            if (count > 100) break;
+            const line = lines[i];
+            if (line.toLowerCase().includes(query.toLowerCase())) {
+                results.push({ lineIndex: i, content: line.trim() });
                 count++;
             }
         }
@@ -251,24 +300,20 @@ function bindEvents() {
                 const item = $(`<div class="css-search-item"><i class="fa-solid fa-code fa-xs" style="opacity:0.5"></i> ${highlightedContent}</div>`);
                 item.on('click', () => {
                     jumpToLine(res.lineIndex);
-                    topResults.removeClass('active');
+                    resultsContainer.removeClass('active');
                 });
-                topResults.append(item);
+                resultsContainer.append(item);
             });
-            setTimeout(() => topResults.addClass('active'), 10);
+            setTimeout(() => resultsContainer.addClass('active'), 10);
         }
     });
 
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.css-tools-search-wrapper').length) {
-            topResults.removeClass('active');
-        }
-        if (!$(e.target).closest('.tuner-sub-header').length) {
-            $('#tuner-search-dropdown').removeClass('active');
+            resultsContainer.removeClass('active');
         }
     });
 
-    // 2. 按钮事件
     $('#css-top-save, #tuner-save').on('click', saveSettings);
     $('#css-top-up').on('click', function() {
         cssTextArea[0].scrollTo({ top: 0, behavior: 'smooth' });
@@ -281,93 +326,88 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 600);
     });
 
-    // 双向滚动按钮
-    $('#tuner-scroll-toggle').on('click', function() {
-        const el = contentArea[0];
-        const icon = $(this).find('i');
-        
-        // 简单判断：如果离顶部很近，就去底部；否则去顶部
-        if (el.scrollTop < 50) {
-            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-            // 下次点击变成向上
-            icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
-        } else {
-            el.scrollTo({ top: 0, behavior: 'smooth' });
-            // 下次点击变成向下
-            icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
-        }
-    });
-
-    // 监听滚动来动态更新箭头图标
-    contentArea.on('scroll', function() {
-        const el = this;
-        const btnIcon = $('#tuner-scroll-toggle i');
-        // 接近底部时显示向上，接近顶部时显示向下
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
-             btnIcon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
-        } else if (el.scrollTop < 50) {
-             btnIcon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
-        }
+    $('#tuner-up').on('click', function() {
+        contentArea[0].scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     $('#tuner-collapse').on('click', function() {
-        bodyWrapper.toggleClass('collapsed');
+        contentArea.toggleClass('collapsed');
         const icon = $(this).find('i');
-        if (bodyWrapper.hasClass('collapsed')) {
+        if (contentArea.hasClass('collapsed')) {
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         } else {
             icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
         }
     });
 
-    // 3. 扩展面板内搜索（带下拉）
-    const tunerSearchInput = $('#tuner-search');
-    const tunerDropdown = $('#tuner-search-dropdown');
+    // --- 修改：内部搜索逻辑 (添加下拉栏) ---
+    const innerSearchInput = $('#tuner-search');
+    const innerDropdown = $('#tuner-internal-results');
 
-    tunerSearchInput.on('input', function() {
+    innerSearchInput.on('input', function() {
         const query = $(this).val().toLowerCase();
-        tunerDropdown.empty().removeClass('active');
+        innerDropdown.empty().removeClass('active');
 
-        // 同时进行过滤和生成下拉列表
-        const cards = contentArea.find('.tuner-card');
-        const matches = [];
-
-        cards.each(function() {
+        // 1. 过滤卡片显示
+        contentArea.find('.tuner-card').each(function() {
             const block = $(this);
             const text = block.find('.tuner-card-header').text().toLowerCase();
             const props = block.find('.tuner-prop-name').text().toLowerCase();
             
-            // 过滤显示
             if (text.includes(query) || props.includes(query)) {
                 block.show();
-                if (query.length > 0) {
-                    // 添加到下拉列表 (只添加前20个防止卡顿)
-                    if (matches.length < 20) {
-                        // 提取纯文本标题用于列表展示
-                        const cleanTitle = block.find('.tuner-card-header').text().replace(/\s+/g, ' ').trim();
-                        matches.push({ el: block, title: cleanTitle });
-                    }
-                }
             } else {
                 block.hide();
             }
         });
 
-        // 渲染下拉
+        if (!query) return;
+
+        // 2. 填充下拉推荐
+        const matches = [];
+        contentArea.find('.tuner-card:visible').each(function() {
+            const el = $(this);
+            const comment = el.find('.tuner-card-comment').text();
+            const sel = el.find('.tuner-card-selector').text();
+            // 限制数量防止卡顿
+            if (matches.length < 15) {
+                matches.push({ comment, sel, el });
+            }
+        });
+
         if (matches.length > 0) {
             matches.forEach(m => {
-                const item = $(`<div class="css-search-item"><i class="fa-solid fa-palette fa-xs" style="opacity:0.5"></i> ${escapeHtml(m.title)}</div>`);
-                item.on('click', () => {
+                const item = $(`
+                    <div class="tuner-internal-item">
+                        <span>${escapeHtml(m.comment)}</span>
+                        <span class="item-sel">${escapeHtml(m.sel)}</span>
+                    </div>
+                `);
+                item.on('click', function() {
                     // 滚动到该卡片
-                    m.el[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    contentArea[0].scrollTo({
+                        top: m.el[0].offsetTop - contentArea[0].offsetTop - 10,
+                        behavior: 'smooth'
+                    });
                     // 高亮一下
-                    m.el.css('transition', '0.2s').css('transform', 'scale(1.02)');
-                    setTimeout(() => m.el.css('transform', 'scale(1)'), 200);
-                    tunerDropdown.removeClass('active');
+                    m.el.css('border-color', 'var(--tuner-accent)');
+                    setTimeout(() => m.el.css('border-color', ''), 1000);
+                    innerDropdown.removeClass('active');
                 });
-                tunerDropdown.append(item);
+                innerDropdown.append(item);
             });
-            setTimeout(() => tunerDropdown.addClass('active'), 10);
+            innerDropdown.addClass('active');
+        }
+    });
+
+    // 关闭内部下拉
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.tuner-search-wrapper').length) {
+            innerDropdown.removeClass('active');
+        }
+        // 关闭颜色弹窗
+        if (!$(e.target).closest('.tuner-input-group').length) {
+            $('.tuner-popover').removeClass('active');
         }
     });
 }
@@ -389,7 +429,9 @@ function jumpToLine(lineIndex) {
 }
 
 function refreshTuner(force = false) {
-    if (!cssTextArea || !cssTextArea.length) cssTextArea = $('#customCSS');
+    if (!cssTextArea || !cssTextArea.length) {
+        cssTextArea = $('#customCSS');
+    }
     const cssText = cssTextArea.val();
     if (!force && cssText === lastCssContent) return;
     lastCssContent = cssText;
@@ -397,21 +439,29 @@ function refreshTuner(force = false) {
     renderTunerBlocks(blocks);
 }
 
+// 渲染 DOM
 function renderTunerBlocks(blocks) {
     contentArea.empty();
 
     if (blocks.length === 0) {
-        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub); opacity:0.7;">未检测到可编辑颜色<br><small>仅读取标准属性中的颜色值</small></div>');
+        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub); opacity:0.7;">未检测到可编辑颜色</div>');
         return;
     }
 
     blocks.forEach(block => {
-        // 标题格式： "注释 | .selector"
+        // --- 核心修改：标题显示逻辑 ---
+        // 格式: "注释 | .选择器" 或 ".选择器"
         let titleHtml = '';
         if (block.comment) {
-            titleHtml = `<span class="tuner-comment-part">${escapeHtml(block.comment)}</span> <span class="tuner-selector-part">| ${escapeHtml(block.selector)}</span>`;
+            // 注：有注释时，同时显示注释和选择器，中间用 | 隔开，且不加标点
+            titleHtml = `
+                <span class="tuner-card-comment">${escapeHtml(block.comment)}</span>
+                <span style="opacity:0.5; margin:0 8px;">|</span>
+                <span class="tuner-card-selector">${escapeHtml(block.selector)}</span>
+            `;
         } else {
-            titleHtml = `<span class="tuner-comment-part">${escapeHtml(block.selector)}</span>`;
+            // 没注释，把选择器当主标题
+            titleHtml = `<span class="tuner-card-comment">${escapeHtml(block.selector)}</span><span class="tuner-card-selector" style="display:none"></span>`;
         }
 
         const blockEl = $(`<div class="tuner-card">
@@ -429,62 +479,106 @@ function renderTunerBlocks(blocks) {
             prop.colors.forEach((colorObj, index) => {
                 const colorVal = colorObj.value;
                 
-                // 1. 解析初始颜色和透明度
-                const { hex, alpha } = getHexAndAlpha(colorVal);
+                // 解析初始状态
+                let currentHex = ColorUtils.toHex(colorVal);
+                let currentAlpha = ColorUtils.getAlpha(colorVal);
 
-                const group = $(`<div class="tuner-input-group"></div>`);
+                const group = $(`<div class="tuner-input-group" style="position:relative;"></div>`);
                 
                 if (prop.colors.length > 1) {
                     group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
                 }
 
-                // 2. 创建组件
-                const picker = $(`<input type="color" class="tuner-picker" value="${hex}" title="选择基色">`);
-                const alphaSlider = $(`<input type="range" class="tuner-alpha-slider" min="0" max="1" step="0.01" value="${alpha}" title="调整透明度">`);
-                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="最终颜色值">`);
+                // --- 核心修改：自定义 RGBA 选择器 UI ---
+                // 1. 预览球 (作为触发器)
+                const previewBtn = $(`
+                    <div class="tuner-color-preview-btn" title="点击调整颜色/透明度">
+                        <div class="tuner-color-preview-inner" style="background-color: ${colorVal}"></div>
+                    </div>
+                `);
 
-                // 初始化背景色
-                try { picker.css('background-color', colorVal); } catch(e) {}
+                // 2. 文本框
+                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="输入颜色值">`);
 
-                // 3. 联动逻辑
+                // 3. 弹出面板 (包含原生颜色选择器 + 透明度滑块)
+                const popover = $(`
+                    <div class="tuner-popover">
+                        <div class="tuner-popover-row">
+                            <label>色</label>
+                            <!-- 原生选择器，保留吸管 -->
+                            <input type="color" class="tuner-native-picker" value="${currentHex}">
+                        </div>
+                        <div class="tuner-popover-row">
+                            <label>透</label>
+                            <input type="range" class="tuner-alpha-slider" min="0" max="1" step="0.01" value="${currentAlpha}" title="透明度: ${Math.round(currentAlpha*100)}%">
+                        </div>
+                    </div>
+                `);
+
+                const nativePicker = popover.find('.tuner-native-picker');
+                const alphaSlider = popover.find('.tuner-alpha-slider');
+                const previewInner = previewBtn.find('.tuner-color-preview-inner');
+
+                // 点击预览球切换弹窗
+                previewBtn.on('click', function(e) {
+                    e.stopPropagation();
+                    // 关闭其他弹窗
+                    $('.tuner-popover').not(popover).removeClass('active');
+                    popover.toggleClass('active');
+                });
                 
-                // A. 颜色选择器变动 -> 更新文本框 (保持当前透明度)
-                picker.on('input', function() {
-                    const currentHex = this.value;
-                    const currentAlpha = alphaSlider.val();
-                    const newRgba = hexToRgba(currentHex, currentAlpha);
-                    
-                    textInput.val(newRgba).trigger('input');
-                    $(this).css('background-color', currentHex); // 视觉反馈
+                // 防止点击弹窗内部关闭
+                popover.on('click', function(e){ e.stopPropagation(); });
+
+                // --- 联动逻辑 ---
+                
+                // A. 原生选择器 (Hex) 变化 -> 更新 RGBA
+                nativePicker.on('input', function() {
+                    currentHex = this.value;
+                    updateColor();
                 });
 
-                // B. 透明度滑条变动 -> 更新文本框 (保持当前基色)
+                // B. 滑块 (Alpha) 变化 -> 更新 RGBA
                 alphaSlider.on('input', function() {
-                    const currentHex = picker.val();
-                    const currentAlpha = this.value;
-                    const newRgba = hexToRgba(currentHex, currentAlpha);
-                    
-                    textInput.val(newRgba).trigger('input');
+                    currentAlpha = parseFloat(this.value);
+                    $(this).attr('title', `透明度: ${Math.round(currentAlpha*100)}%`);
+                    updateColor();
                 });
 
-                // C. 文本框手动输入 -> 解析并更新 Picker 和 Slider
+                // C. 文本框变化 -> 解析并反向更新控件
                 textInput.on('input', function() {
-                    const newValue = $(this).val();
-                    const parsed = getHexAndAlpha(newValue);
+                    const val = $(this).val();
+                    // 更新预览
+                    previewInner.css('background-color', val);
                     
-                    // 更新控件状态
-                    picker.val(parsed.hex);
-                    alphaSlider.val(parsed.alpha);
+                    // 尝试更新控件状态
+                    const hex = ColorUtils.toHex(val);
+                    const alpha = ColorUtils.getAlpha(val);
                     
-                    // 更新 Picker 视觉背景
-                    try { picker.css('background-color', newValue); } catch(e) {}
-                    
-                    // 保存到 CSS
-                    updateCssContent(block.selector, prop.name, index, newValue);
+                    if (hex !== '#000000' || val.includes('000') || val.includes('black')) {
+                         nativePicker.val(hex);
+                         currentHex = hex;
+                    }
+                    alphaSlider.val(alpha);
+                    currentAlpha = alpha;
+
+                    updateCssContent(block.selector, prop.name, index, val);
                 });
 
-                group.append(picker);
-                group.append(alphaSlider);
+                // 统一更新函数
+                function updateColor() {
+                    const newRgba = ColorUtils.hexAlphaToRgba(currentHex, currentAlpha);
+                    
+                    // 更新 UI
+                    previewInner.css('background-color', newRgba);
+                    textInput.val(newRgba);
+                    
+                    // 更新 CSS
+                    updateCssContent(block.selector, prop.name, index, newRgba);
+                }
+
+                group.append(previewBtn);
+                group.append(popover); // 弹窗放入 group
                 group.append(textInput);
                 inputsContainer.append(group);
             });
@@ -500,7 +594,6 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // 寻找块
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
@@ -508,7 +601,6 @@ function updateCssContent(selector, propName, colorIndex, newColorValue) {
     if (match) {
         const fullBlockMatch = match[0];
         const blockContent = match[2];
-        
         const propRegex = new RegExp(`(${propName})\\s*:\\s*([^;]+);`, 'g');
         
         const newBlockContent = blockContent.replace(propRegex, (fullPropMatch, pName, pValue) => {
