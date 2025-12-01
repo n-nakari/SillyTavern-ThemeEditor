@@ -1,8 +1,6 @@
 import { saveSettingsDebounced } from "../../../script.js";
-import { extension_settings } from "../../../extensions.js";
 
 const extensionName = "CSSColorManager";
-const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
 // 扩展状态
 let isCollapsed = false;
