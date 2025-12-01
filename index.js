@@ -1,3 +1,5 @@
+--- START OF FILE index (2).js ---
+
 import { saveSettingsDebounced, eventSource, event_types } from '../../../../script.js';
 
 // 扩展名称
@@ -7,57 +9,25 @@ const extensionName = "CssColorTuner";
 let cssTextArea = null;
 let container = null;
 let contentArea = null;
-let tunerBody = null;
+let tunerBody = null; // 新增：用于折叠的包裹层
 
 // 上一次解析的 CSS 内容哈希或长度
 let lastCssContent = "";
-
-// Pickr 实例存储，用于清理
-let pickrInstances = [];
 
 // 颜色匹配正则
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
 // 缓存解析后的块
 let currentParsedBlocks = [];
+
+// 滚动按钮状态 (top 或 bottom)
 let scrollDirection = 'bottom'; 
 
-// ===========================================
-// 1. 动态加载 Pickr 库 (资源注入)
-// ===========================================
-function loadPickrResources() {
-    if (document.getElementById('pickr-css-cdn')) return;
-
-    // 加载 Monolith 主题 CSS (类似于截图的样式)
-    const link = document.createElement('link');
-    link.id = 'pickr-css-cdn';
-    link.rel = 'stylesheet';
-    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/pickr/1.9.0/themes/monolith.min.css';
-    document.head.appendChild(link);
-
-    // 加载 Pickr JS
-    if (!window.Pickr) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pickr/1.9.0/pickr.min.js';
-        script.onload = () => {
-            console.log('Pickr Loaded');
-            refreshTuner(true); // 库加载完成后刷新一次界面
-        };
-        document.head.appendChild(script);
-    }
-}
-
-// ===========================================
-// 2. 颜色解析与注释提取 (核心逻辑重写)
-// ===========================================
-
 /**
- * 将CSS字符串解析为块对象
- * 修改点：只提取紧邻选择器的最后一个注释，并清除标点符号
+ * 解析CSS字符串 (重点：注释清理)
  */
 function parseCssColors(cssString) {
     const blocks = [];
-    // 正则：捕获所有前置注释（Group 1），选择器（Group 2），内容（Group 3）
     const ruleRegex = /(?:((?:\/\*[\s\S]*?\*\/[\s\r\n]*)+))?([^{}]+)\{([^}]+)\}/g;
     
     let match;
@@ -69,28 +39,27 @@ function parseCssColors(cssString) {
         let finalComment = "";
         
         if (rawComments) {
-            // 1. 按照 */ 分割多个注释块
+            // 1. 分割多个注释块
             const commentParts = rawComments.split('*/');
+            // 2. 过滤有效块
+            const validComments = commentParts
+                .map(c => c.trim())
+                .filter(c => c.includes('/*'));
             
-            // 2. 找到倒数第一个非空的注释块 (即紧邻选择器的那个)
-            // 过滤掉纯空白的项
-            const validParts = commentParts.filter(part => part.trim().length > 0);
-            
-            if (validParts.length > 0) {
-                const lastCommentRaw = validParts[validParts.length - 1];
+            if (validComments.length > 0) {
+                // 3. 取最后一个注释 (紧邻选择器的那一个)
+                let lastRaw = validComments[validComments.length - 1];
                 
-                // 3. 去掉开头的 /*
-                let cleanText = lastCommentRaw.replace(/^\s*\/\*/, '').trim();
-
-                // 4. 清除标点符号 (保留中文、英文、数字、空格、下划线、减号)
-                // 只要不是这些字符，统统替换为空
-                cleanText = cleanText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s_-]/g, '').trim();
+                // 4. 去除 /*
+                let cleanStep1 = lastRaw.replace(/^\/\*/, '').trim();
                 
-                finalComment = cleanText;
+                // 5. 去除所有标点符号 (保留空格、中文、字母、数字、下划线、减号)
+                let cleanStep2 = cleanStep1.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~，。！？；：“”‘’（）【】《》、]/g, '');
+                
+                finalComment = cleanStep2.trim();
             }
         }
         
-        // 提取属性中的颜色
         const properties = [];
         const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
         let propMatch;
@@ -99,7 +68,6 @@ function parseCssColors(cssString) {
             const propName = propMatch[1].trim();
             const propValue = propMatch[2].trim();
             
-            // 忽略 CSS 变量定义 和 使用 var() 的值
             if (propName.startsWith('--')) continue;
             if (propValue.includes('var(')) continue;
 
@@ -136,14 +104,11 @@ function parseCssColors(cssString) {
     return blocks;
 }
 
-// ===========================================
-// 3. UI 构建与渲染 (引入Pickr)
-// ===========================================
-
+// UI 构建
 function createTunerUI() {
     if ($('.css-tuner-container').length > 0) return;
 
-    // 顶部工具栏
+    // 1. 顶部工具栏
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -157,7 +122,7 @@ function createTunerUI() {
         </div>
     `);
 
-    // 调色板容器
+    // 2. 调色板容器
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
@@ -189,133 +154,6 @@ function createTunerUI() {
 
     bindEvents();
 }
-
-function renderTunerBlocks(blocks) {
-    // 1. 清理旧的 Pickr 实例
-    pickrInstances.forEach(p => p.destroyAndRemove());
-    pickrInstances = [];
-    
-    contentArea.empty();
-
-    if (!window.Pickr) {
-        contentArea.append('<div style="padding:20px;text-align:center;">正在加载颜色选择器资源...</div>');
-        return;
-    }
-
-    if (blocks.length === 0) {
-        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub); opacity:0.7;">未检测到可编辑颜色</div>');
-        return;
-    }
-
-    blocks.forEach(block => {
-        // --- 标题格式化 ---
-        // 格式： 注释 | 选择器
-        let titleHtml = '';
-        if (block.comment) {
-            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.3; margin-right:8px;">|</span><span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
-        } else {
-            // 如果没有注释，只显示选择器
-            titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
-        }
-
-        const blockEl = $(`<div class="tuner-card" id="${block.id}">
-            <div class="tuner-card-header">${titleHtml}</div>
-        </div>`);
-
-        block.properties.forEach(prop => {
-            const row = $(`<div class="tuner-prop-row">
-                <div class="tuner-prop-name">${escapeHtml(prop.name)}</div>
-                <div class="tuner-inputs-container"></div>
-            </div>`);
-
-            const inputsContainer = row.find('.tuner-inputs-container');
-
-            prop.colors.forEach((colorObj, index) => {
-                const colorVal = colorObj.value; // 原始颜色字符串
-                
-                const group = $(`<div class="tuner-input-group"></div>`);
-                
-                if (prop.colors.length > 1) {
-                    group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
-                }
-
-                // 创建 Pickr 的挂载点
-                const pickrBtn = $(`<div class="tuner-pickr-btn"></div>`);
-                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="直接输入颜色值">`);
-
-                group.append(pickrBtn);
-                group.append(textInput);
-                inputsContainer.append(group);
-
-                // --- 初始化 Pickr ---
-                // 注意：必须在元素 append 到 DOM 后初始化，或者使用 el 引用
-                try {
-                    const pickr = Pickr.create({
-                        el: pickrBtn[0],
-                        theme: 'monolith', // 类似于截图的样式
-                        default: colorVal,
-                        swatches: null,
-                        padding: 8,
-                        components: {
-                            preview: true,
-                            opacity: true,
-                            hue: true,
-                            interaction: {
-                                hex: true,
-                                rgba: true,
-                                hsla: false,
-                                input: true,
-                                save: true
-                            }
-                        },
-                        i18n: {
-                            'btn:save': '应用'
-                        }
-                    });
-
-                    pickrInstances.push(pickr);
-
-                    // Pickr 改变 -> 更新输入框 -> 更新 CSS
-                    pickr.on('save', (color, instance) => {
-                        const newColor = color.toRGBA().toString(0); // 0表示自动精度，输出 rgba(...)
-                        textInput.val(newColor);
-                        updateCssContent(block.selector, prop.name, index, newColor);
-                        instance.hide();
-                    });
-
-                    // 实时预览变化（可选）
-                    pickr.on('change', (color, source, instance) => {
-                        // 只有当用户拖动时才更新，防止循环
-                        if (source === 'slider' || source === 'input') {
-                            const newColor = color.toRGBA().toString(0);
-                            textInput.val(newColor);
-                            // 实时更新CSS可能太卡，这里只更新输入框，保存时更新CSS
-                            // 或者添加 debounce。这里为了响应速度，暂只在 save 时提交，或者手动输入框 change
-                        }
-                    });
-
-                    // 文本框改变 -> 更新 Pickr 颜色 -> 更新 CSS
-                    textInput.on('change', function() {
-                        const newVal = $(this).val();
-                        pickr.setColor(newVal); // 同步给 Pickr
-                        updateCssContent(block.selector, prop.name, index, newVal);
-                    });
-
-                } catch (e) {
-                    console.error("Pickr init failed", e);
-                }
-            });
-
-            blockEl.append(row);
-        });
-
-        contentArea.append(blockEl);
-    });
-}
-
-// ===========================================
-// 4. 辅助函数与事件绑定 (保持大部分原有逻辑)
-// ===========================================
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -441,6 +279,7 @@ function bindEvents() {
 
     $('#css-top-save, #tuner-save').on('click', saveSettings);
     
+    // CSS框 滚动到底部/顶部
     $('#css-top-scroll').on('click', function() {
         const el = cssTextArea[0];
         const icon = $(this).find('i');
@@ -467,6 +306,7 @@ function bindEvents() {
 
     $('#tuner-up').on('click', () => contentArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
 
+    // 折叠逻辑
     $('#tuner-collapse').on('click', function() {
         tunerBody.toggleClass('collapsed');
         const icon = $(this).find('i');
@@ -502,11 +342,88 @@ function refreshTuner(force = false) {
     renderTunerBlocks(currentParsedBlocks);
 }
 
+/**
+ * 渲染 Tuner 块的核心逻辑 - 使用 toolcool-color-picker
+ */
+function renderTunerBlocks(blocks) {
+    contentArea.empty();
+
+    if (blocks.length === 0) {
+        contentArea.append('<div style="text-align:center; padding:40px; color:var(--tuner-text-sub); opacity:0.7;">未检测到可编辑颜色</div>');
+        return;
+    }
+
+    blocks.forEach(block => {
+        // --- 标题渲染 ---
+        let titleHtml = '';
+        if (block.comment) {
+            titleHtml = `<span class="tuner-comment-tag">${escapeHtml(block.comment)}</span><span style="opacity:0.3; margin-right:8px;">|</span><span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
+        } else {
+            titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
+        }
+
+        const blockEl = $(`<div class="tuner-card" id="${block.id}">
+            <div class="tuner-card-header">${titleHtml}</div>
+        </div>`);
+
+        block.properties.forEach(prop => {
+            const row = $(`<div class="tuner-prop-row">
+                <div class="tuner-prop-name">${escapeHtml(prop.name)}</div>
+                <div class="tuner-inputs-container"></div>
+            </div>`);
+
+            const inputsContainer = row.find('.tuner-inputs-container');
+
+            prop.colors.forEach((colorObj, index) => {
+                const colorVal = colorObj.value;
+
+                const group = $(`<div class="tuner-input-group"></div>`);
+                
+                if (prop.colors.length > 1) {
+                    group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
+                }
+
+                // 创建 toolcool-color-picker 元素
+                const toolcoolPicker = $('<toolcool-color-picker></toolcool-color-picker>')
+                    .addClass('tuner-toolcool')
+                    .attr({
+                        color: colorVal,
+                    });
+
+                // 创建同步显示的文本框
+                const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="颜色值">`);
+
+                // 1. 监听 Picker 变化 -> 更新文本框 & 更新 CSS
+                toolcoolPicker.on('change', (evt) => {
+                    const newColor = evt.detail.rgba; // 使用 rgba 格式，兼容透明度
+                    textInput.val(newColor);
+                    updateCssContent(block.selector, prop.name, index, newColor);
+                });
+
+                // 2. 监听 文本框 变化 -> 更新 Picker 颜色 & 更新 CSS
+                textInput.on('change', function() {
+                    const val = $(this).val();
+                    toolcoolPicker.attr('color', val); // toolcool 会自动解析合法颜色字符串
+                    // 只有当颜色合法时才更新CSS，这里依赖 toolcool 的内部解析，或者直接写入
+                    updateCssContent(block.selector, prop.name, index, val);
+                });
+
+                group.append(toolcoolPicker);
+                group.append(textInput);
+                inputsContainer.append(group);
+            });
+
+            blockEl.append(row);
+        });
+
+        contentArea.append(blockEl);
+    });
+}
+
 function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // 重新构建Regex以定位块
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
@@ -548,13 +465,8 @@ $(document).ready(function() {
         if ($('#CustomCSS-textAreaBlock').length) {
             console.log(extensionName + " Loaded");
             clearInterval(checkExist);
-            
-            // 先加载Pickr资源，再构建UI
-            loadPickrResources();
             createTunerUI();
-            
-            // 延时等待资源加载完毕进行第一次渲染
-            setTimeout(() => refreshTuner(true), 500);
+            setTimeout(() => refreshTuner(true), 300);
         }
     }, 1000);
 
