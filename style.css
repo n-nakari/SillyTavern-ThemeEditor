@@ -2,7 +2,7 @@
    全局过渡与变量定义
    ========================================= */
 :root {
-    --tuner-bg-color: rgba(30, 30, 35, 0.95); /* 稍微加深背景，防止透底 */
+    --tuner-bg-color: rgba(30, 30, 35, 0.6);
     --tuner-card-bg: rgba(255, 255, 255, 0.04);
     --tuner-card-hover: rgba(255, 255, 255, 0.07);
     --tuner-border: rgba(255, 255, 255, 0.08);
@@ -28,8 +28,6 @@
     margin-bottom: 12px;
     align-items: center;
     padding: 0 4px;
-    z-index: 100; /* 保证下拉遮挡层级 */
-    position: relative;
 }
 
 .css-tools-search-wrapper {
@@ -39,12 +37,12 @@
     align-items: center;
 }
 
-/* 搜索框美化 */
+/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--tuner-border);
-    border-radius: 20px;
+    border-radius: 20px; /* 胶囊形状 */
     padding: 8px 16px;
     font-size: 0.9rem;
     color: var(--tuner-text-main);
@@ -84,14 +82,14 @@
 }
 
 /* =========================================
-   搜索下拉栏 (通用样式)
+   搜索下拉栏 (浏览器风格) - 通用类
    ========================================= */
 .css-search-dropdown {
     position: absolute;
     top: 110%;
     left: 0;
     right: 0;
-    background-color: #1e1e1e;
+    background-color: #1e1e1e; /* 纯色背景防止文字重叠 */
     border: 1px solid var(--tuner-border);
     border-radius: 12px;
     max-height: 300px;
@@ -145,13 +143,12 @@
     background: var(--tuner-bg-color);
     border: 1px solid var(--tuner-border);
     border-radius: 16px;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* 防止内部下拉溢出被切，但在flex下要注意 */
-    overflow: visible; /* 允许下拉框溢出容器 */
+    overflow: visible; /* 允许下拉菜单溢出 */
     position: relative;
-    z-index: 90;
+    z-index: 10;
 }
 
 /* --- 顶栏 --- */
@@ -184,8 +181,7 @@
     padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
     background-color: rgba(0,0,0,0.1);
-    position: relative; /* 为下拉定位 */
-    z-index: 10;
+    position: relative; /* 为下拉菜单定位 */
 }
 
 #tuner-search {
@@ -214,7 +210,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    z-index: 1;
 }
 
 .tuner-content.collapsed {
@@ -225,7 +220,7 @@
 }
 
 /* =========================================
-   卡片设计
+   卡片设计 (Ins风/简洁卡片)
    ========================================= */
 .tuner-card {
     background-color: var(--tuner-card-bg);
@@ -248,15 +243,25 @@
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px dashed var(--tuner-border);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     color: var(--tuner-text-main);
-    font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
     line-height: 1.4;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* 注释部分稍微变淡 */
+.tuner-header-comment {
+    color: var(--tuner-accent);
+    opacity: 0.9;
+    font-weight: 700;
+}
+
+/* 选择器部分 */
+.tuner-header-selector {
+    color: var(--tuner-text-sub);
+    opacity: 0.7;
 }
 
 /* 属性行 */
@@ -288,13 +293,14 @@
 
 .tuner-input-group {
     background-color: rgba(0,0,0,0.2);
-    border-radius: 30px;
-    padding: 4px 6px;
-    padding-right: 12px;
+    border-radius: 30px; /* 圆角胶囊 */
+    padding: 4px 10px;
     display: flex;
     align-items: center;
     gap: 8px;
     border: 1px solid transparent;
+    flex: 1;
+    min-width: 280px; /* 保证能放下一行 */
 }
 
 .tuner-input-group:hover, .tuner-input-group:focus-within {
@@ -312,9 +318,10 @@
     align-items: center;
     justify-content: center;
     color: #fff;
+    flex-shrink: 0;
 }
 
-/* 圆形颜色选择器 (RGB) */
+/* 圆形颜色选择器 (原生) */
 input[type="color"].tuner-picker {
     width: 28px;
     height: 28px;
@@ -334,26 +341,42 @@ input[type="color"].tuner-picker::-webkit-color-swatch {
     border-radius: 50%;
 }
 
-/* 透明度滑块 (Alpha) */
+/* 透明度滑条 */
 input[type="range"].tuner-alpha-slider {
-    width: 60px;
-    height: 6px;
-    -webkit-appearance: none;
-    background: linear-gradient(to right, transparent, var(--tuner-accent));
-    border-radius: 3px;
-    outline: none;
-    cursor: pointer;
-    background-color: rgba(255,255,255,0.1);
-}
-input[type="range"].tuner-alpha-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
+    width: 80px; /* 适当宽度 */
+    height: 6px;
+    background: transparent;
     cursor: pointer;
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    margin: 0 4px;
+}
+
+/* 滑轨样式 */
+input[type="range"].tuner-alpha-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2); /* 轨道颜色 */
+    border-radius: 3px;
+    border: none;
+}
+
+/* 滑块样式 */
+input[type="range"].tuner-alpha-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    border: 2px solid rgba(0,0,0,0.2);
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: var(--tuner-accent); /* 滑块颜色 */
+    margin-top: -5px; /* 垂直居中 */
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+}
+
+input[type="range"].tuner-alpha-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+    background: #fff;
 }
 
 /* 文本输入框 */
@@ -363,9 +386,9 @@ input[type="text"].tuner-text {
     color: var(--tuner-text-main);
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
-    width: 120px;
+    flex: 1; /* 撑满剩余空间 */
+    min-width: 140px; /* 保证显示 rgba */
     outline: none;
-    text-align: left;
 }
 
 /* 滚动条 */
