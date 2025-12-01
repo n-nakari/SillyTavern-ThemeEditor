@@ -8,32 +8,28 @@ let cssTextArea = null;
 let container = null;
 let contentArea = null;
 
-// 上一次解析的 CSS 内容哈希或长度
+// 缓存上一次内容
 let lastCssContent = "";
 
-// 颜色匹配正则
+// 颜色正则
 const colorRegex = /((#[0-9a-fA-F]{3,8})|rgba?\([\d\s,.]+\)|hsla?\([\d\s,.%]+\)|\b(transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)\b)/gi;
 
-// 缓存解析后的块，用于内部搜索
+// 全局数据块缓存
 let currentParsedBlocks = [];
 
 /**
- * 核心工具：将任意 CSS 颜色解析为 RGBA 对象
- * 返回: { r: 0-255, g: 0-255, b: 0-255, a: 0-1, hex: "#rrggbb" }
+ * 解析颜色为 RGBA 对象
  */
 function getColorRgba(str) {
     const ctx = document.createElement('canvas').getContext('2d');
-    // 设置透明背景，防止干扰
     ctx.clearRect(0,0,1,1);
     ctx.fillStyle = str;
-    const computed = ctx.fillStyle; // 浏览器通常返回 #RRGGBB 或 rgba(r,g,b,a)
+    const computed = ctx.fillStyle; 
 
-    // 默认黑色
     let r = 0, g = 0, b = 0, a = 1;
 
     if (computed.startsWith('#')) {
         let hex = computed;
-        // 扩展短hex
         if (hex.length === 4) {
             hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
         }
@@ -53,28 +49,23 @@ function getColorRgba(str) {
         }
     }
     
-    // 生成一个纯 hex 用于 <input type="color"> (忽略alpha)
     const toHex = (c) => c.toString(16).padStart(2, '0');
     const hexFull = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 
     return { r, g, b, a, hex: hexFull };
 }
 
-/**
- * 将 rgba 分量转换为字符串
- */
 function toRgbaString(r, g, b, a) {
-    // 精度控制，避免 0.300000004
     const alpha = Math.round(a * 100) / 100;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 /**
- * 解析CSS字符串
+ * 解析CSS核心函数
+ * 严格修改：注释提取逻辑
  */
 function parseCssColors(cssString) {
     const blocks = [];
-    // 捕获注释组和规则内容
     const ruleRegex = /(?:((?:\/\*[\s\S]*?\*\/[\s\r\n]*)+))?([^{}]+)\{([^}]+)\}/g;
     
     let match;
@@ -85,23 +76,29 @@ function parseCssColors(cssString) {
         
         let finalComment = "";
         
-        // 专门的注释解析逻辑
+        // --- 核心修正：严格提取最后一个注释 ---
         if (rawComments) {
-            // 按 */ 分割，过滤空串
+            // 1. 按 '*/' 分割，因为正则捕获的是一大坨注释块
             const commentParts = rawComments.split('*/');
-            // 找出包含 /* 的有效片段
-            const validComments = commentParts
-                .map(c => c.trim())
-                .filter(c => c.includes('/*'));
             
-            if (validComments.length > 0) {
-                // 取最后一个（最靠近选择器的）
-                let lastRaw = validComments[validComments.length - 1];
-                // 去掉开头的 /*，再去掉两端空格
-                finalComment = lastRaw.replace(/^\/\*/, '').trim();
+            // 2. 过滤掉空字符串和不含 '/*' 的部分
+            const validParts = commentParts.filter(part => part.trim().includes('/*'));
+            
+            if (validParts.length > 0) {
+                // 3. 取最后一个（紧邻选择器的那个）
+                let targetComment = validParts[validParts.length - 1];
+                
+                // 4. 清理：去掉 '/*' 和空白
+                // 此时 targetComment 可能是 "\n  /* 注释内容"
+                targetComment = targetComment.replace(/\/\*/, '').trim();
+                
+                // 5. 再次确保没有残留（防止多层嵌套或异常字符），并且完全去除标点
+                // 这里只去除了注释符本身，如果用户写了 "注释 |" 这种，保留内容
+                finalComment = targetComment;
             }
         }
-        
+        // ------------------------------------
+
         const properties = [];
         const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
         let propMatch;
@@ -134,7 +131,6 @@ function parseCssColors(cssString) {
         }
         
         if (properties.length > 0) {
-            // 生成用于显示的 ID
             const uniqueId = `tuner-block-${blocks.length}`;
             blocks.push({
                 id: uniqueId,
@@ -147,10 +143,10 @@ function parseCssColors(cssString) {
     return blocks;
 }
 
-// UI 构建
 function createTunerUI() {
     if ($('.css-tuner-container').length > 0) return;
 
+    // 1. 顶部工具栏：新增 向下滚动 按钮
     const topBar = $(`
         <div class="css-tools-bar">
             <div class="css-tools-search-wrapper">
@@ -159,21 +155,21 @@ function createTunerUI() {
             </div>
             <div class="tools-btn-group">
                 <div class="tools-btn" id="css-top-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
-                <div class="tools-btn" id="css-top-up" title="回到代码顶部"><i class="fa-solid fa-arrow-up"></i></div>
+                <div class="tools-btn" id="css-top-up" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
+                <div class="tools-btn" id="css-top-down" title="跳到底部"><i class="fa-solid fa-arrow-down"></i></div>
             </div>
         </div>
     `);
 
-    // 注意：在这里添加了 tuner-search-results 下拉栏
+    // 2. 调色板容器：头部移除标题文字，按钮左移
     container = $(`
         <div class="css-tuner-container">
             <div class="tuner-header">
-                <div class="tuner-title"><i class="fa-solid fa-palette"></i> 调色板</div>
                 <div class="tuner-controls">
-                    <div class="tools-btn" id="tuner-refresh" title="刷新列表 (重新读取CSS)"><i class="fa-solid fa-sync-alt"></i></div>
+                    <div class="tools-btn" id="tuner-refresh" title="刷新列表"><i class="fa-solid fa-sync-alt"></i></div>
                     <div class="tools-btn" id="tuner-save" title="保存并更新主题"><i class="fa-solid fa-save"></i></div>
-                    <div class="tools-btn" id="tuner-up" title="回到扩展顶部"><i class="fa-solid fa-arrow-up"></i></div>
-                    <div class="tools-btn" id="tuner-collapse" title="折叠"><i class="fa-solid fa-chevron-up"></i></div>
+                    <div class="tools-btn" id="tuner-up" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
+                    <div class="tools-btn" id="tuner-collapse" title="折叠/展开"><i class="fa-solid fa-chevron-up"></i></div>
                 </div>
             </div>
             <div class="tuner-sub-header">
@@ -211,7 +207,7 @@ function saveSettings() {
 }
 
 function bindEvents() {
-    // ---------------- 全局搜索 ----------------
+    // Top Bar Search
     const topSearchInput = $('#css-top-search');
     const topResultsContainer = $('#css-search-results');
 
@@ -250,14 +246,13 @@ function bindEvents() {
         }
     });
 
-    // ---------------- 内部搜索 (下拉栏 + 筛选) ----------------
+    // Tuner Search (Internal)
     const tunerSearchInput = $('#tuner-search');
     const tunerResultsContainer = $('#tuner-search-results');
 
     tunerSearchInput.on('input', function() {
         const query = $(this).val().toLowerCase();
         
-        // 1. 实时筛选卡片显示 (保留原功能)
         contentArea.find('.tuner-card').each(function() {
             const block = $(this);
             const text = block.find('.tuner-card-header').text().toLowerCase();
@@ -269,39 +264,35 @@ function bindEvents() {
             }
         });
 
-        // 2. 下拉推荐栏 (新功能)
         tunerResultsContainer.empty().removeClass('active');
         if (!query) return;
 
         const results = currentParsedBlocks.filter(b => 
             (b.comment && b.comment.toLowerCase().includes(query)) || 
             (b.selector && b.selector.toLowerCase().includes(query))
-        ).slice(0, 15); // 限制显示数量
+        ).slice(0, 15);
 
         if (results.length > 0) {
             results.forEach(block => {
-                // 格式：注释 | .class
+                // 搜索栏结果格式也保持一致
                 let displayText = block.selector;
                 if (block.comment) {
                     displayText = `${block.comment} | ${block.selector}`;
                 }
 
-                // 高亮
                 const escapedQuery = escapeRegExp(query);
                 const highlightRegex = new RegExp(`(${escapedQuery})`, 'gi');
                 const highlightedContent = escapeHtml(displayText).replace(highlightRegex, '<span class="search-highlight">$1</span>');
 
                 const item = $(`<div class="css-search-item">${highlightedContent}</div>`);
                 item.on('click', () => {
-                    // 滚动到该卡片
                     const targetCard = $(`#${block.id}`);
                     if (targetCard.length) {
-                        targetCard.show(); // 确保它是显示的
+                        targetCard.show();
                         contentArea[0].scrollTo({
                             top: targetCard[0].offsetTop - contentArea[0].offsetTop - 10,
                             behavior: 'smooth'
                         });
-                        // 闪烁一下提示
                         targetCard.css('transition', 'background 0.2s').css('background', 'var(--tuner-card-hover)');
                         setTimeout(() => targetCard.css('background', ''), 400);
                     }
@@ -313,18 +304,16 @@ function bindEvents() {
         }
     });
 
-    // 关闭下拉菜单
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('.css-tools-search-wrapper').length) {
-            topResultsContainer.removeClass('active');
-        }
-        if (!$(e.target).closest('.tuner-sub-header').length) {
-            tunerResultsContainer.removeClass('active');
-        }
+        if (!$(e.target).closest('.css-tools-search-wrapper').length) topResultsContainer.removeClass('active');
+        if (!$(e.target).closest('.tuner-sub-header').length) tunerResultsContainer.removeClass('active');
     });
 
     $('#css-top-save, #tuner-save').on('click', saveSettings);
+    
+    // CSS 顶部按钮逻辑
     $('#css-top-up').on('click', () => cssTextArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
+    $('#css-top-down').on('click', () => cssTextArea[0].scrollTo({ top: cssTextArea[0].scrollHeight, behavior: 'smooth' }));
 
     $('#tuner-refresh').on('click', function() {
         const icon = $(this).find('i');
@@ -335,10 +324,15 @@ function bindEvents() {
 
     $('#tuner-up').on('click', () => contentArea[0].scrollTo({ top: 0, behavior: 'smooth' }));
 
+    // 折叠逻辑：使用类名控制整个容器状态
     $('#tuner-collapse').on('click', function() {
-        contentArea.toggleClass('collapsed');
+        container.toggleClass('is-collapsed');
         const icon = $(this).find('i');
-        icon.toggleClass('fa-chevron-up fa-chevron-down');
+        if (container.hasClass('is-collapsed')) {
+            icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+        } else {
+            icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+        }
     });
 }
 
@@ -362,7 +356,7 @@ function refreshTuner(force = false) {
     if (!force && cssText === lastCssContent) return;
     
     lastCssContent = cssText;
-    currentParsedBlocks = parseCssColors(cssText); // 更新全局数据
+    currentParsedBlocks = parseCssColors(cssText);
     renderTunerBlocks(currentParsedBlocks);
 }
 
@@ -375,9 +369,10 @@ function renderTunerBlocks(blocks) {
     }
 
     blocks.forEach(block => {
-        // 格式化标题： 注释 | .class
+        // --- 核心样式：格式化标题 ---
         let titleHtml = '';
         if (block.comment) {
+            // 格式：注释 | .class (中间有空格)
             titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.comment)}</span> <span style="opacity:0.3; margin:0 4px;">|</span> <span class="tuner-header-selector">${escapeHtml(block.selector)}</span>`;
         } else {
             titleHtml = `<span class="tuner-header-comment">${escapeHtml(block.selector)}</span>`;
@@ -397,96 +392,56 @@ function renderTunerBlocks(blocks) {
 
             prop.colors.forEach((colorObj, index) => {
                 const colorVal = colorObj.value;
-                
-                // 1. 初始解析颜色 (得到 r,g,b,a, hex)
                 const rgba = getColorRgba(colorVal);
-
                 const group = $(`<div class="tuner-input-group"></div>`);
                 
                 if (prop.colors.length > 1) {
                     group.append(`<span class="tuner-color-idx">${index + 1}</span>`);
                 }
 
-                // 2. 创建三个控件
-                // A. 原生取色器 (仅RGB) - 带有吸管功能
-                const colorPicker = $(`<input type="color" class="tuner-picker" value="${rgba.hex}" title="选取基色 (吸管)">`);
-                
-                // B. 透明度滑条 (Alpha)
+                // 三联动控件
+                const colorPicker = $(`<input type="color" class="tuner-picker" value="${rgba.hex}" title="选取基色">`);
                 const alphaSlider = $(`<input type="range" class="tuner-alpha-slider" min="0" max="1" step="0.01" value="${rgba.a}" title="透明度: ${rgba.a}">`);
-                
-                // C. 文本框
                 const textInput = $(`<input type="text" class="tuner-text" value="${colorVal}" title="颜色值">`);
 
-                // 为了闭包状态管理，保存当前 RGB 和 Alpha
                 let currentRgbHex = rgba.hex;
                 let currentAlpha = rgba.a;
 
-                // --- 辅助函数：合成并更新 ---
                 const syncAll = (triggerType) => {
-                    // triggerType: 'picker' | 'slider' | 'text'
-                    
-                    // 将 hex (#rrggbb) 转为十进制 rgb
                     const r = parseInt(currentRgbHex.substr(1,2), 16);
                     const g = parseInt(currentRgbHex.substr(3,2), 16);
                     const b = parseInt(currentRgbHex.substr(5,2), 16);
-
-                    // 合成 rgba 字符串
                     const newValue = toRgbaString(r, g, b, currentAlpha);
 
-                    // 更新 UI (不更新触发源，防止跳动)
-                    if (triggerType !== 'text') {
-                        textInput.val(newValue);
-                    }
-                    if (triggerType !== 'picker') {
-                        colorPicker.val(currentRgbHex);
-                    }
-                    if (triggerType !== 'slider') {
-                        alphaSlider.val(currentAlpha);
-                    }
+                    if (triggerType !== 'text') textInput.val(newValue);
+                    if (triggerType !== 'picker') colorPicker.val(currentRgbHex);
+                    if (triggerType !== 'slider') alphaSlider.val(currentAlpha);
                     
-                    // 更新滑条和选择器的视觉反馈 (背景色)
-                    try { 
-                        colorPicker.css('background-color', newValue); 
-                    } catch(e) {}
-
-                    // 写入 CSS
+                    try { colorPicker.css('background-color', newValue); } catch(e) {}
                     updateCssContent(block.selector, prop.name, index, newValue);
                 };
 
-                // 初始化背景
                 colorPicker.css('background-color', colorVal);
 
-                // --- 事件绑定 ---
-
-                // 1. 取色器变动 (RGB 变, Alpha 不变)
                 colorPicker.on('input', function() {
-                    currentRgbHex = this.value; // #RRGGBB
+                    currentRgbHex = this.value;
                     syncAll('picker');
                 });
 
-                // 2. 滑条变动 (Alpha 变, RGB 不变)
                 alphaSlider.on('input', function() {
                     currentAlpha = parseFloat(this.value);
                     $(this).attr('title', `透明度: ${currentAlpha}`);
                     syncAll('slider');
                 });
 
-                // 3. 文本框变动 (尝试解析并反向更新 RGB 和 Alpha)
                 textInput.on('input', function() {
                     const val = $(this).val();
                     const parsed = getColorRgba(val);
-                    
-                    // 更新内部状态
                     currentRgbHex = parsed.hex;
                     currentAlpha = parsed.a;
-                    
-                    // 更新控件 (Picker 和 Slider)
                     colorPicker.val(currentRgbHex);
                     alphaSlider.val(currentAlpha);
                     try { colorPicker.css('background-color', val); } catch(e) {}
-                    
-                    // 写入 CSS (直接写入用户输入的字符串，或者标准化后的字符串? 
-                    // 最好写入用户输入的，但为了保持逻辑一致，这里依然调用 updateCssContent)
                     updateCssContent(block.selector, prop.name, index, val);
                 });
 
@@ -506,11 +461,9 @@ function renderTunerBlocks(blocks) {
 function updateCssContent(selector, propName, colorIndex, newColorValue) {
     const originalCss = cssTextArea.val();
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
     const blockRegex = new RegExp(`(?:(?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)+)?(${selectorEscaped})\\s*\\{([^}]+)\\}`, 'g');
     
     let match = blockRegex.exec(originalCss);
-    
     if (match) {
         const fullBlockMatch = match[0];
         const blockContent = match[2];
@@ -556,7 +509,6 @@ $(document).ready(function() {
     eventSource.on(event_types.SETTINGS_UPDATED, function() {
         setTimeout(() => {
             if ($('#customCSS').length) {
-                console.log(extensionName + ": Theme changed detected");
                 refreshTuner(true);
             }
         }, 500);
