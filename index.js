@@ -1,5 +1,3 @@
---- START OF FILE index (2).js ---
-
 import { saveSettingsDebounced, eventSource, event_types } from '../../../../script.js';
 
 // 扩展名称
