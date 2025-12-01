@@ -1,11 +1,9 @@
 {
-    "display_name": "SillyTavern-ThemeEditor",
-    "loading_order": 1,
-    "requires": [],
-    "optional": [],
+    "name": "CSS Color Editor",
+    "version": "1.0.0",
+    "author": "Nakari",
+    "description": "A live CSS color editor.",
     "js": "index.js",
     "css": "style.css",
-    "author": "Nakari",
-    "version": "1.0.0",
     "homePage": "https://github.com/n-nakari/SillyTavern-ThemeEditor"
 }
