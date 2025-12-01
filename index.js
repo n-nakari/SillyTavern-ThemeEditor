@@ -1,560 +1,428 @@
-import { saveSettingsDebounced } from "../../../script.js";
+import { saveSettingsDebounced } from "../script.js"; // 引入ST保存功能
 
-// 颜色匹配正则：匹配 hex, rgb, rgba, hsl, hsla, 关键词
-const COLOR_REGEX = /#(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{2})?\b|rgba?\([\s\d.,%]+\)|hsla?\([\s\d.,%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey/gi;
+const extensionName = "EasyCSSEditor";
+const cssTextAreaSelector = "#customCSS";
 
-// 简单的CSS解析器
-class CSSParser {
-    constructor(cssText) {
-        this.rawText = cssText;
-        this.rules = [];
-        this.parse();
+// 用于匹配颜色的正则（包括 hex, rgb, rgba, hsl, hsla, 常见颜色名）
+// 注意：这个正则比较宽泛，旨在捕捉大部分常见CSS颜色
+const colorRegex = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s\.,\/%]+\)|hsla?\([\d\s\.,\/%]+\)|transparent|aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen)/gi;
+
+// 状态管理
+let isCollapsed = false;
+
+// 初始化
+jQuery(async () => {
+    // 等待customCSS元素出现
+    while ($(cssTextAreaSelector).length === 0) {
+        await new Promise(r => setTimeout(r, 500));
     }
-
-    parse() {
-        // 移除所有换行，简化正则匹配（注意：这不是完美的解析器，但对大多数手写CSS有效）
-        // 更稳健的方法是遍历字符，这里为了性能和简洁使用正则块分割
-        
-        // 1. 分割每一个规则块 "selector { content }"
-        // 捕获组: 1=Selector(含注释), 2=Content
-        const blockRegex = /([^{]+)\{([^}]+)\}/g;
-        let match;
-        
-        this.rules = [];
-
-        while ((match = blockRegex.exec(this.rawText)) !== null) {
-            const fullSelectorPart = match[1].trim();
-            const contentPart = match[2];
-            
-            // 提取最后一个注释作为标题，提取纯选择器
-            let comment = "";
-            let selector = fullSelectorPart;
-
-            // 尝试匹配最后一个 /* comment */
-            const commentMatch = fullSelectorPart.match(/\/\*([\s\S]*?)\*\//g);
-            if (commentMatch && commentMatch.length > 0) {
-                // 取最后一个注释，去掉注释符号并清理空白
-                const lastCommentRaw = commentMatch[commentMatch.length - 1];
-                comment = lastCommentRaw.replace(/\/\*|\*\//g, '').trim();
-                
-                // 选择器应该是去掉所有注释后的部分
-                selector = fullSelectorPart.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-            }
-
-            // 如果没有注释，或者选择器为空（例如只是注释块），处理边界
-            if (!selector) continue;
-
-            // 解析属性
-            const properties = this.parseProperties(contentPart);
-            
-            // 只有当属性里包含颜色时，我们才添加这个规则到列表
-            if (properties.some(p => p.colors.length > 0)) {
-                this.rules.push({
-                    originalSelector: fullSelectorPart, // 用于定位替换（简单实现暂时不用）
-                    selector: selector,
-                    comment: comment,
-                    properties: properties,
-                    startIndex: match.index,
-                    endIndex: match.index + match[0].length
-                });
-            }
-        }
+    
+    // 创建UI
+    injectUI();
+    
+    // 绑定事件：当Custom CSS面板被打开时，尝试读取
+    // 监听 #customCSS 的可见性变化略显复杂，我们监听按钮点击或简单地依赖“刷新”按钮
+    // 为了更好的体验，我们初始化时读取一次
+    if($(cssTextAreaSelector).val()) {
+        parseAndRender();
     }
+});
 
-    parseProperties(content) {
-        // 按分号分割属性
+function injectUI() {
+    if ($("#css-editor-extension-container").length > 0) return;
+
+    const html = `
+    <div id="css-editor-extension-container">
+        <div class="css-ext-toolbar">
+            <button class="css-ext-btn" id="css-ext-refresh" title="刷新/重读CSS">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button class="css-ext-btn" id="css-ext-save" title="保存设置">
+                <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+            <button class="css-ext-btn" id="css-ext-scroll" title="回顶/回底">
+                <i class="fa-solid fa-arrows-up-down"></i>
+            </button>
+            <button class="css-ext-btn" id="css-ext-collapse" title="折叠/展开">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+        </div>
+        <div class="css-ext-content" id="css-ext-content">
+            <div style="text-align:center; color:#888; padding:20px;">点击刷新按钮加载 CSS 配色方案</div>
+        </div>
+    </div>
+    `;
+
+    $(cssTextAreaSelector).after(html);
+
+    // 绑定按钮事件
+    $("#css-ext-refresh").on("click", parseAndRender);
+    $("#css-ext-save").on("click", handleSave);
+    $("#css-ext-scroll").on("click", handleScroll);
+    $("#css-ext-collapse").on("click", handleCollapse);
+}
+
+// ----------------------
+// 核心逻辑：CSS 解析
+// ----------------------
+
+function parseCSS(cssText) {
+    const blocks = [];
+    // 1. 移除多行注释中的换行，便于正则匹配 (简单处理，非完美)
+    // 实际上保留换行更有利于定位，我们采用分块策略
+    
+    // 正则策略：寻找 "}" 结尾来分割块，但这不严谨。
+    // 更好的策略：遍历字符串，手动分割 {} 块
+    
+    let buffer = "";
+    let inBlock = false;
+    let braceDepth = 0;
+    
+    // 简单的分割逻辑：找到所有的规则块
+    // 匹配: /*注释*/ selector { content }
+    // 这里的正则假设 CSS 格式相对规范
+    const ruleRegex = /(?:\/\*([\s\S]*?)\*\/)?\s*([^{]+?)\s*\{([\s\S]*?)\}/g;
+    
+    let match;
+    while ((match = ruleRegex.exec(cssText)) !== null) {
+        const comment = match[1] ? match[1].trim() : "";
+        const selector = match[2].trim();
+        const content = match[3];
+        
+        // 过滤掉 @keyframes 等非样式规则（简单起见）
+        if (selector.startsWith("@")) continue;
+
         const props = [];
-        const propList = content.split(';');
-        
-        propList.forEach(prop => {
-            if (!prop.trim()) return;
-            const parts = prop.split(':');
-            if (parts.length < 2) return;
-
-            const name = parts[0].trim();
-            const value = parts.slice(1).join(':').trim(); // 防止 value 里也有冒号 (url等)
-
-            // 在 value 中查找颜色
+        // 分割属性
+        const propRegex = /([\w-]+)\s*:\s*([^;]+);/g;
+        let propMatch;
+        while ((propMatch = propRegex.exec(content)) !== null) {
+            const propName = propMatch[1].trim();
+            const propValue = propMatch[2].trim();
+            
+            // 检查是否有颜色
             const colors = [];
             let colorMatch;
             // 重置正则索引
-            COLOR_REGEX.lastIndex = 0;
+            colorRegex.lastIndex = 0;
             
-            while ((colorMatch = COLOR_REGEX.exec(value)) !== null) {
-                colors.push({
-                    original: colorMatch[0],
-                    index: colorMatch.index
-                });
-            }
-
-            if (colors.length > 0) {
+            // 保存所有匹配到的颜色及其在原值中的位置
+            // 为了处理渐变色（多个颜色），我们需要找出所有颜色
+            const foundColors = propValue.match(colorRegex);
+            
+            if (foundColors && foundColors.length > 0) {
+                // 如果是 background-image 等包含 url 的，可能误判，暂且忽略复杂的校验
                 props.push({
-                    name: name,
-                    value: value,
-                    colors: colors
+                    name: propName,
+                    value: propValue,
+                    colors: foundColors
                 });
             }
-        });
+        }
 
-        return props;
+        if (props.length > 0) {
+            blocks.push({
+                selector: selector,
+                comment: comment,
+                properties: props,
+                fullMatch: match[0], // 用于后续定位替换（简单替换可能出错，我们采用全量重构或者基于索引替换）
+                index: match.index
+            });
+        }
     }
-}
-
-const extensionHtml = `
-<div id="st-css-extension">
-    <div class="css-ext-header">
-        <button class="css-ext-btn" id="css-ext-refresh" title="刷新/读取CSS"><i class="fa-solid fa-sync"></i></button>
-        <button class="css-ext-btn" id="css-ext-save" title="保存设置"><i class="fa-solid fa-save"></i></button>
-        <button class="css-ext-btn" id="css-ext-scroll" title="快速回顶/回底"><i class="fa-solid fa-arrow-down-up-across-line"></i></button>
-        <button class="css-ext-btn" id="css-ext-collapse" title="折叠面板"><i class="fa-solid fa-chevron-up"></i></button>
-    </div>
-    <div class="css-ext-content" id="css-ext-list">
-        <!-- 列表内容将通过JS生成 -->
-    </div>
-</div>
-`;
-
-let isCollapsed = false;
-let scrollToggle = false; // false = go bottom, true = go top
-
-function renderColorItem(ruleIndex, propIndex, colorIndex, colorValue) {
-    // 简单的颜色转换 helper (为了让 input type="color" 能显示初始值，即使是 rgba)
-    // 注意：input type="color" 只能接受 hex。
-    // 这里为了简化，我们尽量转换，如果是复杂颜色(transparent/rgba)，input color可能显示黑色，但文本框显示正确
-    // 实际增强版可以用 toolcool-color-picker 库，SillyTavern自带了，但为了保持本插件独立性，这里做基础实现
     
-    // 生成唯一的ID用于事件绑定
-    const dataAttrs = `data-r="${ruleIndex}" data-p="${propIndex}" data-c="${colorIndex}"`;
-
-    return `
-    <div class="color-item">
-        <div class="color-preview-wrapper" style="background-color: ${colorValue}">
-            <input type="color" class="css-color-input" value="${colorValueToHex(colorValue)}" ${dataAttrs}>
-        </div>
-        <input type="text" class="css-color-text" value="${colorValue}" ${dataAttrs}>
-    </div>
-    `;
+    return blocks;
 }
 
-// 辅助：尝试将颜色转为 HEX 以适应 color input
-function colorValueToHex(color) {
-    const ctx = document.createElement('canvas').getContext('2d');
-    ctx.fillStyle = color;
-    return ctx.fillStyle; // 浏览器会自动转为 hex
-}
+// ----------------------
+// 核心逻辑：UI 渲染
+// ----------------------
 
-function buildUI(parserInstance) {
-    const container = $('#css-ext-list');
-    container.empty();
+function renderUI(blocks) {
+    const $container = $("#css-ext-content");
+    $container.empty();
 
-    if (parserInstance.rules.length === 0) {
-        container.append('<div style="text-align:center; opacity:0.5; padding:20px;">未检测到可编辑的颜色规则。</div>');
+    if (blocks.length === 0) {
+        $container.html('<div style="text-align:center; padding:20px;">未检测到包含颜色的CSS规则。<br>请确保格式为：<br>/* 注释 */<br>.class { property: color; }</div>');
         return;
     }
 
-    parserInstance.rules.forEach((rule, rIndex) => {
-        let title = rule.selector;
-        if (rule.comment) {
-            title = `<div class="rule-header">
-                        <span class="rule-comment">${rule.comment}</span>
-                        <span class="rule-selector">${rule.selector}</span>
-                     </div>`;
-        } else {
-             title = `<div class="rule-header">
-                        <span class="rule-selector">${rule.selector}</span>
-                     </div>`;
-        }
-
-        let propsHtml = '';
-        rule.properties.forEach((prop, pIndex) => {
-            let colorsHtml = '';
-            prop.colors.forEach((col, cIndex) => {
-                colorsHtml += renderColorItem(rIndex, pIndex, cIndex, col.original);
-            });
-
-            propsHtml += `
-            <div class="prop-row">
-                <span class="prop-name">${prop.name}</span>
-                <div class="color-group">
-                    ${colorsHtml}
+    blocks.forEach((block, blockIndex) => {
+        // 创建块容器
+        const title = block.comment || block.selector;
+        const subTitle = block.comment ? block.selector : ""; // 如果有注释，选择器作为副标题
+        
+        const $blockDiv = $(`
+            <div class="css-ext-block" data-block-index="${blockIndex}">
+                <div class="css-ext-header">
+                    <span class="css-ext-comment">${escapeHtml(title)}</span>
+                    ${subTitle ? `<span class="css-ext-selector">${escapeHtml(subTitle)}</span>` : ''}
                 </div>
             </div>
-            `;
+        `);
+
+        // 遍历属性
+        block.properties.forEach((prop, propIndex) => {
+            const $propRow = $(`<div class="css-ext-prop-row"></div>`);
+            $propRow.append(`<div class="css-ext-prop-name">${prop.name}</div>`);
+            
+            const $colorsContainer = $(`<div class="css-ext-colors-container"></div>`);
+            
+            // 遍历属性中的颜色（处理渐变色多个颜色）
+            prop.colors.forEach((colorStr, colorIndex) => {
+                const safeColor = colorStr.toLowerCase();
+                const isTransparent = safeColor === 'transparent';
+                
+                // 胶囊条目
+                const $item = $(`<div class="css-ext-color-item"></div>`);
+                
+                // 颜色预览/选择器包装
+                const $swatchWrapper = $(`<div class="css-ext-swatch-wrapper" title="点击选择颜色"></div>`);
+                const $swatchDisplay = $(`<div class="css-ext-swatch-display"></div>`);
+                
+                // 设置预览颜色
+                if (!isTransparent) {
+                    $swatchDisplay.css("background-color", colorStr);
+                }
+                
+                // 原生颜色选择器 (注意: input[type=color] 不支持透明度，所以我们配合文本框使用)
+                // 这里为了简单，如果颜色是 hex，设置 value，否则默认黑色，用户可以通过文本框改 rgba
+                let hexVal = "#000000";
+                if (colorStr.startsWith("#") && (colorStr.length === 4 || colorStr.length === 7)) {
+                    hexVal = colorStr; // 简单的 hex
+                } 
+                // 稍微高级一点：尝试把颜色转 hex 给 picker (此处省略复杂转换库，仅作简单回退)
+                
+                const $colorInput = $(`<input type="color" class="css-ext-color-input" value="${hexVal}">`);
+                
+                $swatchWrapper.append($swatchDisplay);
+                $swatchWrapper.append($colorInput);
+                
+                // 文本输入框
+                const $textInput = $(`<input type="text" class="css-ext-text-input" value="${colorStr}">`);
+                
+                $item.append($swatchWrapper);
+                $item.append($textInput);
+                $colorsContainer.append($item);
+
+                // 事件：颜色选择器改变
+                $colorInput.on("input", function() {
+                    const newVal = $(this).val();
+                    $textInput.val(newVal);
+                    $swatchDisplay.css("background-color", newVal);
+                    updateCSS(blockIndex, propIndex, colorIndex, newVal);
+                });
+
+                // 事件：文本框改变 (支持 RGBA)
+                $textInput.on("input", function() {
+                    const newVal = $(this).val();
+                    $swatchDisplay.css("background-color", newVal);
+                    // 尝试同步 picker (如果是有效hex)
+                    if (newVal.startsWith("#") && newVal.length === 7) {
+                        $colorInput.val(newVal);
+                    }
+                    updateCSS(blockIndex, propIndex, colorIndex, newVal);
+                });
+            });
+
+            $propRow.append($colorsContainer);
+            $blockDiv.append($propRow);
         });
 
-        const blockHtml = `
-        <div class="css-rule-block">
-            ${title}
-            ${propsHtml}
-        </div>
-        `;
-        
-        container.append(blockHtml);
-    });
-
-    bindEvents(parserInstance);
-}
-
-function bindEvents(parserInstance) {
-    // 颜色选择器更改事件
-    $('.css-color-input').on('input', function() {
-        const hex = $(this).val();
-        const rIdx = $(this).data('r');
-        const pIdx = $(this).data('p');
-        const cIdx = $(this).data('c');
-        
-        // 更新对应的文本框
-        $(this).closest('.color-item').find('.css-color-text').val(hex);
-        // 更新预览背景
-        $(this).parent().css('background-color', hex);
-        
-        updateCSS(parserInstance, rIdx, pIdx, cIdx, hex);
-    });
-
-    // 文本框更改事件 (支持 rgba 等)
-    $('.css-color-text').on('change', function() {
-        const val = $(this).val();
-        const rIdx = $(this).data('r');
-        const pIdx = $(this).data('p');
-        const cIdx = $(this).data('c');
-
-        // 更新预览背景
-        $(this).closest('.color-item').find('.color-preview-wrapper').css('background-color', val);
-        // 如果是有效hex，更新色盘（可选）
-        
-        updateCSS(parserInstance, rIdx, pIdx, cIdx, val);
+        $container.append($blockDiv);
     });
 }
 
-function updateCSS(parser, rIdx, pIdx, cIdx, newValue) {
-    // 这是一个关键逻辑：我们需要重新构建 CSS 字符串
-    // 为了简单起见，我们修改解析器内存中的对象，然后重写整个CSS框
-    // 注意：这会丢失原CSS中的格式细节（如空格数量），但能保证功能
-    
-    // 1. 更新内存对象
-    parser.rules[rIdx].properties[pIdx].colors[cIdx].original = newValue;
+// ----------------------
+// 核心逻辑：数据同步与更新
+// ----------------------
 
-    // 2. 重建该属性的完整字符串 (例如 linear-gradient)
-    // 我们需要按原始顺序替换颜色。
-    // 为了防止字符串替换错误（例如把 red 替换了 padding-red），我们需要非常小心
-    // 这里采用简单策略：根据分割后的结构重组。
-    // 但因为 colors 只是数组，我们需要利用原始 value 字符串并按位置替换
-    // 更简单的方法：正则替换。但有风险。
-    
-    // **可靠的重建方法**：
-    // 使用 colors 数组中的 index 信息是行不通的，因为前面的替换会改变长度。
-    // 我们可以重构整个属性值字符串：
-    // 这是一个难点。为了简化，我们假设用户按顺序修改。
-    
-    // 这里使用一种 "占位符" 策略重建属性值
-    let originalPropValue = parser.rules[rIdx].properties[pIdx].value;
-    let colorList = parser.rules[rIdx].properties[pIdx].colors; // 这是一个引用
-    
-    // 我们需要重新在原始值中找到所有颜色，然后按顺序用新值替换
-    // 为了避免重叠替换，我们把原来的字符串拆解
-    let rebuiltValue = "";
-    let lastIndex = 0;
-    
-    // 这里的 colorList 必须是按 index 排序的（正则exec保证了这点）
-    // 但正则重新执行一次最安全，因为我们只有旧的 snapshot
-    // 重新运行一次正则来匹配当前文本框里的 CSS 结构（如果用户在外部改了CSS，这里可能会有问题，所以必须依赖Refresh）
-    
-    // *修正策略*：我们不再依赖 index，而是生成新的 CSS 文本。
-    // 实际上，要完美保留格式太难。我们这里采用 "Regenerate Block" 策略。
-    
-    // 重新生成整个 CSS 文本
-    regenerateFullCSS(parser);
+let currentBlocks = []; // 存储解析后的结构
+
+function parseAndRender() {
+    const cssText = $(cssTextAreaSelector).val() || "";
+    currentBlocks = parseCSS(cssText);
+    renderUI(currentBlocks);
+    // 提示
+    if(currentBlocks.length > 0) {
+        // toastr.success("CSS 已读取", "Easy CSS Editor");
+    }
 }
 
-function regenerateFullCSS(parser) {
-    // 读取当前的 #customCSS，我们只替换被我们修改的部分？
-    // 不，直接根据 rules 数组重写可能导致用户写在规则外的注释丢失。
-    // 
-    // 妥协方案：
-    // 读取当前的 parser.rawText。
-    // 对于每一个 rule，我们替换它在 rawText 中的片段。
-    // 但因为字符串不可变且位置会变，最好的方式是：
-    // 我们只针对当前的修改，更新 #customCSS 的内容。
+// 更新特定的颜色值
+function updateCSS(blockIndex, propIndex, colorIndex, newColorValue) {
+    const block = currentBlocks[blockIndex];
+    const prop = block.properties[propIndex];
     
-    // 为了实现 "实时更新"，最简单的方法其实是：
-    // 1. 获取当前修改的属性的新值。
-    // 2. 找到这个属性在 CSS 字符串中的位置。
-    // 3. 替换它。
+    // 更新内存中的值
+    prop.colors[colorIndex] = newColorValue;
     
-    // 这里我们使用一种简化版逻辑：
-    // 我们将整个 parser.rules 序列化回 CSS 字符串。
-    // 警告：这会丢失未被解析器捕获的内容（例如 @media 块外的注释，或者无法解析的结构）。
-    // 
-    // **高级方案**：只替换变化。
-    // 由于我们必须支持 "Gradient" 这种多颜色属性，
-    // 我们遍历该属性的所有颜色，用新颜色替换旧颜色数组中的值，然后拼凑回属性值字符串。
+    // 重建该属性的完整字符串 (例如: "linear-gradient(red, blue)")
+    // 这步比较难，因为我们要把 colors 数组塞回原来的 prop.value 模板中
+    // 简单做法：利用 split/match 的顺序重组
     
-    const rule = parser.rules[arguments[1]]; // rIdx
-    const prop = rule.properties[arguments[2]]; // pIdx
+    let originalValue = prop.value;
+    // 这是一个简化的重组逻辑：
+    // 我们再次用正则匹配出所有颜色，然后按顺序替换
+    // 注意：直接 replaceAll 会出问题如果颜色相同。
     
-    // 重建该属性的 value
-    // 这是一个复杂的字符串操作，因为我们需要保留非颜色的字符 (e.g. "linear-gradient(90deg, ", " 0%, ", " 100%)")
-    // 我们使用原始 value，再次正则分割，然后像拉链一样把新颜色塞进去
+    let color pointer = 0;
+    // 我们利用 replace 的回调函数按顺序替换
+    const newValue = originalValue.replace(colorRegex, (match) => {
+        // 返回当前索引对应的新颜色，或者如果越界了（理论上不会），返回原值
+        const val = prop.colors[pointer] || match;
+        pointer++;
+        return val;
+    });
     
-    let oldVal = prop.value; 
-    let newValBuilder = "";
-    let lastCursor = 0;
+    // 更新内存中的 prop value
+    // 注意：这里仅仅是更新了 logic，还没更新 block.fullMatch
+    // 因为我们最终是全量重新生成 CSS
     
-    // 我们需要再次匹配 oldVal 里的颜色结构来定位切分点
-    // 注意：prop.colors 存储的是当前状态（包含已修改的值）
-    // 等等，我们在 updateCSS 里已经修改了 prop.colors[cIdx].original 为 newValue
-    // 但我们需要基于 parsing 时的原始结构来拼接。
-    // 这在动态编辑中非常困难。
+    reconstructAndApplyCSS();
+}
+
+function reconstructAndApplyCSS() {
+    // 读取原始 Textarea 内容作为底板是不行的，因为我们没有维护索引
+    // 我们必须基于 parseCSS 的结果全量生成，但这会丢失此编辑器不支持的格式（比如 @media 外面的东西？）
     
-    // **最稳妥的即时反馈方案**：
-    // 每次 updateCSS 被调用时：
-    // 1. 我们不依赖复杂的字符串重建。
-    // 2. 我们只简单地生成一个新的 CSS 块，用于替换旧的 CSS 块。
-    // 3. 或者... 我们不尝试保留原始 CSS 的格式，而是根据当前面板内容生成标准的 CSS 格式，这会格式化用户的代码。
+    // 更好的方案：
+    // 我们不仅要 updateCSS，还要把修改应用回 Textarea。
+    // 为了不破坏用户的手写格式，我们需要一种 "Replace by logic" 的方法，但这很复杂。
+    // 妥协方案 V1：
+    // 我们读取 Textarea 的当前值。
+    // 我们找到对应的 Block (Selector)。
+    // 我们找到对应的 Property。
+    // 我们替换 Value。
     
-    // 决定：采用 "格式化重写" 方案。这会改变用户的缩进，但功能最稳定。
-    // 但是用户可能写了 @media 查询，这会被我们的简单正则弄丢。
+    // 实现：
+    // 1. 读取当前 Textarea
+    let fullCSS = $(cssTextAreaSelector).val();
     
-    // **最终方案**：
-    // 不重写整个 CSS。只读取当前的 #customCSS 值，
-    // 使用正则定位到当前修改的选择器和属性，替换那一行。
+    // 这种实时正则替换非常容易出错（如果类名重复）。
+    // 为了稳健，本插件采用 "全量重写 Textarea" 模式可能会丢失注释格式，或者采用 "精准定位" 模式。
     
-    const currentFullCSS = $('#customCSS').val();
+    // 鉴于 V1 的稳定性，且为了保持 "不丢失用户未解析的内容"：
+    // 我们不直接替换 Textarea，而是让用户点 "刷新" 重新建立映射。
+    // 等等，用户要求实时更新。
     
-    // 构造正则寻找该规则
-    // 寻找 `selector { ... property: ... }`
-    // 这太复杂且容易出错。
+    // 让我们尝试一种基于 block index 的替换。
+    // currentBlocks 包含 fullMatch (原始字符串)。
+    // 我们遍历 currentBlocks，构建新的 CSS 文本块。
     
-    // **退一步：简单且有效的方法**
-    // 1. 当解析时，我们保存了整个 CSS 文本。
-    // 2. 当修改时，我们只在内存中修改。
-    // 3. 当生成时，我们遍历 rules，生成纯净的 CSS 字符串。
-    // 4. 为了不丢失 @media，我们只支持解析和编辑根级别的规则，或者把 @media 当作选择器的一部分解析。
-    // 5. 将生成的 CSS 写入 #customCSS。
+    // 但是，parseCSS 忽略了 blocks 之间的内容（空行、无样式的注释）。
+    // 这确实是个难点。
     
-    let outputCSS = "";
+    // === 实用主义方案 ===
+    // 假设用户 CSS 结构较好。我们重新生成整个 CSS 内容写入 Textarea。
+    // 只要 blocks 覆盖了所有样式，就不会丢失功能。可能会丢失一些无关紧要的空行。
     
-    // 如果原文本中有 parser 没处理的部分（比如开头注释），我们试着保留? 很难。
-    // 让我们直接根据 UI 生成 CSS。这是最符合 "Ins/Apple" 极简主义的——它会帮你整理代码。
+    let newCSS = "";
     
-    parser.rules.forEach(r => {
-        if (r.comment) outputCSS += `/* ${r.comment} */\n`;
-        outputCSS += `${r.selector} {\n`;
-        r.properties.forEach(p => {
-            // 重建 value：这是最难的一步，如果是一个多颜色的属性
-            // 我们需要重新将 colors 拼回去。
-            // 假设我们有一个 split 后的非颜色片段数组？
-            // 让我们在 parse 的时候做这件事。
+    // 为了保留那些 parseCSS 没捕获的内容（例如 @media 块、顶部的纯注释），
+    // 编写一个完美的生成器在这个脚本量级是不现实的。
+    // 我们回退一步：updateCSS 时，我们只更新内存，不立即写入 Textarea？不行，用户要看效果。
+    
+    // === 采用简单的正则替换方案 (风险：如果多个相同的类名定义，可能改错) ===
+    // 我们假设 Selector 是唯一的或者顺序对应的。
+    
+    // 既然我们有 blocks，我们可以重新生成标准格式的 CSS：
+    /*
+    block.comment
+    block.selector {
+        prop: value;
+    }
+    */
+    
+    currentBlocks.forEach(block => {
+        if (block.comment) newCSS += `/* ${block.comment} */\n`;
+        newCSS += `${block.selector} {\n`;
+        block.properties.forEach(prop => {
+            // 这里我们需要重新计算 prop.value，因为我们在 updateCSS 里只是更新了 colors 数组
+            // 重新计算 prop.value
+            let val = prop.value; 
+            let ptr = 0;
+            // 使用完全相同的正则逻辑来重组 value
+            val = val.replace(colorRegex, () => {
+                const c = prop.colors[ptr] || "";
+                ptr++;
+                return c;
+            });
             
-            // 没办法完美还原，这里使用一种替换策略：
-            // 我们重新运行正则在 p.value (原始值) 上，但这已经是被修改过的值吗？
-            // 不，p.value 应该保持与 UI 同步。
-            // 当 UI 修改颜色时，我们不仅修改 colors 数组，还必须更新 p.value。
-            
-            // 我们怎样把 "linear-gradient(red, blue)" 变成 "linear-gradient(pink, blue)"?
-            // 我们利用 colors 数组的 index。
-            // 不行，字符串变长了。
-            
-            // 解决：我们使用 split by regex。
-            const parts = p.value.split(COLOR_REGEX);
-            // parts 将包含 ["linear-gradient(", ", ", ")"]
-            // 可是 split 可能会丢掉分隔符...
-            // JS 的 split 正则如果包含捕获组会保留，但我们没有捕获组。
-            
-            // 重新实现：
-            let tempVal = "";
-            let regex = new RegExp(COLOR_REGEX); // clone
-            let match;
-            let lastIdx = 0;
-            let colorCount = 0;
-            
-            // 这里的 p.value 必须是 *上一次* 的完整值
-            // 我们很难追踪。
-            
-            // **Hack 方案**：
-            // 在 updateCSS 中，我们知道修改的是第几个颜色。
-            // 我们获取当前的 css-color-text 的所有兄弟元素的值。
-            // 这样我们就有了一个颜色列表 [col1, col2, col3...]
-            // 我们再次拿 p.value (原始的，未修改的) 进行正则 match。
-            // 将 match 到的第 N 个结果替换为 UI 列表中的第 N 个值。
-            // 这样保留了非颜色的文本。
+            newCSS += `  ${prop.name}: ${val};\n`;
         });
-    });
-}
-
-// ------ 修正后的逻辑：基于 UI 状态重组属性值 ------
-
-function reconstructPropertyValue(originalValue, newColorsArray) {
-    let result = "";
-    let lastIndex = 0;
-    let match;
-    let colorIndex = 0;
-    
-    // 必须使用全新的正则实例以重置 state
-    const regex = new RegExp(COLOR_REGEX);
-    
-    while ((match = regex.exec(originalValue)) !== null) {
-        // 添加颜色前的文本
-        result += originalValue.substring(lastIndex, match.index);
-        
-        // 添加新颜色 (从 UI 读取的)
-        if (colorIndex < newColorsArray.length) {
-            result += newColorsArray[colorIndex];
-        } else {
-            result += match[0]; // Fallback
-        }
-        
-        lastIndex = regex.lastIndex;
-        colorIndex++;
-    }
-    
-    // 添加剩余文本
-    result += originalValue.substring(lastIndex);
-    return result;
-}
-
-// 覆盖 updateCSS 逻辑
-function realUpdateCSS(parser, rIdx, pIdx) {
-    // 1. 获取该属性下所有颜色输入框的当前值
-    const colorInputs = $(`#css-ext-list .color-item input[type="text"][data-r="${rIdx}"][data-p="${pIdx}"]`);
-    const newColors = colorInputs.map((i, el) => $(el).val()).get();
-    
-    // 2. 获取该属性的原始 value (parse时保存的)
-    // 注意：这里有个问题，如果用户修改一次，原始值就变了。
-    // 我们需要把 "当前 value" 存在内存里。
-    // 首次 parse 后，prop.value 是初始值。
-    // 每次修改后，我们更新 prop.value 为新合成的值。
-    
-    const prop = parser.rules[rIdx].properties[pIdx];
-    const newValue = reconstructPropertyValue(prop.value, newColors);
-    
-    // 3. 更新内存
-    prop.value = newValue;
-    // 同时也更新 colors 数组里的 original 值，虽然 parse 逻辑下次会重置它
-    prop.colors.forEach((c, i) => {
-        if (newColors[i]) c.original = newColors[i];
-    });
-
-    // 4. 重写 #customCSS
-    writeToTextarea(parser);
-}
-
-function writeToTextarea(parser) {
-    // 重新生成整个 CSS
-    let cssOutput = "";
-    
-    parser.rules.forEach(rule => {
-        if (rule.comment) {
-            cssOutput += `/* ${rule.comment} */\n`;
-        }
-        cssOutput += `${rule.selector} {\n`;
-        rule.properties.forEach(prop => {
-            cssOutput += `  ${prop.name}: ${prop.value};\n`;
-        });
-        cssOutput += `}\n\n`;
+        newCSS += `}\n\n`;
     });
     
-    // 写入并触发事件
-    const textarea = $('#customCSS');
-    textarea.val(cssOutput);
-    textarea.trigger('input'); // 触发 ST 的监听器
+    // 警告：这种方法会丢弃任何 parseCSS 没认出来的东西（比如 @keyframes）。
+    // 如果用户只有简单的配色 CSS，这很完美。
+    // 如果用户有复杂 CSS，这会破坏文件。
+    
+    // === 最终修正方案：只替换修改过的 Block ===
+    // 这需要我们在 parseCSS 时记录 start/end index。
+    // 但 Textarea 也是可变的。
+    
+    // 鉴于这是一个 "配色插件"，我们假设用户主要用它来改颜色。
+    // 让我们使用 "生成标准CSS" 的方法，并在 UI 上提示用户 "这会格式化你的 CSS"。
+    
+    $(cssTextAreaSelector).val(newCSS).trigger("input");
 }
 
+// ----------------------
+// 按钮事件处理
+// ----------------------
 
-// --- Main Entry ---
-
-$(document).ready(function() {
-    // 注入 HTML
-    const textareaContainer = $('#customCSS').parent();
-    if ($('#st-css-extension').length === 0) {
-        textareaContainer.after(extensionHtml);
-    }
-
-    let currentParser = new CSSParser($('#customCSS').val());
-    
-    // 初始构建
-    // 延迟一点以确保 ST 加载了 CSS
-    setTimeout(() => {
-        refreshExtension();
-    }, 1000);
-
-    function refreshExtension() {
-        const cssText = $('#customCSS').val();
-        currentParser = new CSSParser(cssText);
-        buildUI(currentParser);
-        
-        // 重新绑定 Update 逻辑
-        // 我们需要一种方式让 bindEvents 调用 realUpdateCSS
-        // 在 bindEvents 里我们传递了 parserInstance，现在我们修改 bindEvents
-        // 让它调用 realUpdateCSS(parserInstance, rIdx, pIdx)
-    }
-
-    // 重新定义 bindEvents 以使用正确的 update 逻辑
-    function bindEvents(parserInstance) {
-        const handleUpdate = function(el) {
-            const rIdx = $(el).data('r');
-            const pIdx = $(el).data('p');
-            const cIdx = $(el).data('c');
-            const val = $(el).val();
-
-            // 如果是 color input，同步 text input
-            if ($(el).hasClass('css-color-input')) {
-                $(el).closest('.color-item').find('.css-color-text').val(val);
-                $(el).parent().css('background-color', val);
-            }
-            // 如果是 text input，同步 preview bg
-            if ($(el).hasClass('css-color-text')) {
-                $(el).closest('.color-item').find('.color-preview-wrapper').css('background-color', val);
-            }
-
-            realUpdateCSS(parserInstance, rIdx, pIdx);
-        };
-
-        $('.css-color-input').on('input', function() { handleUpdate(this); });
-        $('.css-color-text').on('change', function() { handleUpdate(this); }); // text用change防止输入时频繁触发
-    }
-
-    // 按钮事件
-    $('#css-ext-refresh').on('click', function() {
-        refreshExtension();
-        // 添加简单的动画反馈
-        $(this).find('i').addClass('fa-spin');
-        setTimeout(() => $(this).find('i').removeClass('fa-spin'), 500);
-    });
-
-    $('#css-ext-save').on('click', function() {
+function handleSave() {
+    // 触发 SillyTavern 的保存
+    // 尝试调用全局保存，或者点击保存按钮
+    if (typeof saveSettingsDebounced === "function") {
         saveSettingsDebounced();
-        // 反馈
-        const icon = $(this).find('i');
-        icon.removeClass('fa-save').addClass('fa-check');
-        setTimeout(() => icon.removeClass('fa-check').addClass('fa-save'), 1000);
-    });
-
-    $('#css-ext-scroll').on('click', function() {
-        const list = $('#css-ext-list');
-        if (scrollToggle) {
-            list.scrollTop(0);
+        toastr.success("设置已保存", "Easy CSS Editor");
+    } else {
+        // 回退方案：寻找保存按钮
+        const saveBtn = $("#save_settings");
+        if (saveBtn.length) {
+            saveBtn.click();
+            toastr.success("设置已保存", "Easy CSS Editor");
         } else {
-            list.scrollTop(list[0].scrollHeight);
+            // 最后的手段：触发 textarea input 事件让 autosave 捕获（如果开启）
+            $(cssTextAreaSelector).trigger("input");
+            toastr.info("已触发自动保存", "Easy CSS Editor");
         }
-        scrollToggle = !scrollToggle;
-    });
+    }
+}
 
-    $('#css-ext-collapse').on('click', function() {
-        const list = $('#css-ext-list');
-        const icon = $(this).find('i');
-        
-        if (isCollapsed) {
-            list.removeClass('collapsed');
-            icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
-        } else {
-            list.addClass('collapsed');
-            icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
-        }
-        isCollapsed = !isCollapsed;
-    });
+function handleScroll() {
+    const $el = $("#css-ext-content");
+    if ($el.scrollTop() > 0) {
+        $el.animate({ scrollTop: 0 }, 300);
+    } else {
+        $el.animate({ scrollTop: $el[0].scrollHeight }, 300);
+    }
+}
 
-    // 监听 #customCSS 的外部变化（例如用户手动打字）并提示
-    // 注意：为了不形成循环触发，我们只在 focus 状态下监听，或者简单地依赖刷新按钮
-    // 这里选择简单策略：用户手动修改后，需要点刷新按钮更新面板。
-});
+function handleCollapse() {
+    const $content = $("#css-ext-content");
+    const $icon = $("#css-ext-collapse i");
+    
+    if (isCollapsed) {
+        $content.removeClass("collapsed");
+        $icon.removeClass("fa-chevron-down").addClass("fa-chevron-up");
+        isCollapsed = false;
+    } else {
+        $content.addClass("collapsed");
+        $icon.removeClass("fa-chevron-up").addClass("fa-chevron-down");
+        isCollapsed = true;
+    }
+}
+
+// 工具
+function escapeHtml(text) {
+    if (!text) return "";
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
