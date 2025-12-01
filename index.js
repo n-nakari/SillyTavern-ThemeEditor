@@ -17,30 +17,26 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 颜色匹配正则 (排除 url() 防止误判图片路径)
+// 颜色匹配正则
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 
-// 改进的块匹配正则：
-// Group 1: 完整的注释块 (例如 /* ... */) - 非贪婪
-// Group 2: 注释和选择器之间的空白符
+// CSS 块匹配正则
+// Group 1: 注释内容 (可选)
+// Group 2: 间隔空白符 (用于判断是否紧邻)
 // Group 3: 选择器
-// Group 4: 属性内容
-const CSS_BLOCK_REGEX = /(?:\/\*([\s\S]*?)\*\/)?(\s*)([^{]+)\{([^}]+)\}/g;
+// Group 4: 属性块
+const CSS_BLOCK_REGEX = /(?:(\/\*[\s\S]*?\*\/))?([\s\r\n]*)([^{]+)\{([^}]+)\}/g;
 
-let isCollapsed = false;
 let scrollDirection = 'down';
 
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 初次加载
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 监听 ST 的设置更新事件（切换主题时会自动触发）
     if (eventSource && event_types) {
         eventSource.on(event_types.SETTINGS_UPDATED, () => {
-            // 延迟一点，确保 #customCSS 文本域的值已被ST更新
             setTimeout(() => readAndRenderCSS(), 200);
         });
     }
@@ -62,16 +58,14 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存 - 模拟点击 ST 原生的 "Update theme file" 按钮
+    // 保存
     $('#vce-btn-save').on('click', () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
-            // Toastr 通常由 ST 原生按钮触发，这里不再重复提示，除非找不到按钮
         } else {
-            // 如果原生按钮不可用（例如未选择主题），尝试保存设置
             saveSettingsDebounced();
-            toastr.info('Saved Settings (Native theme save button not found)', 'Visual CSS Editor');
+            toastr.info('Saved Settings (Native save button not found)', 'Visual CSS Editor');
         }
     });
 
@@ -80,30 +74,30 @@ function bindEvents() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
         
+        // 使用 jQuery 的 animate 实现平滑滚动
         if (scrollDirection === 'down') {
-            content.animate({ scrollTop: content[0].scrollHeight }, 300);
+            content.animate({ scrollTop: content[0].scrollHeight }, 400, 'swing');
             scrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            content.animate({ scrollTop: 0 }, 300);
+            content.animate({ scrollTop: 0 }, 400, 'swing');
             scrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
     });
 
-    // 折叠
+    // 折叠 (使用 CSS 类切换实现平滑过渡)
     $('#vce-btn-collapse').on('click', function() {
-        const content = $('#vce-content');
+        const container = $('#visual-css-editor');
         const icon = $(this).find('i');
         
-        if (isCollapsed) {
-            content.slideDown(200);
+        if (container.hasClass('collapsed')) {
+            container.removeClass('collapsed');
             icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
         } else {
-            content.slideUp(200);
+            container.addClass('collapsed');
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         }
-        isCollapsed = !isCollapsed;
     });
 }
 
@@ -117,34 +111,26 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const rawCommentContent = match[1]; // 注释内容（不含 /* */）
-        const gap = match[2];               // 注释与类名之间的空白
-        const selector = match[3].trim();   // 类名
-        const body = match[4];              // 属性
+        const rawCommentBlock = match[1]; // e.g. /* 标题 */
+        const gap = match[2];             // 换行符等空白
+        const selector = match[3].trim();
+        const body = match[4];
 
-        // 逻辑：判断是否显示注释
-        // 1. 必须有注释内容
-        // 2. Gap 中不能包含超过1个换行符（即不能有空行）
-        // 计算换行符数量
+        // 核心逻辑：计算 Gap 中的换行符数量
+        // \n 数量 >= 2 说明中间有空行，视为断开，不显示标题
         const newLineCount = (gap.match(/\n/g) || []).length;
         
         let displayTitle = selector;
 
-        if (rawCommentContent && newLineCount <= 1) {
-            // 清理注释内容：移除前后空格和可能存在的星号装饰
-            const cleanComment = rawCommentContent
-                .replace(/^[\s*]+/, '') // 去除开头的空格和星号
-                .replace(/[\s*]+$/, '') // 去除结尾的空格和星号
-                .trim();
-            
+        if (rawCommentBlock && newLineCount < 2) {
+            // 提取注释文字，移除 /* 和 */ 及首尾空白
+            const cleanComment = rawCommentBlock.replace(/^\/\*+|\*+\/$/g, '').trim();
             if (cleanComment) {
-                // 格式化：注释 | 类名
                 displayTitle = `${cleanComment} | ${selector}`;
             }
         }
 
         const properties = parseProperties(body);
-        // 过滤：排除 CSS 变量 (--var) 和无颜色的属性
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
@@ -161,13 +147,11 @@ function readAndRenderCSS() {
 
 function parseProperties(bodyStr) {
     const props = [];
-    // 简单的分号分割
     const lines = bodyStr.split(';');
     lines.forEach(line => {
         if (!line.trim()) return;
         const firstColon = line.indexOf(':');
         if (firstColon === -1) return;
-        
         const key = line.substring(0, firstColon).trim();
         const value = line.substring(firstColon + 1).trim();
         props.push({ key, value });
@@ -182,8 +166,6 @@ function hasColor(val) {
 
 function createCard(title, properties, selector) {
     const card = $('<div class="vce-card"></div>');
-    
-    // 标题
     const header = $(`<div class="vce-card-header">${title}</div>`);
     card.append(header);
 
@@ -194,21 +176,22 @@ function createCard(title, properties, selector) {
         const propName = $(`<div class="vce-prop-name">${prop.key.toUpperCase()}</div>`);
         propRow.append(propName);
 
-        // 提取属性值中所有的颜色
-        let colorCount = 0;
+        // 统计该属性有多少个颜色
         const regex = new RegExp(COLOR_REGEX);
         let match;
+        const colorsFound = [];
         
-        // 遍历所有匹配的颜色，生成多个控制器
-        // 使用一个临时副本进行匹配，确保不修改原始值
-        const valueStr = prop.value;
-        
-        while ((match = regex.exec(valueStr)) !== null) {
-            const currentColor = match[0];
-            const control = createColorControl(selector, prop.key, currentColor, colorCount);
-            propRow.append(control);
-            colorCount++;
+        while ((match = regex.exec(prop.value)) !== null) {
+            colorsFound.push(match[0]);
         }
+
+        // 只有当颜色数量 > 1 时，才显示索引 (1, 2, 3...)
+        const showIndex = colorsFound.length > 1;
+
+        colorsFound.forEach((color, idx) => {
+            const control = createColorControl(selector, prop.key, color, idx, showIndex ? idx + 1 : null);
+            propRow.append(control);
+        });
 
         propsList.append(propRow);
     });
@@ -217,10 +200,16 @@ function createCard(title, properties, selector) {
     return card;
 }
 
-function createColorControl(selector, propKey, initialColor, colorIndex) {
-    const wrapper = $('<div class="vce-color-wrapper" tabindex="0"></div>'); // 添加tabindex使其可聚焦
+function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
+    const wrapper = $('<div class="vce-color-wrapper" tabindex="0"></div>');
     
+    // 如果有多颜色，显示数字
+    if (displayIndex !== null) {
+        wrapper.append(`<span class="vce-color-idx">${displayIndex}</span>`);
+    }
+
     const pickerId = `vce-picker-${Math.random().toString(36).substr(2, 9)}`;
+    // 注意: toolcool-color-picker 是 web component
     const picker = $(`<toolcool-color-picker id="${pickerId}" color="${initialColor}" class="vce-picker"></toolcool-color-picker>`);
     const input = $(`<input type="text" class="vce-color-input" value="${initialColor}">`);
 
@@ -229,24 +218,15 @@ function createColorControl(selector, propKey, initialColor, colorIndex) {
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
-        
-        // 转义选择器中的特殊字符
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        // 1. 找到对应的 CSS 块
-        // 正则解释：
-        // ((?:\/\*[\s\S]*?\*\/)?\s*) -> 捕获组1：可能存在的注释+空白
-        // (${escapedSelector}\s*\{) -> 捕获组2：选择器 + 左大括号
-        // ([^}]+) -> 捕获组3：块内容
-        // (\}) -> 捕获组4：右大括号
+        // 匹配规则块
         const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, g1, g2, content, g4) => {
-            // 2. 在块内容中找到对应的属性
             const propRegex = new RegExp(`(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
             
             const newContent = content.replace(propRegex, (m, pPrefix, pValue, pSuffix) => {
-                // 3. 在属性值中替换第 N 个颜色
                 let currentIdx = 0;
                 const newValue = pValue.replace(new RegExp(COLOR_REGEX), (matchColor) => {
                     if (currentIdx === colorIndex) {
