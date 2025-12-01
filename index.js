@@ -6,24 +6,26 @@ const EXTENSION_HTML = `
     <div class="vce-toolbar">
         <div class="vce-buttons-left">
             <button id="vce-btn-refresh" class="vce-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
-            <button id="vce-btn-save" class="vce-btn" title="Save Settings"><i class="fa-solid fa-floppy-disk"></i></button>
+            <button id="vce-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
             <button id="vce-btn-scroll" class="vce-btn" title="Scroll Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
             <button id="vce-btn-collapse" class="vce-btn" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
         </div>
     </div>
     <div id="vce-content" class="vce-content">
-        <div class="vce-empty-state">Loading CSS...</div>
+        <div class="vce-empty-state">Initializing...</div>
     </div>
 </div>
 `;
 
-// 颜色匹配正则 (Hex, RGB, HSL, Keywords)
-// 排除 url(...) 防止误判图片路径中的字符
+// 颜色匹配正则 (排除 url() 防止误判图片路径)
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 
-// CSS 块匹配正则：捕获组1=最后一条注释(可选), 组2=选择器, 组3=属性块
-// JS正则中重复的捕获组只会保留最后一次匹配结果，正好符合"只取用类名前一个"的需求
-const CSS_BLOCK_REGEX = /(?:\/\*([\s\S]*?)\*\/[\s\r\n]*)*([^{]+)\{([^}]+)\}/g;
+// 改进的块匹配正则：
+// Group 1: 完整的注释块 (例如 /* ... */) - 非贪婪
+// Group 2: 注释和选择器之间的空白符
+// Group 3: 选择器
+// Group 4: 属性内容
+const CSS_BLOCK_REGEX = /(?:\/\*([\s\S]*?)\*\/)?(\s*)([^{]+)\{([^}]+)\}/g;
 
 let isCollapsed = false;
 let scrollDirection = 'down';
@@ -32,13 +34,13 @@ jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 初次加载延迟执行，确保DOM就绪
+    // 初次加载
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 监听 ST 的设置更新事件（切换主题时触发）
+    // 监听 ST 的设置更新事件（切换主题时会自动触发）
     if (eventSource && event_types) {
         eventSource.on(event_types.SETTINGS_UPDATED, () => {
-            // 稍微延迟以确保 #customCSS 文本域已更新
+            // 延迟一点，确保 #customCSS 文本域的值已被ST更新
             setTimeout(() => readAndRenderCSS(), 200);
         });
     }
@@ -46,11 +48,8 @@ jQuery(async () => {
 
 function initUI() {
     const targetArea = $('#CustomCSS-textAreaBlock');
-    if (targetArea.length) {
-        // 避免重复添加
-        if ($('#visual-css-editor').length === 0) {
-            targetArea.after(EXTENSION_HTML);
-        }
+    if (targetArea.length && $('#visual-css-editor').length === 0) {
+        targetArea.after(EXTENSION_HTML);
     }
 }
 
@@ -63,10 +62,17 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存
+    // 保存 - 模拟点击 ST 原生的 "Update theme file" 按钮
     $('#vce-btn-save').on('click', () => {
-        saveSettingsDebounced();
-        toastr.success('Theme Settings Saved', 'Visual CSS Editor');
+        const nativeSaveBtn = $('#ui-preset-update-button');
+        if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
+            nativeSaveBtn.trigger('click');
+            // Toastr 通常由 ST 原生按钮触发，这里不再重复提示，除非找不到按钮
+        } else {
+            // 如果原生按钮不可用（例如未选择主题），尝试保存设置
+            saveSettingsDebounced();
+            toastr.info('Saved Settings (Native theme save button not found)', 'Visual CSS Editor');
+        }
     });
 
     // 回顶/回底
@@ -111,23 +117,34 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const lastComment = match[1]; // 正则特性：重复组只捕获最后一次，即紧邻的注释
-        const selector = match[2].trim();
-        const body = match[3];
+        const rawCommentContent = match[1]; // 注释内容（不含 /* */）
+        const gap = match[2];               // 注释与类名之间的空白
+        const selector = match[3].trim();   // 类名
+        const body = match[4];              // 属性
 
-        // 格式化标题： 注释 | 类名 或 类名
-        let displayTitle = selector;
+        // 逻辑：判断是否显示注释
+        // 1. 必须有注释内容
+        // 2. Gap 中不能包含超过1个换行符（即不能有空行）
+        // 计算换行符数量
+        const newLineCount = (gap.match(/\n/g) || []).length;
         
-        if (lastComment) {
-            // 清理注释中的多余字符（空格、星号）
-            const cleanComment = lastComment.trim().replace(/^[\s*]+|[\s*]+$/g, '');
+        let displayTitle = selector;
+
+        if (rawCommentContent && newLineCount <= 1) {
+            // 清理注释内容：移除前后空格和可能存在的星号装饰
+            const cleanComment = rawCommentContent
+                .replace(/^[\s*]+/, '') // 去除开头的空格和星号
+                .replace(/[\s*]+$/, '') // 去除结尾的空格和星号
+                .trim();
+            
             if (cleanComment) {
+                // 格式化：注释 | 类名
                 displayTitle = `${cleanComment} | ${selector}`;
             }
         }
 
         const properties = parseProperties(body);
-        // 过滤掉没有颜色的属性，同时过滤掉 CSS 变量定义 (--var)
+        // 过滤：排除 CSS 变量 (--var) 和无颜色的属性
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
@@ -144,7 +161,7 @@ function readAndRenderCSS() {
 
 function parseProperties(bodyStr) {
     const props = [];
-    // 简单按分号分割，忽略 base64 图片内部的分号情况（极少数情况会误判，暂忽略）
+    // 简单的分号分割
     const lines = bodyStr.split(';');
     lines.forEach(line => {
         if (!line.trim()) return;
@@ -160,15 +177,13 @@ function parseProperties(bodyStr) {
 
 function hasColor(val) {
     COLOR_REGEX.lastIndex = 0;
-    // 排除 url() 里的内容，防止图片名含有 red/black 等单词误判
-    // 简单判断：如果包含颜色关键字且不在url(...)内（这里简化处理直接正则匹配）
     return COLOR_REGEX.test(val);
 }
 
 function createCard(title, properties, selector) {
     const card = $('<div class="vce-card"></div>');
     
-    // 标题区域
+    // 标题
     const header = $(`<div class="vce-card-header">${title}</div>`);
     card.append(header);
 
@@ -180,15 +195,15 @@ function createCard(title, properties, selector) {
         propRow.append(propName);
 
         // 提取属性值中所有的颜色
-        let colorMatch;
-        const regex = new RegExp(COLOR_REGEX);
         let colorCount = 0;
-
-        // 使用 replace 作为一个遍历器来按顺序处理所有颜色
-        // 我们不真的替换，只是为了利用正则遍历
-        let tempValue = prop.value;
+        const regex = new RegExp(COLOR_REGEX);
         let match;
-        while ((match = regex.exec(tempValue)) !== null) {
+        
+        // 遍历所有匹配的颜色，生成多个控制器
+        // 使用一个临时副本进行匹配，确保不修改原始值
+        const valueStr = prop.value;
+        
+        while ((match = regex.exec(valueStr)) !== null) {
             const currentColor = match[0];
             const control = createColorControl(selector, prop.key, currentColor, colorCount);
             propRow.append(control);
@@ -203,7 +218,7 @@ function createCard(title, properties, selector) {
 }
 
 function createColorControl(selector, propKey, initialColor, colorIndex) {
-    const wrapper = $('<div class="vce-color-wrapper"></div>');
+    const wrapper = $('<div class="vce-color-wrapper" tabindex="0"></div>'); // 添加tabindex使其可聚焦
     
     const pickerId = `vce-picker-${Math.random().toString(36).substr(2, 9)}`;
     const picker = $(`<toolcool-color-picker id="${pickerId}" color="${initialColor}" class="vce-picker"></toolcool-color-picker>`);
@@ -215,17 +230,23 @@ function createColorControl(selector, propKey, initialColor, colorIndex) {
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
         
-        // 构造精准替换逻辑
+        // 转义选择器中的特殊字符
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // 匹配整个规则块
-        const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/[\\s\\r\\n]*)*${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
-        const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
-            // 在规则块内匹配属性
+        // 1. 找到对应的 CSS 块
+        // 正则解释：
+        // ((?:\/\*[\s\S]*?\*\/)?\s*) -> 捕获组1：可能存在的注释+空白
+        // (${escapedSelector}\s*\{) -> 捕获组2：选择器 + 左大括号
+        // ([^}]+) -> 捕获组3：块内容
+        // (\}) -> 捕获组4：右大括号
+        const blockRegex = new RegExp(`((?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*)(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
+        
+        const newCss = cssText.replace(blockRegex, (match, g1, g2, content, g4) => {
+            // 2. 在块内容中找到对应的属性
             const propRegex = new RegExp(`(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
             
             const newContent = content.replace(propRegex, (m, pPrefix, pValue, pSuffix) => {
-                // 在属性值内替换第 N 个颜色
+                // 3. 在属性值中替换第 N 个颜色
                 let currentIdx = 0;
                 const newValue = pValue.replace(new RegExp(COLOR_REGEX), (matchColor) => {
                     if (currentIdx === colorIndex) {
@@ -238,7 +259,7 @@ function createColorControl(selector, propKey, initialColor, colorIndex) {
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
             
-            return `${prefix}${newContent}${suffix}`;
+            return `${g1}${g2}${newContent}${g4}`;
         });
 
         if (newCss !== cssText) {
