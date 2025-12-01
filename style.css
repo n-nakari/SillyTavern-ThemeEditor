@@ -1,154 +1,189 @@
-/* 容器主样式 */
-#st-css-editor-root {
-    margin-top: 10px;
+/* 插件容器整体风格 - 韩系Ins/Apple风 */
+:root {
+    --ext-bg-color: rgba(245, 245, 247, 0.95); /* 浅色模式背景 */
+    --ext-card-bg: #ffffff;
+    --ext-text-main: #1d1d1f;
+    --ext-text-sub: #86868b;
+    --ext-border-radius: 16px;
+    --ext-item-radius: 12px;
+    --ext-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    --ext-btn-hover: rgba(0, 0, 0, 0.05);
+}
+
+/* 深色模式适配 (根据SillyTavern body类名自动适配，假设ST有dark类或类似机制，这里使用媒体查询或通用深色变量) */
+body:not(.light) #st-css-extension {
+    --ext-bg-color: rgba(30, 30, 30, 0.6);
+    --ext-card-bg: rgba(45, 45, 45, 0.8);
+    --ext-text-main: #f5f5f7;
+    --ext-text-sub: #a1a1a6;
+    --ext-btn-hover: rgba(255, 255, 255, 0.1);
+}
+
+#st-css-extension {
     width: 100%;
-    background: var(--SmartThemeBlurTintColor); /* 使用ST主题变量实现半透明 */
-    border: 1px solid var(--SmartThemeBorderColor);
-    border-radius: 16px;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    margin-top: 15px;
+    background: var(--ext-bg-color);
+    border-radius: var(--ext-border-radius);
+    box-shadow: var(--ext-shadow);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
-    font-family: 'Segoe UI', sans-serif;
-}
-
-/* 顶部工具栏 */
-.st-css-toolbar {
+    border: 1px solid rgba(128, 128, 128, 0.1);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* 按钮组 */
-.st-css-btn-group {
+/* 顶栏工具条 */
+.ext-toolbar {
     display: flex;
-    gap: 8px;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+    background: transparent;
 }
 
-/* 按钮样式 - Apple风格圆形/圆角按钮 */
-.st-css-btn {
-    width: 32px;
-    height: 32px;
-    border: none;
+.ext-btn {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--SmartThemeBodyColor);
+    border: none;
+    background: transparent;
+    color: var(--ext-text-main);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 16px;
     transition: all 0.2s ease;
-    font-size: 14px;
 }
 
-.st-css-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+.ext-btn:hover {
+    background-color: var(--ext-btn-hover);
     transform: scale(1.05);
 }
 
-.st-css-btn:active {
+.ext-btn:active {
     transform: scale(0.95);
 }
 
-/* 内容区域包装 */
-.st-css-content-wrapper {
-    max-height: 400px; /* 限制高度，内部滚动 */
+/* 内容区域 */
+.ext-content {
+    padding: 16px;
+    max-height: 600px;
     overflow-y: auto;
-    padding: 15px;
+    overflow-x: hidden;
+    transition: max-height 0.4s ease;
+    /* 隐藏滚动条但保留功能 */
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
-.st-css-content-wrapper::-webkit-scrollbar {
-    width: 6px;
-}
-.st-css-content-wrapper::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-}
-
-/* 条目卡片 - Ins风小条目 */
-.st-css-card {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
-    padding: 12px 15px;
-    margin-bottom: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+.ext-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
 }
 
-/* 条目标题 */
-.st-css-card-header {
-    font-size: 13px;
+/* CSS 条目卡片 */
+.css-rule-card {
+    background: var(--ext-card-bg);
+    border-radius: var(--ext-item-radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.css-rule-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-family: 'Menlo', 'Monaco', monospace; /* 保持代码感 */
+    flex-wrap: wrap;
+}
+
+.rule-comment {
     font-weight: 600;
-    opacity: 0.7;
-    margin-bottom: 8px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 14px;
+    color: var(--ext-text-main);
+}
+
+.rule-selector {
+    font-size: 12px;
+    color: var(--ext-text-sub);
+    background: var(--ext-btn-hover);
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 /* 属性行 */
-.st-css-prop-row {
-    margin-bottom: 8px;
+.css-property-row {
+    margin-bottom: 12px;
+    padding-left: 8px;
+    border-left: 2px solid var(--ext-btn-hover);
 }
 
-.st-css-prop-row:last-child {
-    margin-bottom: 0;
-}
-
-/* 属性名 */
-.st-css-prop-title {
+.property-name {
     font-size: 11px;
-    letter-spacing: 1px;
-    opacity: 0.5;
-    margin-bottom: 4px;
-    font-weight: bold;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--ext-text-sub);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
 }
 
-/* 颜色容器 (处理渐变等多颜色情况) */
-.st-css-colors-container {
+/* 颜色输入胶囊容器 */
+.color-input-group {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-/* 颜色选择器包裹 - 胶囊状/社交账号风格 */
-.st-css-color-wrapper {
+/* 仿Apple/Ins 账号显示的颜色胶囊 */
+.color-capsule {
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 4px 6px;
-    border-radius: 20px; /* 胶囊圆角 */
-    width: fit-content;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--ext-btn-hover); /* 浅灰底 */
+    border-radius: 20px;
+    padding: 4px 4px 4px 4px; /* 右侧留空给文字 */
     transition: background 0.2s;
+    border: 1px solid transparent;
 }
 
-.st-css-color-wrapper:hover {
-    background: rgba(0, 0, 0, 0.3);
+.color-capsule:hover {
+    background: rgba(128, 128, 128, 0.15);
+    border-color: rgba(128, 128, 128, 0.2);
 }
 
-/* 颜色代码文本 */
-.st-css-color-code {
-    font-family: 'Consolas', monospace;
+/* 颜色选择器圆球 */
+.color-capsule toolcool-color-picker {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* 颜色文本输入 */
+.color-text-input {
+    border: none;
+    background: transparent;
+    color: var(--ext-text-main);
+    font-family: 'Menlo', monospace;
     font-size: 12px;
-    margin-left: 8px;
-    margin-right: 4px;
-    opacity: 0.8;
-    user-select: text;
-    cursor: text;
+    padding: 0 8px 0 6px;
+    width: 140px; /* 足够显示 rgba */
+    outline: none;
 }
 
-/* 空状态 */
-.st-css-empty {
+/* 提示信息 */
+.ext-empty-msg {
     text-align: center;
+    color: var(--ext-text-sub);
     padding: 20px;
-    opacity: 0.5;
     font-size: 13px;
 }
