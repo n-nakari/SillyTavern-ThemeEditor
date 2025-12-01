@@ -1,293 +1,348 @@
 import { saveSettingsDebounced } from "../../../../script.js";
 
-// 扩展的唯一标识符
-const EXTENSION_ID = "st-css-live-editor";
-const EXTENSION_ROOT_ID = "st-css-editor-root";
+// 配置常量
+const CONTAINER_ID = 'st-css-extension';
+const CONTENT_ID = 'st-css-ext-content';
+const TEXTAREA_SELECTOR = '#customCSS'; // SillyTavern 自定义CSS的ID
+const TARGET_ANCHOR = '#CustomCSS-block'; // 扩展将插入到这个元素后面
 
-// 常用CSS颜色关键字，用于正则匹配（避免匹配到 display: block 这种非颜色属性）
-const CSS_COLOR_KEYWORDS = [
-    "transparent", "currentcolor", "black", "silver", "gray", "white", "maroon", "red", "purple", "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue", "teal", "aqua", "orange", "aliceblue", "antiquewhite", "aquamarine", "azure", "beige", "bisque", "blanchedalmond", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen", "gainsboro", "ghostwhite", "gold", "goldenrod", "greenyellow", "grey", "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "limegreen", "linen", "magenta", "mediumaquamarine", "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite", "oldlace", "olivedrab", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet", "wheat", "whitesmoke", "yellowgreen", "rebeccapurple"
-];
+// 匹配CSS颜色的正则表达式 (Hex, RGB, RGBA, HSL, HSLA, Named Colors)
+// 注意：Named colors列表可以根据需要扩展，这里包含了常用和要求中的transparent
+const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]+\)|hsla?\s*\([^)]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey|orange|purple|pink|brown|beige|ivory)/gi;
 
-// 匹配CSS颜色的正则表达式 (Hex, RGB, HSL, Named Colors)
-const COLOR_REGEX = new RegExp(
-    `(#(?:[\\da-f]{3}){1,2}(?:[\\da-f]{2})?)|` + // Hex
-    `(rgba?\\([\\d\\s.,%]+\\))|` + // RGB/RGBA
-    `(hsla?\\([\\d\\s.,%]+\\))|` + // HSL/HSLA
-    `\\b(${CSS_COLOR_KEYWORDS.join("|")})\\b`, // Named Colors
-    "gi"
-);
+// 匹配CSS规则块的正则：提取注释(Group 1)和选择器(Group 2)以及内容(Group 3)
+// 逻辑：寻找 /*注释*/ (可选) 加上 选择器 { 内容 }
+const RULE_REGEX = /(?:\/\*\s*(.*?)\s*\*\/[\s\r\n]*)?([^{}]+)\{([^{}]+)\}/g;
 
-// 状态管理
 let isCollapsed = false;
+let scrollDirection = 'bottom'; // 'bottom' or 'top'
 
 /**
- * 解析CSS字符串，提取结构化数据
+ * 初始化扩展
  */
-function parseCustomCSS(cssText) {
-    const blocks = [];
-    // 移除CSS中的所有换行符，简化正则，但保留注释结构
-    // 简单的解析策略：按 '}' 分割块
-    const rawBlocks = cssText.split("}");
+function init() {
+    const anchor = $(TARGET_ANCHOR);
+    if (anchor.length === 0) {
+        // 如果目标元素还没加载，稍后重试
+        setTimeout(init, 500);
+        return;
+    }
 
-    rawBlocks.forEach(rawBlock => {
-        if (!rawBlock.trim()) return;
+    // 防止重复注入
+    if ($(`#${CONTAINER_ID}`).length > 0) return;
 
-        // 分离选择器部分和属性部分
-        const parts = rawBlock.split("{");
-        if (parts.length < 2) return;
+    // 创建UI结构
+    const container = $(`
+        <div id="${CONTAINER_ID}">
+            <div class="ext-toolbar">
+                <button class="ext-btn" id="ext-btn-refresh" title="刷新 (读取当前CSS)">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button class="ext-btn" id="ext-btn-save" title="保存设置">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                </button>
+                <button class="ext-btn" id="ext-btn-scroll" title="快速回顶/回底">
+                    <i class="fa-solid fa-arrow-down"></i>
+                </button>
+                <button class="ext-btn" id="ext-btn-collapse" title="折叠面板">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+            </div>
+            <div id="${CONTENT_ID}" class="ext-content">
+                <div class="ext-empty-msg">正在读取 CSS...</div>
+            </div>
+        </div>
+    `);
 
-        let selectorPart = parts[0].trim();
-        const propsPart = parts[1].trim();
+    anchor.after(container);
 
-        // 提取注释作为标题
-        let title = "";
-        let selector = selectorPart;
+    // 绑定事件
+    $('#ext-btn-refresh').on('click', refreshContent);
+    $('#ext-btn-save').on('click', saveSettings);
+    $('#ext-btn-scroll').on('click', toggleScroll);
+    $('#ext-btn-collapse').on('click', toggleCollapse);
+
+    // 初始加载
+    // 稍微延迟以确保 customCSS 文本框已被 ST 填充
+    setTimeout(refreshContent, 1000); 
+    
+    // 监听 ST 的主题切换事件 (如果 ST 触发了某些 input 事件改变文本框)
+    // 这里我们简单地假设每次打开扩展或手动刷新时读取。
+    // 如果需要监听外部对 #customCSS 的修改，可以在 #customCSS 上绑定 change 事件，但为避免循环，这里主要靠刷新按钮。
+}
+
+/**
+ * 刷新功能：从文本框读取 CSS 并生成 UI
+ */
+function refreshContent() {
+    const cssText = $(TEXTAREA_SELECTOR).val() || '';
+    const parsedData = parseCSS(cssText);
+    renderUI(parsedData);
+}
+
+/**
+ * 保存功能
+ */
+function saveSettings() {
+    saveSettingsDebounced();
+    // 可以添加一个简单的视觉反馈
+    const btn = $('#ext-btn-save i');
+    btn.removeClass('fa-floppy-disk').addClass('fa-check');
+    setTimeout(() => btn.removeClass('fa-check').addClass('fa-floppy-disk'), 1000);
+}
+
+/**
+ * 滚动功能
+ */
+function toggleScroll() {
+    const content = $(`#${CONTENT_ID}`);
+    const btnIcon = $('#ext-btn-scroll i');
+    
+    if (scrollDirection === 'bottom') {
+        content.scrollTop(content[0].scrollHeight);
+        scrollDirection = 'top';
+        btnIcon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
+    } else {
+        content.scrollTop(0);
+        scrollDirection = 'bottom';
+        btnIcon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
+    }
+}
+
+/**
+ * 折叠功能
+ */
+function toggleCollapse() {
+    const content = $(`#${CONTENT_ID}`);
+    const btnIcon = $('#ext-btn-collapse i');
+    
+    if (isCollapsed) {
+        content.removeClass('collapsed');
+        btnIcon.removeClass('fa-plus').addClass('fa-minus');
+    } else {
+        content.addClass('collapsed');
+        btnIcon.removeClass('fa-minus').addClass('fa-plus');
+    }
+    isCollapsed = !isCollapsed;
+}
+
+/**
+ * 解析 CSS 文本
+ * @param {string} css 
+ * @returns {Array} 包含规则对象的数组
+ */
+function parseCSS(css) {
+    const rules = [];
+    let match;
+
+    // 重置正则索引
+    RULE_REGEX.lastIndex = 0;
+
+    while ((match = RULE_REGEX.exec(css)) !== null) {
+        // match[0]: 完整匹配
+        // match[1]: 注释 (可能 undefined)
+        // match[2]: 选择器
+        // match[3]: 属性块内容
         
-        // 匹配最后一个注释 /* ... */
-        const commentMatch = selectorPart.match(/\/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*\/+/g);
-        if (commentMatch && commentMatch.length > 0) {
-            // 取最后一个注释作为标题
-            const lastComment = commentMatch[commentMatch.length - 1];
-            title = lastComment.replace(/\/\*|\*\//g, "").trim();
-            // 清理选择器中的注释，只保留类名/ID
-            selector = selectorPart.replace(/\/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*\/+/g, "").trim();
-        }
-
-        // 如果没有注释，或者标题为空，只显示选择器
-        const displayTitle = title ? `${title} | ${selector}` : selector;
+        const fullComment = match[1] ? match[1].trim() : '';
+        // 如果有多个注释，取最后一个（紧邻类名的前一个）
+        // 实际上正则 /\/\*\s*(.*?)\s*\*\/[\s\r\n]*/ 会匹配到最近的一个块注释
+        // 如果需要处理连续的多个注释块，逻辑会更复杂，这里简单处理取正则捕获到的
+        let title = fullComment;
+        
+        const selector = match[2].trim();
+        const body = match[3];
+        const startIndex = match.index; // 记录该规则在原文的起始位置，用于精确定位（如果需要）
 
         // 解析属性
         const properties = [];
-        const propLines = propsPart.split(";");
-
-        propLines.forEach(line => {
-            if (!line.trim()) return;
-            const [key, ...values] = line.split(":");
-            if (!key || values.length === 0) return;
-
-            const propName = key.trim();
-            const propValue = values.join(":").trim(); // 重新组合值（防止值里面有冒号，如url）
-
-            // 在值中查找颜色
-            const colors = [];
-            let match;
-            // 重置正则索引
-            COLOR_REGEX.lastIndex = 0;
+        const propRegex = /([\w-]+)\s*:\s*([^;]+);?/g;
+        let propMatch;
+        
+        while ((propMatch = propRegex.exec(body)) !== null) {
+            const propName = propMatch[1].trim();
+            const propValue = propMatch[2].trim();
             
-            while ((match = COLOR_REGEX.exec(propValue)) !== null) {
+            // 检查该属性值是否包含颜色
+            const colors = [];
+            let colorMatch;
+            COLOR_REGEX.lastIndex = 0; // 重置颜色正则
+            
+            while ((colorMatch = COLOR_REGEX.exec(propValue)) !== null) {
                 colors.push({
-                    original: match[0],
-                    index: match.index
+                    value: colorMatch[0],
+                    index: colorMatch.index // 在属性值字符串中的位置
                 });
             }
 
             if (colors.length > 0) {
                 properties.push({
-                    name: propName.toUpperCase(),
+                    name: propName,
                     fullValue: propValue,
                     colors: colors
                 });
             }
-        });
+        }
 
         if (properties.length > 0) {
-            blocks.push({
-                title: displayTitle,
-                originalSelector: selectorPart, // 用于定位
-                properties: properties
+            rules.push({
+                comment: title,
+                selector: selector,
+                properties: properties,
+                originalText: match[0] // 整个规则块的原始文本
             });
         }
-    });
-
-    return blocks;
-}
-
-/**
- * 实时更新 Custom CSS 文本框
- * @param {string} selector - 选择器
- * @param {string} propName - 属性名 (如 BACKGROUND)
- * @param {number} colorIndex - 该属性中第几个颜色
- * @param {string} newColor - 新颜色值
- */
-function updateCSSTextArea(selector, propName, colorIndex, newColor) {
-    const $textarea = $("#customCSS");
-    let cssText = $textarea.val();
-
-    // 这是一个简化的替换逻辑。为了精确，我们实际上需要重新定位到具体的行。
-    // 由于用户可能修改了格式，最好的方式是根据解析逻辑重建这一块，或者使用更高级的字符串替换。
-    // 为了性能和稳定性，这里采用“定位+正则替换”策略。
-
-    // 1. 找到对应的选择器块
-    // 注意：这里需要转义正则特殊字符
-    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 查找 "selector { ... }" 结构
-    // 稍微放宽匹配，允许换行和空格
-    const blockRegex = new RegExp(`(${escapeRegExp(selector)}\\s*\\{)([^}]*)(\\})`, 'i');
-    const blockMatch = cssText.match(blockRegex);
-
-    if (blockMatch) {
-        let body = blockMatch[2];
-        
-        // 2. 在块内找到对应的属性 "propName: ... ;"
-        const propRegex = new RegExp(`(${escapeRegExp(propName.toLowerCase())}\\s*:\\s*)([^;]+)(;)`, 'gi');
-        
-        // 可能有多个相同属性（fallback），这里简单处理只替换第一个匹配到的，或者需要更复杂的逻辑
-        // 我们假设解析顺序和这里匹配顺序一致
-        body = body.replace(propRegex, (match, prefix, value, suffix) => {
-            // 3. 在属性值中替换第 N 个颜色
-            let currentColorIndex = 0;
-            const newValue = value.replace(COLOR_REGEX, (colorMatch) => {
-                if (currentColorIndex === colorIndex) {
-                    currentColorIndex++;
-                    return newColor;
-                }
-                currentColorIndex++;
-                return colorMatch;
-            });
-            return `${prefix}${newValue}${suffix}`;
-        });
-
-        // 替换回 CSS 字符串
-        const newCssText = cssText.replace(blockMatch[0], `${blockMatch[1]}${body}${blockMatch[3]}`);
-        
-        // 更新 textarea 并触发 input 事件（让 SillyTavern 应用样式）
-        $textarea.val(newCssText).trigger("input");
     }
+    return rules;
 }
 
 /**
- * 创建扩展 UI
+ * 渲染 UI
+ * @param {Array} rules 
  */
-function renderExtensionUI() {
-    const $container = $(`#${EXTENSION_ROOT_ID}`);
-    const $content = $container.find('.st-css-content');
-    $content.empty();
+function renderUI(rules) {
+    const container = $(`#${CONTENT_ID}`);
+    container.empty();
 
-    const cssText = $("#customCSS").val();
-    const blocks = parseCustomCSS(cssText);
-
-    if (blocks.length === 0) {
-        $content.append(`<div class="st-css-empty">未检测到可编辑的颜色属性</div>`);
+    if (rules.length === 0) {
+        container.append('<div class="ext-empty-msg">当前 CSS 中未检测到颜色属性。</div>');
         return;
     }
 
-    blocks.forEach(block => {
-        const $card = $(`<div class="st-css-card"></div>`);
-        const $header = $(`<div class="st-css-card-header">${block.title}</div>`);
-        $card.append($header);
+    rules.forEach((rule, ruleIndex) => {
+        const titleDisplay = rule.comment 
+            ? `<span class="rule-comment">${rule.comment}</span> <span class="rule-separator">|</span> <span class="rule-selector">${rule.selector}</span>` 
+            : `<span class="rule-comment">${rule.selector}</span>`;
 
-        block.properties.forEach(prop => {
-            const $propRow = $(`<div class="st-css-prop-row"></div>`);
-            const $propTitle = $(`<div class="st-css-prop-title">${prop.name}</div>`);
-            $propRow.append($propTitle);
+        const card = $(`<div class="css-rule-card">
+            <div class="css-rule-header">${titleDisplay}</div>
+        </div>`);
 
-            const $colorsContainer = $(`<div class="st-css-colors-container"></div>`);
+        rule.properties.forEach((prop, propIndex) => {
+            const propRow = $(`<div class="css-property-row">
+                <span class="property-name">${prop.name.toUpperCase()}</span>
+                <div class="color-input-group"></div>
+            </div>`);
 
-            prop.colors.forEach((colorObj, index) => {
-                const $colorWrapper = $(`<div class="st-css-color-wrapper"></div>`);
-                
-                // 颜色选择器组件 (toolcool-color-picker)
-                const $picker = $(`<toolcool-color-picker color="${colorObj.original}" button-width="24px" button-height="24px" style="border-radius: 50%; overflow: hidden;"></toolcool-color-picker>`);
-                
-                // 颜色代码显示
-                const $code = $(`<div class="st-css-color-code">${colorObj.original}</div>`);
+            const group = propRow.find('.color-input-group');
 
-                // 事件监听
-                $picker.on('change', (evt) => {
-                    const newColor = evt.detail.rgba;
-                    $code.text(newColor);
-                    // 实时更新 CSS 框
-                    // 注意：由于我们是从解析结果反推，这里的 block.originalSelector 可能包含注释
-                    // 我们传递原始选择器片段去尝试匹配
-                    // 为了更精确，这里可能需要去清理 selector 的注释
-                    const cleanSelector = block.originalSelector.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-                    updateCSSTextArea(cleanSelector, prop.name, index, newColor);
+            prop.colors.forEach((colorObj, colorIndex) => {
+                // 构建胶囊组件
+                const capsule = $(`
+                    <div class="color-capsule">
+                        <toolcool-color-picker color="${colorObj.value}" button-width="28px" button-height="28px" padding="0"></toolcool-color-picker>
+                        <input type="text" class="color-text-input" value="${colorObj.value}">
+                    </div>
+                `);
+
+                const picker = capsule.find('toolcool-color-picker')[0];
+                const input = capsule.find('input');
+
+                // 颜色选择器变更事件
+                picker.addEventListener('change', (evt) => {
+                    const newColor = evt.detail.rgba; // 获取rgba格式
+                    input.val(newColor);
+                    // 实时更新CSS文本框
+                    updateCSSTextArea(rule.selector, prop.name, colorIndex, newColor);
                 });
 
-                $colorWrapper.append($picker).append($code);
-                $colorsContainer.append($colorWrapper);
+                // 文本框输入变更事件
+                input.on('change', () => {
+                    let newColor = input.val();
+                    // 简单的验证，如果picker能识别最好，这里直接推给picker处理
+                    picker.color = newColor;
+                    // updateCSSTextArea 在 picker 的 change 事件中触发，但如果picker认为颜色没变可能不触发
+                    // 所以这里也强制触发一次更新
+                    updateCSSTextArea(rule.selector, prop.name, colorIndex, newColor);
+                });
+
+                group.append(capsule);
             });
 
-            $propRow.append($colorsContainer);
-            $card.append($propRow);
+            card.append(propRow);
         });
 
-        $content.append($card);
+        container.append(card);
     });
 }
 
 /**
- * 构建主界面框架
+ * 更新 Custom CSS 文本框的核心逻辑
+ * @param {string} selector CSS选择器
+ * @param {string} propName 属性名 (如 background-color)
+ * @param {number} colorIndex 该属性中第几个颜色 (处理渐变等多色情况)
+ * @param {string} newColorVal 新颜色值
  */
-function initLayout() {
-    // 防止重复注入
-    if ($(`#${EXTENSION_ROOT_ID}`).length > 0) return;
+function updateCSSTextArea(selector, propName, colorIndex, newColorVal) {
+    const $textarea = $(TEXTAREA_SELECTOR);
+    let cssText = $textarea.val();
 
-    // 定位到 Custom CSS 框下方
-    const $target = $("#CustomCSS-block");
+    // 重新构建正则来定位具体的规则块
+    // 逻辑：找到 selector { ... propName: ... ; ... }
+    // 注意：需要转义 selector 中的特殊字符
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    const html = `
-    <div id="${EXTENSION_ROOT_ID}" class="st-css-editor-panel">
-        <div class="st-css-toolbar">
-            <div class="st-css-btn-group">
-                <button id="st-css-refresh" title="刷新并重新读取CSS" class="st-css-btn"><i class="fa-solid fa-arrows-rotate"></i></button>
-                <button id="st-css-save" title="保存当前设置" class="st-css-btn"><i class="fa-solid fa-floppy-disk"></i></button>
-                <button id="st-css-scroll" title="快速回顶/回底" class="st-css-btn"><i class="fa-solid fa-arrow-up-down"></i></button>
-            </div>
-            <button id="st-css-collapse" title="折叠面板" class="st-css-btn st-css-btn-text"><i class="fa-solid fa-chevron-up"></i></button>
-        </div>
-        <div class="st-css-content-wrapper">
-            <div class="st-css-content"></div>
-        </div>
-    </div>
-    `;
+    // 定位规则块
+    // 1. 找到选择器及后面的大括号
+    const ruleBlockRegex = new RegExp(`(${escapedSelector}\\s*\\{)([^}]+)(\\})`, '');
+    const ruleMatch = ruleBlockRegex.exec(cssText);
 
-    $target.after(html);
+    if (!ruleMatch) {
+        console.warn('CSS Extension: Cannot locate rule in textarea during update.');
+        return;
+    }
 
-    // 绑定事件
-    $("#st-css-refresh").on("click", () => {
-        renderExtensionUI();
-        toastr.success("CSS颜色已重新载入", "扩展插件");
-    });
+    const preBlock = ruleMatch[1];
+    const blockBody = ruleMatch[2];
+    const postBlock = ruleMatch[3];
+    const fullMatchIndex = ruleMatch.index;
 
-    $("#st-css-save").on("click", () => {
-        saveSettingsDebounced();
-        toastr.success("设置已保存", "扩展插件");
-    });
+    // 定位属性
+    // 在 blockBody 中查找 "propName: value;"
+    // 简单的匹配：属性名 + 冒号 + 值 + 分号(或结束)
+    const propRegex = new RegExp(`(${propName}\\s*:\\s*)([^;]+)(;?)`, 'i'); 
+    // 注意：如果同一个块里写了两次同样的属性（比如兼容性写法），这里只会改第一个。
+    // 更严谨的做法需要解析整个body，但对于用户手写CSS通常足够。
+    
+    const propMatch = propRegex.exec(blockBody);
+    
+    if (!propMatch) {
+        console.warn('CSS Extension: Cannot locate property in rule.');
+        return;
+    }
 
-    $("#st-css-scroll").on("click", function() {
-        const $wrapper = $(".st-css-content-wrapper");
-        if ($wrapper.scrollTop() > 100) {
-            $wrapper.animate({ scrollTop: 0 }, 300);
-        } else {
-            $wrapper.animate({ scrollTop: $wrapper[0].scrollHeight }, 300);
+    const preProp = propMatch[1];
+    let propValue = propMatch[2];
+    const postProp = propMatch[3];
+    
+    // 替换颜色
+    // 我们需要在 propValue 中找到第 colorIndex+1 个颜色并替换它
+    let currentColorIndex = 0;
+    
+    // 使用回调函数进行替换，只替换计数器匹配的那一个
+    const newPropValue = propValue.replace(COLOR_REGEX, (match) => {
+        if (currentColorIndex === colorIndex) {
+            currentColorIndex++;
+            return newColorVal;
         }
+        currentColorIndex++;
+        return match;
     });
 
-    $("#st-css-collapse").on("click", function() {
-        isCollapsed = !isCollapsed;
-        const $wrapper = $(".st-css-content-wrapper");
-        const $icon = $(this).find("i");
-        
-        if (isCollapsed) {
-            $wrapper.slideUp(200);
-            $icon.removeClass("fa-chevron-up").addClass("fa-chevron-down");
-        } else {
-            $wrapper.slideDown(200);
-            $icon.removeClass("fa-chevron-down").addClass("fa-chevron-up");
-        }
-    });
+    // 重新组装 CSS
+    // 1. 组装新的 body
+    const newBody = blockBody.substring(0, propMatch.index) + 
+                    preProp + newPropValue + postProp + 
+                    blockBody.substring(propMatch.index + propMatch[0].length);
 
-    // 监听美化主题切换事件（通过监听 Custom CSS textarea 的变化是不可靠的，因为我们自己就在改它）
-    // 通常用户切换主题会触发页面刷新或特定事件。SillyTavern没有明确的“主题切换后”事件供插件使用，
-    // 但可以利用 MutationObserver 或者简单的点击刷新策略。
-    // 作为一个优化，我们首次加载时渲染一次。
-    renderExtensionUI();
+    // 2. 组装新的 CSS 全文
+    const newCssText = cssText.substring(0, fullMatchIndex) +
+                       preBlock + newBody + postBlock +
+                       cssText.substring(fullMatchIndex + ruleMatch[0].length);
+
+    // 3. 写入并触发事件
+    $textarea.val(newCssText).trigger('input');
 }
 
-jQuery(document).ready(function () {
-    // 延迟一点加载，确保 SillyTavern 的 UI 已经生成
-    setTimeout(initLayout, 1000);
-});
+// 启动插件
+$(document).ready(init);
