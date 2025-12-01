@@ -2,10 +2,10 @@
    全局过渡与变量定义
    ========================================= */
 :root {
-    --tuner-bg-color: rgba(30, 30, 35, 0.85); /* 稍微加深背景以适应透明度 */
+    --tuner-bg-color: rgba(30, 30, 35, 0.6);
     --tuner-card-bg: rgba(255, 255, 255, 0.04);
     --tuner-card-hover: rgba(255, 255, 255, 0.07);
-    --tuner-border: rgba(255, 255, 255, 0.1);
+    --tuner-border: rgba(255, 255, 255, 0.08);
     --tuner-accent: var(--smart-theme-color, #a29bfe);
     --tuner-text-main: #ececec;
     --tuner-text-sub: #a0a0a0;
@@ -28,7 +28,6 @@
     margin-bottom: 12px;
     align-items: center;
     padding: 0 4px;
-    z-index: 10;
 }
 
 .css-tools-search-wrapper {
@@ -38,12 +37,12 @@
     align-items: center;
 }
 
-/* 搜索框美化 */
+/* 搜索框美化：仿浏览器地址栏 */
 #css-top-search {
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--tuner-border);
-    border-radius: 20px;
+    border-radius: 20px; /* 胶囊形状 */
     padding: 8px 16px;
     font-size: 0.9rem;
     color: var(--tuner-text-main);
@@ -54,13 +53,6 @@
     background-color: rgba(0, 0, 0, 0.4);
     border-color: var(--tuner-accent);
     box-shadow: 0 0 0 2px rgba(162, 155, 254, 0.2);
-}
-
-/* 右侧图标按钮组 (统一样式) */
-.tools-btn-group {
-    display: flex;
-    gap: 8px;
-    align-items: center;
 }
 
 /* 统一按钮样式 */
@@ -75,7 +67,7 @@
     background-color: var(--tuner-card-bg);
     color: var(--tuner-text-sub);
     border: 1px solid transparent;
-    position: relative; /* 用于下拉菜单定位 */
+    flex-shrink: 0;
 }
 
 .tools-btn:hover {
@@ -85,8 +77,14 @@
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
+/* 外部按钮组与内部保持一致 */
+.tools-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
 /* =========================================
-   通用下拉菜单 (搜索结果 & 滚动菜单)
+   搜索下拉栏 (通用样式)
    ========================================= */
 .css-search-dropdown {
     position: absolute;
@@ -137,43 +135,6 @@
     text-decoration: underline;
 }
 
-/* 滚动按钮的下拉菜单 */
-.scroll-menu-dropdown {
-    position: absolute;
-    top: 110%;
-    right: 0;
-    background-color: #1e1e1e;
-    border: 1px solid var(--tuner-border);
-    border-radius: 8px;
-    min-width: 100px;
-    z-index: 2001;
-    padding: 5px;
-    display: none;
-    flex-direction: column;
-    gap: 2px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-}
-
-.tools-btn:hover .scroll-menu-dropdown,
-.scroll-menu-dropdown:hover {
-    display: flex;
-}
-
-.scroll-menu-item {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    color: var(--tuner-text-main);
-    border-radius: 6px;
-    cursor: pointer;
-    text-align: center;
-    white-space: nowrap;
-}
-
-.scroll-menu-item:hover {
-    background-color: var(--tuner-accent);
-    color: white;
-}
-
 /* =========================================
    扩展主容器
    ========================================= */
@@ -185,25 +146,39 @@
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    overflow: visible; /* 为了下拉菜单显示 */
+    overflow: hidden;
 }
 
 /* --- 顶栏 --- */
 .tuner-header {
     display: flex;
-    /* 去掉 justify-content: space-between */
-    justify-content: flex-start; 
+    justify-content: flex-start; /* 左对齐 */
     align-items: center;
-    padding: 12px 16px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
-    background: transparent; /* 背景透明 */
-    gap: 12px;
+    background: transparent; /* 透明背景 */
+    gap: 12px; /* 按钮间距 */
 }
 
-/* 按钮组容器：左侧排列 */
+/* 按钮组容器 */
 .tuner-controls {
     display: flex;
     gap: 8px;
+}
+
+/* --- 搜索栏与内容的包装器 (用于折叠) --- */
+.tuner-body-wrapper {
+    display: flex;
+    flex-direction: column;
+    transition: all 0.4s ease;
+    max-height: 800px; /* 估算最大高度，用于动画 */
+    opacity: 1;
+}
+
+.tuner-body-wrapper.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
 }
 
 /* --- 搜索栏 (面板内) --- */
@@ -211,7 +186,7 @@
     padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
     background-color: rgba(0,0,0,0.1);
-    position: relative; /* 用于下拉定位 */
+    position: relative; /* 用于定位下拉菜单 */
 }
 
 #tuner-search {
@@ -240,17 +215,6 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    transition: all 0.4s ease;
-}
-
-/* 折叠状态：隐藏搜索框和内容 */
-.css-tuner-container.tuner-collapsed .tuner-sub-header,
-.css-tuner-container.tuner-collapsed .tuner-content {
-    display: none;
-}
-
-.css-tuner-container.tuner-collapsed .tuner-header {
-    border-bottom: none;
 }
 
 /* =========================================
@@ -277,13 +241,24 @@
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px dashed var(--tuner-border);
-    font-size: 0.95rem;
-    font-weight: 600;
     color: var(--tuner-text-main);
+    font-size: 0.95rem;
     font-family: 'JetBrains Mono', monospace;
-    white-space: pre-wrap;      /* 允许换行 */
-    word-break: break-all;      /* 允许单词内断行 */
+    /* 换行处理 */
+    white-space: normal;
+    word-break: break-all;
     line-height: 1.4;
+}
+
+.tuner-comment-part {
+    font-weight: bold;
+    color: var(--tuner-accent);
+    margin-right: 6px;
+}
+
+.tuner-selector-part {
+    color: var(--tuner-text-sub);
+    opacity: 0.8;
 }
 
 /* 属性行 */
@@ -292,7 +267,10 @@
     flex-direction: column;
     margin-bottom: 12px;
 }
-.tuner-prop-row:last-child { margin-bottom: 0; }
+
+.tuner-prop-row:last-child {
+    margin-bottom: 0;
+}
 
 .tuner-prop-name {
     font-size: 0.8rem;
@@ -312,8 +290,8 @@
 
 .tuner-input-group {
     background-color: rgba(0,0,0,0.2);
-    border-radius: 30px;
-    padding: 4px 8px;
+    border-radius: 30px; /* 圆角胶囊 */
+    padding: 4px 6px;
     padding-right: 12px;
     display: flex;
     align-items: center;
@@ -339,7 +317,7 @@
     flex-shrink: 0;
 }
 
-/* 圆形颜色选择器 (Hex Picker) */
+/* 圆形颜色选择器 */
 input[type="color"].tuner-picker {
     width: 28px;
     height: 28px;
@@ -354,28 +332,24 @@ input[type="color"].tuner-picker {
 input[type="color"].tuner-picker::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"].tuner-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
 
-/* 透明度滑块 */
+/* Alpha 滑动条 */
 input[type="range"].tuner-alpha-slider {
-    width: 60px;
-    height: 4px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 2px;
     -webkit-appearance: none;
+    width: 60px;
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
     outline: none;
-    cursor: pointer;
+    cursor: ew-resize;
 }
 input[type="range"].tuner-alpha-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--tuner-text-main);
-    cursor: pointer;
-    transition: transform 0.1s;
-}
-input[type="range"].tuner-alpha-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
     background: var(--tuner-accent);
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
 }
 
 /* 文本输入框 */
@@ -384,13 +358,26 @@ input[type="text"].tuner-text {
     border: none;
     color: var(--tuner-text-main);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    width: 140px; /* 稍微加宽以容纳 rgba */
+    font-size: 0.8rem;
+    width: 140px;
     outline: none;
 }
 
 /* 滚动条 */
-.tuner-content::-webkit-scrollbar { width: 5px; }
-.tuner-content::-webkit-scrollbar-track { background: transparent; }
-.tuner-content::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.1); border-radius: 10px; }
-.tuner-content::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.3); }
+.tuner-content::-webkit-scrollbar,
+.css-search-dropdown::-webkit-scrollbar {
+    width: 5px;
+}
+.tuner-content::-webkit-scrollbar-track,
+.css-search-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tuner-content::-webkit-scrollbar-thumb,
+.css-search-dropdown::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 10px;
+}
+.tuner-content::-webkit-scrollbar-thumb:hover,
+.css-search-dropdown::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255,255,255,0.3);
+}
