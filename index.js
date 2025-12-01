@@ -1,4 +1,4 @@
-import { saveSettingsDebounced } from "../../../script.js";
+import { saveSettingsDebounced } from "../../../../script.js";
 
 // 扩展状态管理
 const extState = {
