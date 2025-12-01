@@ -221,7 +221,7 @@
     border-color: rgba(255,255,255,0.15);
 }
 
-/* 卡片标题 */
+/* 卡片标题区域 */
 .tuner-card-header {
     margin-bottom: 12px;
     padding-bottom: 10px;
@@ -233,28 +233,37 @@
     line-height: 1.6;
     font-family: 'JetBrains Mono', monospace;
     display: flex;
-    align-items: baseline;
+    align-items: center; /* 垂直居中 */
     flex-wrap: wrap;
+    gap: 8px; /* 元素间距 */
 }
 
-/* --- 注释标签样式 (代码风格) --- */
+/* --- 注释标签 (代码块风格) --- */
 .tuner-comment-tag {
-    display: inline-block;
-    background-color: rgba(162, 155, 254, 0.15); /* 淡紫色背景 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(162, 155, 254, 0.2); /* 淡紫色背景 */
     color: var(--tuner-accent);
     padding: 2px 8px;
     border-radius: 6px;
     font-size: 0.85rem;
     font-weight: 700;
-    margin-right: 8px;
-    border: 1px solid rgba(162, 155, 254, 0.2);
+    border: 1px solid rgba(162, 155, 254, 0.3);
     font-family: 'JetBrains Mono', monospace; /* 代码字体 */
+    white-space: nowrap;
+}
+
+/* 分隔符 */
+.tuner-header-divider {
+    opacity: 0.3;
+    font-weight: normal;
 }
 
 /* 选择器部分 */
 .tuner-header-selector {
     color: var(--tuner-text-sub);
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 /* 属性行 */
@@ -268,13 +277,15 @@
     margin-bottom: 0;
 }
 
+/* 属性名作为副标题 */
 .tuner-prop-name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--tuner-text-sub);
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 700;
+    opacity: 0.8;
 }
 
 /* 颜色输入组 */
