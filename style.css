@@ -1,216 +1,145 @@
-/* 容器风格：Ins/Apple 风 - 极简、圆角、模糊 */
-#st-ccm-container {
-    margin-top: 15px;
-    background: rgba(245, 245, 247, 0.8); /* 浅灰白背景，类似 iOS */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+/* 容器整体样式：Apple/Ins 风极简设计 */
+#st-css-extension-root {
+    width: 100%;
+    margin-top: 10px;
+    background: var(--SmartThemeBlurTintColor); /* 保持与主题一致 */
     border-radius: 16px;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--SmartThemeBorderColor);
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #333;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
-/* 适配暗色模式 (SillyTavern 主要是暗色) */
-body.dark #st-ccm-container, 
-body[data-theme="dark"] #st-ccm-container {
-    background: rgba(30, 30, 32, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #f0f0f0;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+#st-css-extension-root.collapsed {
+    max-height: 50px; /* 收起高度 */
 }
 
-/* 顶部工具栏 */
-.st-ccm-header {
+/* 顶栏工具条 */
+.st-css-toolbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.5);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: rgba(128, 128, 128, 0.05);
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    gap: 12px;
 }
 
-body.dark .st-ccm-header {
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.st-ccm-actions {
-    display: flex;
-    gap: 8px;
-}
-
-/* 按钮样式：圆润、无边框、只有轻微背景 */
-.st-ccm-btn {
+/* 按钮样式：无边框，极简图标 */
+.st-css-btn {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
+    border-radius: 50%; /* 圆形按钮 */
+    border: none;
+    background: transparent;
+    color: var(--SmartThemeBodyColor);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    font-size: 14px;
-    color: #555;
-    background: transparent;
-    transition: all 0.2s ease;
+    transition: background 0.2s, transform 0.1s;
+    font-size: 16px;
 }
 
-body.dark .st-ccm-btn {
-    color: #aaa;
-}
-
-.st-ccm-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: #000;
+.st-css-btn:hover {
+    background: rgba(128, 128, 128, 0.15);
     transform: scale(1.05);
 }
 
-body.dark .st-ccm-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+.st-css-btn:active {
+    transform: scale(0.95);
 }
 
-/* 内容区域 */
-.st-ccm-content {
+/* 列表区域 */
+.st-css-content {
+    padding: 16px;
     max-height: 500px;
     overflow-y: auto;
-    padding: 16px;
-    /* 隐藏滚动条但保留功能 */
     scrollbar-width: thin;
-    scrollbar-color: rgba(0,0,0,0.2) transparent;
-}
-
-/* 每一个 CSS 规则块 */
-.st-ccm-block {
-    background: #fff;
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.02);
-}
-
-body.dark .st-ccm-block {
-    background: rgba(45, 45, 48, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.03);
-    box-shadow: none;
-}
-
-/* 标题样式：小条目效果 */
-.st-ccm-block-header {
-    font-size: 12px;
-    font-weight: 600;
-    opacity: 0.7;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    letter-spacing: 0.5px;
-    color: #888;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-body.dark .st-ccm-block-header {
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    color: #999;
-}
-
-/* 属性名 */
-.st-ccm-prop-group {
-    margin-bottom: 10px;
-}
-
-.st-ccm-prop-group:last-child {
-    margin-bottom: 0;
-}
-
-.st-ccm-prop-name {
-    font-size: 10px;
-    font-weight: 700;
-    color: #aaa;
-    margin-bottom: 6px;
-    letter-spacing: 1px;
-}
-
-/* 颜色行容器 */
-.st-ccm-color-row {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.st-ccm-color-row:last-child {
-    margin-bottom: 0;
+/* 单个CSS规则卡片 */
+.st-css-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(128, 128, 128, 0.1);
+    transition: border-color 0.2s;
 }
 
-/* 颜色预览圆点 */
-.st-ccm-color-preview {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid rgba(128, 128, 128, 0.2);
-    cursor: pointer;
-    flex-shrink: 0;
+.st-css-card:hover {
+    border-color: var(--SmartThemeQuoteColor);
+}
+
+/* 标题行 (注释 | 类名) */
+.st-css-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(128, 128, 128, 0.1);
+    color: var(--SmartThemeBodyColor);
+}
+
+.st-css-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--SmartThemeBodyColor);
+}
+
+.st-css-selector {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    opacity: 0.6;
+    background: rgba(0,0,0,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* 属性行 (PROPERTY) */
+.st-css-prop-row {
+    margin-bottom: 8px;
+}
+
+.st-css-prop-name {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+/* 颜色选择器容器 */
+.st-css-pickers-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* 覆盖 Toolcool Color Picker 的一些默认样式以适配 */
+toolcool-color-picker {
+    border-radius: 50%; /* 圆形选择器 */
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    cursor: pointer;
     transition: transform 0.2s;
-    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), 
-                      linear-gradient(-45deg, #ccc 25%, transparent 25%), 
-                      linear-gradient(45deg, transparent 75%, #ccc 75%), 
-                      linear-gradient(-45deg, transparent 75%, #ccc 75%);
-    background-size: 8px 8px;
-    background-position: 0 0, 0 4px, 4px -4px, -4px 0px; 
-    /* 上面的 background-image 是为了展示透明色时的棋盘格背景，会被内联的 background-color 覆盖 */
 }
 
-.st-ccm-color-preview:hover {
-    transform: scale(1.1);
-    border-color: rgba(128, 128, 128, 0.5);
+toolcool-color-picker:hover {
+    transform: translateY(-2px);
 }
 
-/* 文本输入框 */
-.st-ccm-color-input {
-    flex-grow: 1;
-    background: rgba(0, 0, 0, 0.03);
-    border: none;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 13px;
-    color: #333;
-    font-family: monospace;
-    outline: none;
-    transition: background 0.2s;
-}
-
-body.dark .st-ccm-color-input {
-    background: rgba(0, 0, 0, 0.2);
-    color: #ddd;
-}
-
-.st-ccm-color-input:focus {
-    background: rgba(0, 0, 0, 0.06);
-}
-
-body.dark .st-ccm-color-input:focus {
-    background: rgba(0, 0, 0, 0.4);
-}
-
-/* 隐藏原生取色器 */
-.st-ccm-hidden-picker {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-.st-ccm-empty {
+/* 提示信息 */
+.st-css-empty {
     text-align: center;
-    padding: 40px 0;
-    color: #999;
-    font-size: 13px;
+    opacity: 0.5;
+    padding: 20px;
     font-style: italic;
 }
