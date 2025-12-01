@@ -2,7 +2,7 @@
    全局过渡与变量定义
    ========================================= */
 :root {
-    --tuner-bg-color: rgba(30, 30, 35, 0.6);
+    --tuner-bg-color: rgba(30, 30, 35, 0.95); /* 稍微加深背景，防止透底 */
     --tuner-card-bg: rgba(255, 255, 255, 0.04);
     --tuner-card-hover: rgba(255, 255, 255, 0.07);
     --tuner-border: rgba(255, 255, 255, 0.08);
@@ -28,6 +28,8 @@
     margin-bottom: 12px;
     align-items: center;
     padding: 0 4px;
+    z-index: 100; /* 保证下拉遮挡层级 */
+    position: relative;
 }
 
 .css-tools-search-wrapper {
@@ -37,12 +39,12 @@
     align-items: center;
 }
 
-/* 搜索框美化：仿浏览器地址栏 */
+/* 搜索框美化 */
 #css-top-search {
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--tuner-border);
-    border-radius: 20px; /* 胶囊形状 */
+    border-radius: 20px;
     padding: 8px 16px;
     font-size: 0.9rem;
     color: var(--tuner-text-main);
@@ -55,7 +57,12 @@
     box-shadow: 0 0 0 2px rgba(162, 155, 254, 0.2);
 }
 
-/* 统一按钮样式 */
+/* 右侧图标按钮组 */
+.tools-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
 .tools-btn {
     width: 36px;
     height: 36px;
@@ -67,7 +74,6 @@
     background-color: var(--tuner-card-bg);
     color: var(--tuner-text-sub);
     border: 1px solid transparent;
-    flex-shrink: 0;
 }
 
 .tools-btn:hover {
@@ -75,12 +81,6 @@
     color: #fff;
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-
-/* 外部按钮组与内部保持一致 */
-.tools-btn-group {
-    display: flex;
-    gap: 8px;
 }
 
 /* =========================================
@@ -133,6 +133,8 @@
     color: var(--tuner-accent);
     font-weight: 800;
     text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
 }
 
 /* =========================================
@@ -146,39 +148,35 @@
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; /* 防止内部下拉溢出被切，但在flex下要注意 */
+    overflow: visible; /* 允许下拉框溢出容器 */
+    position: relative;
+    z-index: 90;
 }
 
 /* --- 顶栏 --- */
 .tuner-header {
     display: flex;
-    justify-content: flex-start; /* 左对齐 */
+    justify-content: space-between;
     align-items: center;
-    padding: 12px 20px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--tuner-border);
-    background: transparent; /* 透明背景 */
-    gap: 12px; /* 按钮间距 */
+    background: linear-gradient(to right, rgba(255,255,255,0.02), transparent);
 }
 
-/* 按钮组容器 */
-.tuner-controls {
+.tuner-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--tuner-text-main);
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: 0.5px;
 }
 
-/* --- 搜索栏与内容的包装器 (用于折叠) --- */
-.tuner-body-wrapper {
-    display: flex;
-    flex-direction: column;
-    transition: all 0.4s ease;
-    max-height: 800px; /* 估算最大高度，用于动画 */
-    opacity: 1;
-}
-
-.tuner-body-wrapper.collapsed {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
+.tuner-title i {
+    color: var(--tuner-accent);
+    filter: drop-shadow(0 0 5px rgba(162,155,254,0.4));
 }
 
 /* --- 搜索栏 (面板内) --- */
@@ -186,7 +184,8 @@
     padding: 12px 20px;
     border-bottom: 1px solid var(--tuner-border);
     background-color: rgba(0,0,0,0.1);
-    position: relative; /* 用于定位下拉菜单 */
+    position: relative; /* 为下拉定位 */
+    z-index: 10;
 }
 
 #tuner-search {
@@ -215,6 +214,14 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    z-index: 1;
+}
+
+.tuner-content.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
 }
 
 /* =========================================
@@ -241,24 +248,15 @@
     margin-bottom: 12px;
     padding-bottom: 10px;
     border-bottom: 1px dashed var(--tuner-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 600;
     color: var(--tuner-text-main);
-    font-size: 0.95rem;
     font-family: 'JetBrains Mono', monospace;
-    /* 换行处理 */
-    white-space: normal;
-    word-break: break-all;
     line-height: 1.4;
-}
-
-.tuner-comment-part {
-    font-weight: bold;
-    color: var(--tuner-accent);
-    margin-right: 6px;
-}
-
-.tuner-selector-part {
-    color: var(--tuner-text-sub);
-    opacity: 0.8;
 }
 
 /* 属性行 */
@@ -290,7 +288,7 @@
 
 .tuner-input-group {
     background-color: rgba(0,0,0,0.2);
-    border-radius: 30px; /* 圆角胶囊 */
+    border-radius: 30px;
     padding: 4px 6px;
     padding-right: 12px;
     display: flex;
@@ -314,10 +312,9 @@
     align-items: center;
     justify-content: center;
     color: #fff;
-    flex-shrink: 0;
 }
 
-/* 圆形颜色选择器 */
+/* 圆形颜色选择器 (RGB) */
 input[type="color"].tuner-picker {
     width: 28px;
     height: 28px;
@@ -329,27 +326,34 @@ input[type="color"].tuner-picker {
     overflow: hidden;
     flex-shrink: 0;
 }
-input[type="color"].tuner-picker::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"].tuner-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+input[type="color"].tuner-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+input[type="color"].tuner-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
 
-/* Alpha 滑动条 */
+/* 透明度滑块 (Alpha) */
 input[type="range"].tuner-alpha-slider {
-    -webkit-appearance: none;
     width: 60px;
     height: 6px;
-    background: rgba(255,255,255,0.2);
+    -webkit-appearance: none;
+    background: linear-gradient(to right, transparent, var(--tuner-accent));
     border-radius: 3px;
     outline: none;
-    cursor: ew-resize;
+    cursor: pointer;
+    background-color: rgba(255,255,255,0.1);
 }
 input[type="range"].tuner-alpha-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: var(--tuner-accent);
+    background: #fff;
     cursor: pointer;
-    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
 /* 文本输入框 */
@@ -358,26 +362,23 @@ input[type="text"].tuner-text {
     border: none;
     color: var(--tuner-text-main);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    width: 140px;
+    font-size: 0.85rem;
+    width: 120px;
     outline: none;
+    text-align: left;
 }
 
 /* 滚动条 */
-.tuner-content::-webkit-scrollbar,
-.css-search-dropdown::-webkit-scrollbar {
+.tuner-content::-webkit-scrollbar {
     width: 5px;
 }
-.tuner-content::-webkit-scrollbar-track,
-.css-search-dropdown::-webkit-scrollbar-track {
+.tuner-content::-webkit-scrollbar-track {
     background: transparent;
 }
-.tuner-content::-webkit-scrollbar-thumb,
-.css-search-dropdown::-webkit-scrollbar-thumb {
+.tuner-content::-webkit-scrollbar-thumb {
     background-color: rgba(255,255,255,0.1);
     border-radius: 10px;
 }
-.tuner-content::-webkit-scrollbar-thumb:hover,
-.css-search-dropdown::-webkit-scrollbar-thumb:hover {
+.tuner-content::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255,255,255,0.3);
 }
