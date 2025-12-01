@@ -1,189 +1,207 @@
-/* 容器整体风格：Apple/Ins风 */
-#st-css-extension {
-    margin-top: 15px;
-    border-radius: 16px;
-    background: var(--SmartThemeBlurTintColor); /* 使用主题半透明色 */
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--SmartThemeBorderColor);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+/* style.css */
+
+/* 插件主容器 - 定位在CSS框下方 */
+#css-editor-extension-container {
+    margin-top: 10px;
+    width: 100%;
+    border-radius: 12px;
+    background: var(--SmartThemeBgColor, #f5f5f7); /* 适配主题或默认浅灰 */
+    border: 1px solid var(--SmartThemeBorderColor, #e1e1e8);
     overflow: hidden;
-    transition: all 0.3s ease;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--SmartThemeBodyColor, #333);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* 顶部工具栏 */
-.css-ext-header {
+.css-ext-toolbar {
     display: flex;
-    justify-content: flex-start; /* 按钮靠左 */
-    align-items: center;
-    padding: 12px 16px;
-    gap: 12px;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 15px;
     background: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(0,0,0,0.1));
 }
 
 .css-ext-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: none;
-    background: var(--SmartThemeBodyColor);
-    color: var(--SmartThemeBgColor); /* 反色图标 */
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, #ccc);
+    border-radius: 8px;
+    padding: 6px 12px;
     cursor: pointer;
+    font-size: 14px;
+    color: var(--SmartThemeBodyColor, #333);
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.1s, opacity 0.2s;
-    font-size: 14px;
-    opacity: 0.8;
 }
 
 .css-ext-btn:hover {
-    opacity: 1;
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    background: var(--SmartThemeHoverColor, rgba(0,0,0,0.05));
+    transform: translateY(-1px);
 }
 
-.css-ext-btn:active {
-    transform: scale(0.95);
+.css-ext-btn i {
+    pointer-events: none;
 }
 
 /* 内容区域 */
 .css-ext-content {
-    max-height: 500px;
+    padding: 15px;
+    max-height: 500px; /* 默认展开高度 */
     overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    scroll-behavior: smooth;
+    transition: max-height 0.3s ease-in-out;
 }
 
 .css-ext-content.collapsed {
-    display: none;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
 }
 
-/* 每一个CSS规则块 (Selector Block) */
-.css-rule-block {
-    background: var(--SmartThemeBgColor);
+/* 单个CSS块 (Selector Block) */
+.css-ext-block {
+    background: var(--SmartThemebg1, #fff);
     border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    padding: 12px 15px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     border: 1px solid transparent;
-    transition: border-color 0.2s;
 }
 
-.css-rule-block:hover {
-    border-color: var(--SmartThemeBorderColor);
+.css-ext-block:hover {
+    border-color: var(--SmartThemeBorderColor, #ddd);
 }
 
-/* 标题区域：注释和类名 */
-.rule-header {
-    margin-bottom: 12px;
+/* 标题区域 (注释 + 类名) */
+.css-ext-header {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 10px;
     padding-bottom: 8px;
-    border-bottom: 1px dashed var(--SmartThemeBorderColor);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.rule-comment {
-    font-size: 12px;
-    color: var(--SmartThemeEmColor);
-    opacity: 0.7;
-    font-weight: 500;
-}
-
-.rule-selector {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--SmartThemeBodyColor);
-    font-family: monospace; /* 代码字体 */
-}
-
-/* 属性行 (Property Row) */
-.prop-row {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 12px;
-}
-
-.prop-row:last-child {
-    margin-bottom: 0;
-}
-
-.prop-name {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--SmartThemeBodyColor);
-    opacity: 0.5;
-    margin-bottom: 6px;
-}
-
-/* 颜色组容器 */
-.color-group {
-    display: flex;
+    border-bottom: 1px dashed var(--SmartThemeBorderColor, #eee);
     flex-wrap: wrap;
     gap: 8px;
 }
 
-/* 单个颜色项 */
-.color-item {
-    position: relative;
-    width: 100%;
+.css-ext-comment {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--SmartThemeBodyColor, #333);
+    opacity: 0.9;
+}
+
+.css-ext-selector {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--SmartThemeBodyColor, #666);
+    opacity: 0.6;
+    background: rgba(0,0,0,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* 属性行 (Property Row) */
+.css-ext-prop-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.css-ext-prop-row:last-child {
+    margin-bottom: 0;
+}
+
+.css-ext-prop-name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--SmartThemeBodyColor, #888);
+    margin-bottom: 6px;
+    opacity: 0.7;
+    font-weight: bold;
+}
+
+/* 颜色容器 */
+.css-ext-colors-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 颜色条目 (Ins风胶囊样式) */
+.css-ext-color-item {
     display: flex;
     align-items: center;
-    background: rgba(128, 128, 128, 0.05);
-    border-radius: 8px;
-    padding: 4px;
-    border: 1px solid var(--SmartThemeBorderColor);
+    background: rgba(0,0,0,0.02);
+    border-radius: 30px; /* 胶囊圆角 */
+    padding: 4px 6px;
+    border: 1px solid var(--SmartThemeBorderColor, #eee);
+    position: relative;
+    transition: background 0.2s;
 }
 
-/* 颜色预览/选择器伪装 */
-.color-preview-wrapper {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+.css-ext-color-item:hover {
+    background: rgba(0,0,0,0.05);
+}
+
+/* 颜色预览圆圈/方块 */
+.css-ext-swatch-wrapper {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
     overflow: hidden;
+    margin-right: 10px;
     flex-shrink: 0;
-    border: 1px solid rgba(0,0,0,0.1);
     cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), 
+                      linear-gradient(-45deg, #ccc 25%, transparent 25%), 
+                      linear-gradient(45deg, transparent 75%, #ccc 75%), 
+                      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px; 
 }
 
-/* 实际的input[type=color]，透明覆盖在上面 */
-input[type="color"].css-color-input {
-    width: 200%; /* 放大以确保覆盖 */
-    height: 200%;
-    transform: translate(-25%, -25%);
+/* 实际的颜色Input (隐藏在上方) */
+.css-ext-color-input {
+    width: 100%;
+    height: 100%;
+    opacity: 0;
     cursor: pointer;
-    padding: 0;
-    border: none;
-    background: none;
+    display: block;
 }
 
-/* 文本输入框 (Hex/RGBA) */
-input[type="text"].css-color-text {
+/* 颜色显示的 div */
+.css-ext-swatch-display {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+
+/* 文本输入框 (RGBA/代码) */
+.css-ext-text-input {
     flex-grow: 1;
     border: none;
     background: transparent;
-    color: var(--SmartThemeBodyColor);
-    margin-left: 8px;
     font-family: monospace;
-    font-size: 12px;
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor, #333);
     outline: none;
+    padding-right: 10px;
 }
 
-/* 滚动条美化 */
-.css-ext-content::-webkit-scrollbar {
-    width: 6px;
-}
-.css-ext-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-.css-ext-content::-webkit-scrollbar-thumb {
-    background: var(--SmartThemeBorderColor);
-    border-radius: 10px;
+/* 遮罩图片特别展示 */
+.mask-preview-bg {
+    height: 30px;
+    border-radius: 8px;
+    width: 100%;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    background-color: #eee;
 }
