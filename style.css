@@ -184,18 +184,16 @@ input.vce-search-input {
 
 .vce-line-num {
     font-family: monospace;
-    color: rgba(255,255,255,0.3);
-    margin-right: 8px;
+    color: rgba(255, 255, 255, 0.4);
     font-size: 11px;
-    min-width: 30px;
+    min-width: 20px;
     display: inline-block;
-    text-align: right;
+    text-align: center;
 }
 
 .vce-highlight-text {
     color: #fff;
-    font-weight: bold;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.3);
     border-radius: 2px;
     padding: 0 2px;
 }
