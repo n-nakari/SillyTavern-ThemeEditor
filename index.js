@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML
+// 扩展面板 HTML (移除 placeholder)
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -12,7 +12,7 @@ const EXTENSION_HTML = `
         </div>
         <div class="vce-search-wrapper">
             <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="Search items..." autocomplete="off">
+            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="" autocomplete="off">
             <div id="vce-search-dropdown" class="vce-search-dropdown"></div>
         </div>
     </div>
@@ -22,12 +22,12 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML
+// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
         <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-        <input type="text" id="native-css-search" class="vce-search-input" placeholder="Find in CSS... (Click to jump)" autocomplete="off">
+        <input type="text" id="native-css-search" class="vce-search-input" placeholder="" autocomplete="off">
         <div id="native-search-dropdown" class="vce-search-dropdown"></div>
     </div>
     <div class="vce-buttons-left">
@@ -98,9 +98,8 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 【修改点：扩展面板回顶/回底】使用原生 scrollTo
     $('#vce-btn-scroll').on('click', function() {
-        const content = $('#vce-content')[0]; // 获取原生 DOM 元素
+        const content = $('#vce-content')[0];
         const icon = $(this).find('i');
         
         if (scrollDirection === 'down') {
@@ -171,16 +170,13 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
-    // 【修改点：扩展搜索跳转】使用原生 scrollTo 计算位置
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
         const content = $('#vce-content');
-        const contentEl = content[0]; // 原生 DOM
+        const contentEl = content[0];
 
         if (targetCard.length) {
-            // 计算相对位置：子元素 offsetTop - 容器 offsetTop + 当前滚动距离
-            // 或者直接用 offsetTop，因为 vce-content 是定位父级
             const targetEl = targetCard[0];
             const topPos = targetEl.offsetTop;
 
@@ -189,7 +185,6 @@ function bindEvents() {
                 behavior: 'smooth'
             });
 
-            // 闪烁高亮
             targetCard.addClass('vce-flash-highlight');
             setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
         }
@@ -202,9 +197,8 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
-    // 【修改点：原生 CSS 回顶/回底】使用原生 scrollTo
     $('#native-btn-scroll').on('click', function() {
-        const textarea = $('#customCSS')[0]; // 获取原生 DOM
+        const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
         
         if (nativeScrollDirection === 'down') {
@@ -272,7 +266,6 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    // 【修改点：原生 CSS 搜索跳转】使用原生 scrollTo
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -291,12 +284,10 @@ function bindEvents() {
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
-        // 计算像素位置
         const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        // 使用原生平滑滚动
         rawTextarea.scrollTo({
             top: pixelTop - paddingTop,
             behavior: 'smooth'
@@ -379,7 +370,18 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
-                displayTitle = `${commentText} | ${selector}`;
+                // 【修改点：清理注释中的装饰符】
+                // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
+                const cleanComment = commentText
+                    .replace(/^\/\*+|\*+\/$/g, '')
+                    .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
+                    .trim();
+                
+                if (cleanComment) {
+                    displayTitle = `${cleanComment} | ${selector}`;
+                } else {
+                    displayTitle = selector;
+                }
             } else {
                 displayTitle = selector;
             }
