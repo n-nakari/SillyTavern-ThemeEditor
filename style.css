@@ -1,5 +1,5 @@
 :root {
-    --tool-cool-color-picker-btn-border-color-inner: transparent;
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
     --css-button-bg: rgba(255, 255, 255, 0.5);
@@ -135,7 +135,7 @@ input.vce-search-input {
 }
 
 /* 下拉菜单 */
-.vce-search-dropdown {
+* .vce-search-dropdown {
     position: absolute;
     top: 38px;
     right: 0;
@@ -148,21 +148,13 @@ input.vce-search-input {
     z-index: 10000;
     display: none;
     padding: 6px 0;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
 }
 
 .vce-container .vce-search-dropdown {
     left: auto;
     width: 300px;
-}
-
-.vce-search-dropdown::-webkit-scrollbar {
-    width: 4px;
-    overflow: hidden;
-}
-
-.vce-search-dropdown::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: 12px;
 }
 
 .vce-search-item {
@@ -200,12 +192,12 @@ input.vce-search-input {
 }
 
 /* 内容区域 */
-.vce-content {
+* .vce-content {
     height: 450px;
     overflow-y: auto;
     padding: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent !important;
     position: relative;
 }
 
@@ -231,7 +223,7 @@ input.vce-search-input {
     background: var(--card-bg);
     border-radius: 14px;
     margin-bottom: 10px;
-    padding: 15px;
+    padding: 15px 15px 0;
     border: 1px solid rgba(255, 255, 255, 0.5);
     position: relative;
     transition: background 0.2s;
@@ -274,6 +266,7 @@ input.vce-search-input {
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     opacity: 0.9;
     line-height: 1.5;
+    word-wrap: break-word;
 }
 
 .vce-prop-row {
@@ -304,6 +297,7 @@ input.vce-search-input {
     position: relative;
     z-index: 1;
     outline: none;
+    margin-bottom: 15px;
 }
 
 .vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
@@ -320,4 +314,16 @@ input.vce-color-input {
     outline: none !important;
     width: 100%;
     letter-spacing: 1px;
+    box-shadow: none !important;
+    font-family: Calisto MT !important;
+    padding: 0 !important;
+}
+
+.vce-color-idx {
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 5px;
+    border-radius: 50%;
 }
