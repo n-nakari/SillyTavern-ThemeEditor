@@ -114,7 +114,7 @@
     padding: 0 !important;
 }
 
-input.vce-search-input {
+body input.vce-search-input {
     width: 100%;
     height: 32px;
     border-radius: 16px !important;
@@ -310,7 +310,7 @@ input.vce-search-input {
     z-index: 2;
 }
 
-input.vce-color-input {
+body input.vce-color-input {
     flex-grow: 1;
     background: transparent !important;
     border: none !important;
