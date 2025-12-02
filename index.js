@@ -74,7 +74,6 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新按钮：纯读取操作
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -87,9 +86,8 @@ function bindEvents() {
         toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
-    // 保存按钮：先同步数据，再触发原生保存
     const triggerSave = () => {
-        // 触发 input 事件，同步内存，但不依赖此事件进行视觉更新
+        // 触发 input 事件以同步内存
         $('#customCSS').trigger('input');
 
         const nativeSaveBtn = $('#ui-preset-update-button');
@@ -102,23 +100,24 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
+    // 扩展面板：回顶/回底
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
-        const scrollHeight = content[0].scrollHeight;
+        // 强制移除 CSS 平滑滚动干扰，由 JS 接管
+        content.css('scroll-behavior', 'auto');
         
         if (scrollDirection === 'down') {
-            content.stop().animate({ scrollTop: scrollHeight }, 500, 'swing');
+            content.stop().animate({ scrollTop: content[0].scrollHeight }, 600, 'swing');
             scrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            content.stop().animate({ scrollTop: 0 }, 500, 'swing');
+            content.stop().animate({ scrollTop: 0 }, 600, 'swing');
             scrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
     });
 
-    // 折叠功能
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -170,14 +169,20 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
+    // 扩展面板：跳转 + 过渡效果
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
         const content = $('#vce-content');
 
         if (targetCard.length) {
+            content.css('scroll-behavior', 'auto');
+            
+            // 精确计算相对位置
             const scrollPos = content.scrollTop() + targetCard.position().top;
-            content.stop().animate({ scrollTop: scrollPos }, 300, 'swing', () => {
+            
+            // 600ms 平滑滚动
+            content.stop().animate({ scrollTop: scrollPos }, 600, 'swing', () => {
                 targetCard.addClass('vce-flash-highlight');
                 setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
             });
@@ -191,17 +196,20 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
+    // 原生面板：回顶/回底
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS');
         const icon = $(this).find('i');
         
-        // 【新增】使用 animate 实现平滑滚动
+        // 强制移除 CSS 平滑滚动干扰
+        textarea.css('scroll-behavior', 'auto');
+        
         if (nativeScrollDirection === 'down') {
-            textarea.stop().animate({ scrollTop: textarea[0].scrollHeight }, 500, 'swing');
+            textarea.stop().animate({ scrollTop: textarea[0].scrollHeight }, 600, 'swing');
             nativeScrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            textarea.stop().animate({ scrollTop: 0 }, 500, 'swing');
+            textarea.stop().animate({ scrollTop: 0 }, 600, 'swing');
             nativeScrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -255,6 +263,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
+    // 原生面板：跳转 + 过渡效果
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -273,12 +282,16 @@ function bindEvents() {
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
+        // 计算精准位置
         const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        // 【新增】搜索跳转也使用动画
-        textarea.stop().animate({ scrollTop: pixelTop - paddingTop }, 300, 'swing');
+        // 强制移除 CSS 平滑滚动干扰
+        textarea.css('scroll-behavior', 'auto');
+        
+        // 600ms 平滑滚动
+        textarea.stop().animate({ scrollTop: pixelTop - paddingTop }, 600, 'swing');
 
         nativeDropdown.hide();
     });
@@ -440,7 +453,6 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
-    // 交互锁：防止初始化或自动格式化导致 CSS 变化
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -454,14 +466,12 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
     wrapper.append(picker);
     wrapper.append(input);
 
-    // 只有用户实际点击/交互后，才解锁更新功能
     const unlock = () => { allowUpdate = true; };
     wrapper.on('mousedown', unlock);
     wrapper.on('click', unlock);
     input.on('focus', unlock);
 
     const updateCSS = (newColor) => {
-        // 如果没有交互过，拒绝修改 CSS
         if (!allowUpdate) return;
 
         let cssText = $('#customCSS').val();
@@ -489,15 +499,14 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            // 1. 更新文本框的值 (不触发 input 事件，防止 ST 自动保存)
+            // 更新值但不触发保存
             $('#customCSS').val(newCss);
             
-            // 2. 手动更新 ST 的预览样式块，实现视觉上的实时更新
+            // 实时视觉更新
             let style = document.getElementById('custom-style');
             if (style) {
                 style.textContent = newCss;
             } else {
-                // 回退机制
                 $('#customCSS').trigger('input');
             }
         }
