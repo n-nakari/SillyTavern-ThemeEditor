@@ -74,6 +74,7 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
+    // 刷新按钮：只读操作，重新渲染面板
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -82,6 +83,8 @@ function bindEvents() {
         const icon = $('#vce-btn-refresh i');
         icon.addClass('fa-spin');
         setTimeout(() => icon.removeClass('fa-spin'), 500);
+        
+        toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
     const triggerSave = () => {
@@ -111,6 +114,7 @@ function bindEvents() {
         }
     });
 
+    // 折叠功能
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -149,7 +153,6 @@ function bindEvents() {
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
-                // title属性用于hover显示完整文本
                 const item = $(`<div class="vce-search-item" data-idx="${index}" title="${fullText}">${highlightedHtml}</div>`);
                 dropdown.append(item);
             }
@@ -169,7 +172,6 @@ function bindEvents() {
         const content = $('#vce-content');
 
         if (targetCard.length) {
-            // 扩展面板里的跳转，保留原来的置顶逻辑
             const scrollPos = content.scrollTop() + targetCard.position().top;
             content.stop().animate({ scrollTop: scrollPos }, 300, 'swing', () => {
                 targetCard.addClass('vce-flash-highlight');
@@ -200,7 +202,6 @@ function bindEvents() {
         }
     });
 
-    // --- 原生文本搜索 (Shadow Clone 精准定位版) ---
     const nativeSearchInput = $('#native-css-search');
     const nativeDropdown = $('#native-search-dropdown');
 
@@ -230,7 +231,6 @@ function bindEvents() {
                 let displayLine = line.trim();
                 const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
                 
-                // 存储行号 i
                 const item = $(`
                     <div class="vce-search-item native-item" data-line="${i}" title="${displayLine}">
                         <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
@@ -257,30 +257,21 @@ function bindEvents() {
         const lines = rawTextarea.value.split('\n');
         const query = nativeSearchInput.val();
 
-        // 1. 计算字符索引
         let pos = 0;
         for (let i = 0; i < lineNum; i++) {
-            // 每行长度 + 换行符
-            pos += lines[i].length + 1; 
+            pos += lines[i].length + 1;
         }
         
-        // 2. 找到匹配词在这一行的位置
         const matchIndex = lines[lineNum].toLowerCase().indexOf(query.toLowerCase());
         const finalPos = pos + (matchIndex !== -1 ? matchIndex : 0);
 
-        // 3. 选中文字
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
-        // 4. 使用 Shadow Clone 算法计算精准像素位置
         const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
-        
-        // 5. 滚动到顶部 (无需减去 textarea 高度的一半，直接设为 Top)
-        // 减去 padding 确保文字紧贴边缘
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        // 动画滚动
         textarea.animate({ scrollTop: pixelTop - paddingTop }, 300);
 
         nativeDropdown.hide();
@@ -294,17 +285,10 @@ function bindEvents() {
     });
 }
 
-/**
- * 影子模拟算法：
- * 创建一个不可见的 div，完全复制 textarea 的样式。
- * 将目标文字前的所有内容填入，然后在末尾加个 span。
- * span 的 offsetTop 就是光标的精准像素位置，无论是否自动换行。
- */
 function getCaretCoordinates(element, position) {
     const div = document.createElement('div');
     const style = window.getComputedStyle(element);
     
-    // 复制所有影响布局的 CSS 属性
     const props = [
         'box-sizing', 'width', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
         'border-width', 'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing',
@@ -315,21 +299,17 @@ function getCaretCoordinates(element, position) {
         div.style[prop] = style.getPropertyValue(prop);
     });
 
-    // 隐藏并定位
     div.style.position = 'absolute';
     div.style.top = '0px';
     div.style.left = '-9999px';
     div.style.visibility = 'hidden';
-    div.style.overflow = 'hidden'; // 防止滚动条影响计算
+    div.style.overflow = 'hidden'; 
     
-    // 放入内容（直至光标位置）
-    // 注意：pre-wrap 能够正确处理 textarea 中的换行和空格
     div.textContent = element.value.substring(0, position);
     div.style.whiteSpace = 'pre-wrap'; 
 
-    // 添加标记元素
     const span = document.createElement('span');
-    span.textContent = '|'; // 占位符
+    span.textContent = '|'; 
     div.appendChild(span);
 
     document.body.appendChild(div);
@@ -495,10 +475,14 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         }
     };
 
+    // 为防止初始化时自动触发 change 事件导致 CSS 被修改
+    // 我们做一个简单的检查，确保颜色真的发生了变化
     picker.on('change', (evt) => {
         const col = evt.detail.rgba;
-        input.val(col);
-        updateCSS(col);
+        if (col !== input.val()) {
+            input.val(col);
+            updateCSS(col);
+        }
     });
 
     input.on('change', () => {
