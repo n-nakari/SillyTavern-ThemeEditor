@@ -31,13 +31,11 @@ jQuery(async () => {
     initUI();
     bindEvents();
     
+    // 初次加载读取一次
     setTimeout(() => readAndRenderCSS(), 500);
 
-    if (eventSource && event_types) {
-        eventSource.on(event_types.SETTINGS_UPDATED, () => {
-            setTimeout(() => readAndRenderCSS(), 200);
-        });
-    }
+    // 【修改点 1】 移除了 SETTINGS_UPDATED 的监听器
+    // 现在 CSS 文本框的变动不会反向触发面板更新，必须手动点击刷新按钮
 });
 
 function initUI() {
@@ -51,7 +49,7 @@ function bindEvents() {
     // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
-        // 清空搜索框
+        // 清空搜索状态
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
         
@@ -106,7 +104,6 @@ function bindEvents() {
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    // 输入监听
     searchInput.on('input', function() {
         const query = $(this).val().trim();
         dropdown.empty();
@@ -123,12 +120,9 @@ function bindEvents() {
             const header = $(this).find('.vce-card-header');
             const fullText = header.text();
             
-            // 简单的包含匹配 (不区分大小写)
             if (fullText.toLowerCase().includes(query.toLowerCase())) {
                 hasResults = true;
                 
-                // 高亮匹配文字
-                // 转义正则特殊字符
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
@@ -152,20 +146,22 @@ function bindEvents() {
         const content = $('#vce-content');
 
         if (targetCard.length) {
-            // 计算滚动位置：当前滚动top + 目标相对top - 容器padding顶
-            const scrollTop = content.scrollTop() + targetCard.position().top - 20;
+            // 【修改点 3】 精准滚动定位
+            // content.scrollTop() 是当前滚动条位置
+            // targetCard.position().top 是元素相对于容器可见顶部的距离
+            // 两者相加就是元素在该容器内的绝对滚动坐标
+            const scrollPos = content.scrollTop() + targetCard.position().top;
             
-            content.stop().animate({ scrollTop: scrollTop }, 300, 'swing', () => {
-                // 跳转后闪烁高亮一下卡片
+            content.stop().animate({ scrollTop: scrollPos }, 300, 'swing', () => {
+                // 【修改点 4】 触发高亮闪烁动画
                 targetCard.addClass('vce-flash-highlight');
-                setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1000);
+                setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
             });
         }
         
         dropdown.hide();
     });
 
-    // 点击外部关闭下拉
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.vce-search-wrapper').length) {
             dropdown.hide();
@@ -301,8 +297,10 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
+        
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
+        // 匹配规则块
         const blockRegex = new RegExp(`([^{]*${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
