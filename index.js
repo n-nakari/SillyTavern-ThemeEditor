@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML (增加下拉栏容器)
+// 原生 CSS 区域辅助工具栏 HTML
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -50,9 +50,8 @@ jQuery(async () => {
     // 1. 初次加载：读取一次
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 2. 仅在切换美化主题下拉框时读取一次 (不再监听 SETTINGS_UPDATED 防止 autosave 触发)
+    // 2. 仅在切换美化主题下拉框时读取一次
     $(document).on('change', '#themes', () => {
-        // 延迟一点等待 ST 载入新主题的 CSS 内容
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -61,12 +60,10 @@ function initUI() {
     const cssBlock = $('#CustomCSS-block');
     const textAreaBlock = $('#CustomCSS-textAreaBlock');
 
-    // 注入扩展面板
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
     }
 
-    // 注入原生辅助工具栏
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
@@ -77,7 +74,6 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -88,7 +84,6 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存
     const triggerSave = () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
@@ -100,7 +95,6 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 回顶/回底
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
@@ -117,7 +111,6 @@ function bindEvents() {
         }
     });
 
-    // 折叠
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -156,7 +149,7 @@ function bindEvents() {
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
-                const item = $(`<div class="vce-search-item" data-idx="${index}">${highlightedHtml}</div>`);
+                const item = $(`<div class="vce-search-item" data-idx="${index}" title="${fullText}">${highlightedHtml}</div>`);
                 dropdown.append(item);
             }
         });
@@ -188,10 +181,8 @@ function bindEvents() {
     //      原生区域辅助功能
     // ===========================
 
-    // 原生保存
     $('#native-btn-save').on('click', triggerSave);
 
-    // 原生回顶/回底
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS');
         const icon = $(this).find('i');
@@ -226,35 +217,25 @@ function bindEvents() {
         let hasResults = false;
         const lowerQuery = query.toLowerCase();
 
-        // 遍历每一行查找匹配
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             if (line.toLowerCase().includes(lowerQuery)) {
                 hasResults = true;
                 
-                // 计算该行在全文中的起始索引 (大致估算用于跳转)
-                // 精确做法是累加长度，这里为了性能简化，点击时再精确计算
-                
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 
-                // 截取代码片段，防止过长
+                // 去除 JS 截断，改用 CSS 控制
                 let displayLine = line.trim();
-                if (displayLine.length > 50) {
-                    displayLine = displayLine.substring(0, 50) + '...';
-                }
-                
                 const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
                 
-                // data-line 存储行号
                 const item = $(`
-                    <div class="vce-search-item native-item" data-line="${i}">
+                    <div class="vce-search-item native-item" data-line="${i}" title="${displayLine}">
                         <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
                     </div>
                 `);
                 nativeDropdown.append(item);
                 
-                // 限制下拉栏显示数量，防止卡顿
                 if (nativeDropdown.children().length >= 100) break;
             }
         }
@@ -267,6 +248,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
+    // 原生跳转逻辑优化：精准计算位置并居中
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -274,33 +256,34 @@ function bindEvents() {
         const lines = rawTextarea.value.split('\n');
         const query = nativeSearchInput.val();
 
-        // 计算目标行的起始位置
         let pos = 0;
         for (let i = 0; i < lineNum; i++) {
-            pos += lines[i].length + 1; // +1 是换行符
+            pos += lines[i].length + 1;
         }
 
-        // 在该行内找到匹配文字的位置
         const matchIndex = lines[lineNum].toLowerCase().indexOf(query.toLowerCase());
         const finalPos = pos + (matchIndex !== -1 ? matchIndex : 0);
 
-        // 选中文字并跳转
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
-        // 滚动到光标位置 (利用 blur/focus hack 或 scrollIntoView)
-        // 简单计算滚动高度
-        const lineHeight = 20; // 估算行高
-        const scrollAmount = lineNum * lineHeight;
+        // 动态获取行高，计算精准滚动位置
+        const computedStyle = window.getComputedStyle(rawTextarea);
+        let lineHeight = parseInt(computedStyle.lineHeight);
+        if (isNaN(lineHeight)) lineHeight = parseInt(computedStyle.fontSize) * 1.2; // Fallback
+
+        // 计算目标行距离顶部的像素值
+        const targetPixel = lineNum * lineHeight;
         
-        // 尝试居中显示
-        const textAreaHeight = textarea.height();
-        textarea.scrollTop(scrollAmount - textAreaHeight / 2);
+        // 让目标行显示在视口中间
+        const halfViewHeight = textarea.height() / 2;
+        const scrollTarget = Math.max(0, targetPixel - halfViewHeight);
+
+        textarea.scrollTop(scrollTarget);
 
         nativeDropdown.hide();
     });
 
-    // 点击外部关闭所有下拉
     $(document).on('click', function(e) {
         if (!$(e.target).closest('.vce-search-wrapper').length) {
             dropdown.hide();
