@@ -22,6 +22,7 @@
     flex-direction: column;
 }
 
+/* 折叠状态 */
 .vce-container.collapsed {
     max-height: 54px;
     overflow: hidden;
@@ -92,12 +93,13 @@
     align-items: center;
     width: 200px;
     flex-shrink: 0;
-    transition: opacity 0.2s ease; /* 增加透明度过渡 */
+    transition: opacity 0.2s ease, visibility 0.2s;
 }
 
-/* 折叠时隐藏搜索框 */
+/* 【关键修正】折叠时完全隐藏搜索框 */
 .vce-container.collapsed .vce-search-wrapper {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
     pointer-events: none;
 }
 
@@ -244,12 +246,18 @@
     border: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     transition: background 0.2s;
-    z-index: 1;
+    z-index: 1; /* 基础层级 */
 }
 
 .vce-card:hover {
     background: rgba(255, 255, 255, 0.06);
     border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 【关键修正】悬停或聚焦卡片内容时，极大提升卡片层级，确保弹窗不被下方卡片遮挡 */
+.vce-card:hover,
+.vce-card:focus-within {
+    z-index: 1000;
 }
 
 @keyframes vce-flash {
@@ -267,7 +275,7 @@
 
 .vce-flash-highlight {
     animation: vce-flash 1.2s ease-out forwards;
-    z-index: 10;
+    z-index: 1001; /* 闪烁时层级也需要够高 */
 }
 
 .vce-card-header {
@@ -309,7 +317,7 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all 0.2s;
     position: relative;
-    z-index: 2;
+    z-index: 1; /* 包裹层内部层级 */
     outline: none;
 }
 
@@ -317,7 +325,7 @@
 .vce-color-wrapper:focus-within {
     border-color: rgba(255, 255, 255, 0.2);
     background: rgba(0, 0, 0, 0.35);
-    z-index: 9999; 
+    z-index: 2; /* 在卡片内部提升 */
 }
 
 .vce-color-idx {
