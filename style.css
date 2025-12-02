@@ -32,13 +32,13 @@
     padding: 10px 16px;
     display: flex;
     align-items: center;
-    justify-content: space-between; /* 关键：两端对齐 */
+    justify-content: space-between;
     background: rgba(0, 0, 0, 0.15);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 18px 18px 0 0;
     flex-shrink: 0;
     transition: border-radius 0.4s ease;
-    height: 34px; /* 固定高度确保对齐 */
+    height: 34px;
 }
 
 .vce-container.collapsed .vce-toolbar {
@@ -72,12 +72,13 @@
     transform: translateY(-1px);
 }
 
-/* --- 搜索框相关样式 --- */
+/* --- 搜索框样式优化 --- */
 .vce-search-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    width: 200px; /* 搜索框宽度 */
+    width: 200px; /* 固定宽度，防止抖动 */
+    flex-shrink: 0; /* 防止被左侧按钮挤压 */
 }
 
 .vce-search-icon {
@@ -86,19 +87,23 @@
     font-size: 12px;
     color: rgba(255, 255, 255, 0.4);
     pointer-events: none;
+    z-index: 2;
 }
 
+/* 【修改点 2】 搜索框位移修复 */
+/* 移除可能的 width transition 导致的视觉位移，固定 box-sizing */
 .vce-search-input {
     width: 100%;
     height: 32px;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.2);
-    padding: 0 12px 0 32px; /* 左侧留出图标空间 */
+    padding: 0 12px 0 32px;
     color: var(--SmartThemeBodyColor, #eee);
     font-size: 12px;
     outline: none;
-    transition: all 0.2s ease;
+    box-sizing: border-box; /* 确保 padding 不增加宽度 */
+    transition: background 0.2s ease, border-color 0.2s ease; /* 移除 width transition */
 }
 
 .vce-search-input:focus {
@@ -108,21 +113,20 @@
 
 .vce-search-dropdown {
     position: absolute;
-    top: 38px; /* 输入框高度 + 间距 */
+    top: 38px;
     right: 0;
-    width: 260px; /* 下拉菜单比输入框宽一些，显示更多内容 */
+    width: 260px;
     max-height: 300px;
     overflow-y: auto;
-    background: rgba(20, 20, 20, 0.95); /* 深色不透明背景 */
+    background: rgba(20, 20, 20, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 10000;
-    display: none; /* 默认隐藏 */
+    display: none;
     padding: 6px 0;
 }
 
-/* 下拉滚动条 */
 .vce-search-dropdown::-webkit-scrollbar {
     width: 4px;
 }
@@ -151,7 +155,6 @@
     color: #fff;
 }
 
-/* 搜索结果高亮文字 */
 .vce-highlight-text {
     color: #fff;
     font-weight: bold;
@@ -167,6 +170,7 @@
     padding: 16px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
+    position: relative; /* 为子元素定位 */
 }
 
 .vce-content::-webkit-scrollbar {
@@ -193,7 +197,8 @@
     padding: 14px 16px;
     border: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
-    transition: background 0.2s, box-shadow 0.3s;
+    /* 移除 box-shadow 默认过渡，让动画更干脆 */
+    transition: background 0.2s;
     z-index: 1;
 }
 
@@ -202,15 +207,23 @@
     border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* 跳转闪烁动画 */
+/* 【修改点 4】 高亮闪烁动画增强 */
 @keyframes vce-flash {
-    0% { background: rgba(255, 255, 255, 0.04); }
-    50% { background: rgba(255, 255, 255, 0.2); box-shadow: 0 0 15px rgba(255,255,255,0.1); }
-    100% { background: rgba(255, 255, 255, 0.04); }
+    0% { 
+        background-color: rgba(255, 255, 255, 0.4); 
+        box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        transform: scale(1.02);
+    }
+    100% { 
+        background-color: rgba(255, 255, 255, 0.04); 
+        box-shadow: none;
+        transform: scale(1);
+    }
 }
 
 .vce-flash-highlight {
-    animation: vce-flash 1s ease-out;
+    animation: vce-flash 1.2s ease-out forwards;
+    z-index: 10; /* 闪烁时确保在最上层 */
 }
 
 .vce-card-header {
@@ -263,7 +276,6 @@
     z-index: 9999; 
 }
 
-/* 数字索引样式 */
 .vce-color-idx {
     font-size: 10px;
     color: rgba(255, 255, 255, 0.3);
@@ -275,7 +287,6 @@
     min-width: 12px;
 }
 
-/* ToolCool Picker 样式 */
 .vce-picker {
     width: 26px !important;
     height: 26px !important;
@@ -302,7 +313,6 @@ toolcool-color-picker::part(button) {
     background-color: transparent !important;
 }
 
-/* 文本输入框 */
 .vce-color-input {
     flex-grow: 1;
     background: transparent;
