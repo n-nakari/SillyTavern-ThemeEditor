@@ -94,12 +94,11 @@
     flex-shrink: 0;
 }
 
-/* 原生区域的搜索框可以宽一点 */
 .native-search-wrapper {
     width: auto;
     flex-grow: 1;
     margin-right: 15px;
-    position: relative; /* 确保下拉菜单定位相对于此 */
+    position: relative;
 }
 
 .vce-search-icon {
@@ -130,12 +129,12 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* 下拉菜单 */
+/* 下拉菜单 (单行截断逻辑在这里) */
 .vce-search-dropdown {
     position: absolute;
     top: 38px;
     right: 0;
-    left: 0; /* 在原生框中可以撑满 */
+    left: 0;
     max-width: 100%;
     max-height: 300px;
     overflow-y: auto;
@@ -148,7 +147,6 @@
     padding: 6px 0;
 }
 
-/* 扩展面板中的下拉宽度限制一下 */
 .vce-container .vce-search-dropdown {
     left: auto;
     width: 260px;
@@ -170,9 +168,12 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     transition: background 0.1s;
     line-height: 1.4;
-    word-break: break-all;
-    display: flex;
-    align-items: center;
+    display: block; /* 必须是block以便计算宽度 */
+    
+    /* 单行截断关键属性 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .vce-search-item:last-child {
@@ -184,13 +185,13 @@
     color: #fff;
 }
 
-/* 原生搜索里的行号 */
 .vce-line-num {
     font-family: monospace;
     color: rgba(255,255,255,0.3);
     margin-right: 8px;
     font-size: 11px;
     min-width: 30px;
+    display: inline-block;
     text-align: right;
 }
 
