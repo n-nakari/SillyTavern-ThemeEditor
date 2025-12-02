@@ -10,6 +10,11 @@ const EXTENSION_HTML = `
             <button id="vce-btn-scroll" class="vce-btn" title="Scroll Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
             <button id="vce-btn-collapse" class="vce-btn" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
         </div>
+        <div class="vce-search-wrapper">
+            <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
+            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="Search..." autocomplete="off">
+            <div id="vce-search-dropdown" class="vce-search-dropdown"></div>
+        </div>
     </div>
     <div id="vce-content" class="vce-content">
         <div class="vce-empty-state">Initializing...</div>
@@ -17,12 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 颜色匹配正则
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
-
-// CSS 块匹配正则 (更稳健的策略)
-// 捕获组1: { 之前的所有内容 (包含注释、换行、选择器)
-// 捕获组2: { } 内部的属性内容
 const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
@@ -51,32 +51,27 @@ function bindEvents() {
     // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
+        // 清空搜索框
+        $('#vce-search-input').val('');
+        $('#vce-search-dropdown').hide();
+        
         const icon = $('#vce-btn-refresh i');
         icon.addClass('fa-spin');
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存 - 模拟原生点击
+    // 保存
     $('#vce-btn-save').on('click', () => {
-        // 尝试找到 ST 原生的 "Update theme file" 按钮
-        // 通常 ID 为 ui-preset-update-button
         const nativeSaveBtn = $('#ui-preset-update-button');
-        
-        if (nativeSaveBtn.length) {
-            // 触发原生保存逻辑 (即保存到文件)
+        if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
-            // 添加一个视觉反馈，因为原生的 toastr 可能不会立即显示
-            const btnIcon = $('#vce-btn-save i');
-            btnIcon.removeClass('fa-floppy-disk').addClass('fa-check');
-            setTimeout(() => btnIcon.removeClass('fa-check').addClass('fa-floppy-disk'), 1000);
         } else {
-            // 如果找不到原生按钮 (罕见情况)，回退到保存设置
             saveSettingsDebounced();
             toastr.warning('Native theme save button not found. Saved to browser settings only.', 'Visual CSS Editor');
         }
     });
 
-    // 回顶/回底 (带平滑动画)
+    // 回顶/回底
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
@@ -93,7 +88,7 @@ function bindEvents() {
         }
     });
 
-    // 折叠 (处理顶栏圆角和平滑过渡)
+    // 折叠
     $('#vce-btn-collapse').on('click', function() {
         const container = $('#visual-css-editor');
         const icon = $(this).find('i');
@@ -106,11 +101,78 @@ function bindEvents() {
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         }
     });
+
+    // --- 搜索功能 ---
+    const searchInput = $('#vce-search-input');
+    const dropdown = $('#vce-search-dropdown');
+
+    // 输入监听
+    searchInput.on('input', function() {
+        const query = $(this).val().trim();
+        dropdown.empty();
+
+        if (!query) {
+            dropdown.hide();
+            return;
+        }
+
+        const cards = $('.vce-card');
+        let hasResults = false;
+
+        cards.each(function(index) {
+            const header = $(this).find('.vce-card-header');
+            const fullText = header.text();
+            
+            // 简单的包含匹配 (不区分大小写)
+            if (fullText.toLowerCase().includes(query.toLowerCase())) {
+                hasResults = true;
+                
+                // 高亮匹配文字
+                // 转义正则特殊字符
+                const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${safeQuery})`, 'gi');
+                const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
+
+                const item = $(`<div class="vce-search-item" data-idx="${index}">${highlightedHtml}</div>`);
+                dropdown.append(item);
+            }
+        });
+
+        if (hasResults) {
+            dropdown.show();
+        } else {
+            dropdown.hide();
+        }
+    });
+
+    // 点击搜索结果跳转
+    dropdown.on('click', '.vce-search-item', function() {
+        const idx = $(this).data('idx');
+        const targetCard = $('.vce-card').eq(idx);
+        const content = $('#vce-content');
+
+        if (targetCard.length) {
+            // 计算滚动位置：当前滚动top + 目标相对top - 容器padding顶
+            const scrollTop = content.scrollTop() + targetCard.position().top - 20;
+            
+            content.stop().animate({ scrollTop: scrollTop }, 300, 'swing', () => {
+                // 跳转后闪烁高亮一下卡片
+                targetCard.addClass('vce-flash-highlight');
+                setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1000);
+            });
+        }
+        
+        dropdown.hide();
+    });
+
+    // 点击外部关闭下拉
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.vce-search-wrapper').length) {
+            dropdown.hide();
+        }
+    });
 }
 
-/**
- * 核心逻辑：读取 CSS 并解析
- */
 function readAndRenderCSS() {
     const cssText = $('#customCSS').val() || '';
     const container = $('#vce-content');
@@ -121,14 +183,12 @@ function readAndRenderCSS() {
     CSS_BLOCK_REGEX.lastIndex = 0;
 
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
-        const rawHeader = match[1]; // e.g. "\n\n/* 注释 */\n.class"
-        const body = match[2];      // 属性块
+        const rawHeader = match[1];
+        const body = match[2];
 
         let displayTitle = '';
         let selector = '';
 
-        // --- 标题解析逻辑 (参考你的思路) ---
-        // 1. 查找最后一条注释的位置
         const commentRegex = /\/\*([\s\S]*?)\*\//g;
         let lastCommentMatch = null;
         let tempMatch;
@@ -137,33 +197,24 @@ function readAndRenderCSS() {
         }
 
         if (lastCommentMatch) {
-            const commentText = lastCommentMatch[1].trim(); // 提取注释内容
+            const commentText = lastCommentMatch[1].trim();
             const commentEndIndex = lastCommentMatch.index + lastCommentMatch[0].length;
-            
-            // 获取注释后面的部分 (即 Gap + Selector)
             const afterComment = rawHeader.substring(commentEndIndex);
-            
-            // 核心判断：计算中间的换行符数量
             const newLineCount = (afterComment.match(/\n/g) || []).length;
             
-            // 提取类名 (去掉首尾空白)
             selector = afterComment.trim();
 
-            // 如果换行符少于2个，说明没有空行，关联注释
             if (newLineCount < 2 && selector) {
                 displayTitle = `${commentText} | ${selector}`;
             } else {
                 displayTitle = selector;
             }
         } else {
-            // 没有注释，直接取最后一行作为类名 (清理掉前面的空白)
             selector = rawHeader.split('\n').pop().trim();
-            // 如果只有一行且没有换行符
             if (!selector) selector = rawHeader.trim();
             displayTitle = selector;
         }
 
-        // 如果选择器为空（例如只是文件开头的注释），跳过
         if (!selector) continue;
 
         const properties = parseProperties(body);
@@ -220,7 +271,6 @@ function createCard(title, properties, selector) {
             colorsFound.push(match[0]);
         }
 
-        // 是否显示数字索引 (颜色多于1个时)
         const showIndex = colorsFound.length > 1;
 
         colorsFound.forEach((color, idx) => {
@@ -236,10 +286,8 @@ function createCard(title, properties, selector) {
 }
 
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
-    // tabindex="0" 允许div获得焦点，配合 css focus-within 解决层级问题
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
-    // 多颜色时显示数字
     if (displayIndex !== null) {
         wrapper.append(`<span class="vce-color-idx">${displayIndex}</span>`);
     }
@@ -253,24 +301,11 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
     const updateCSS = (newColor) => {
         let cssText = $('#customCSS').val();
-        
-        // 使用更安全的替换逻辑：
-        // 1. 找到对应的块
-        // 2. 找到对应的属性
-        // 3. 替换第 N 个颜色
-        
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        // 匹配规则块：找到选择器，直到下一个 }
-        // 注意：这里需要匹配 rawHeader 的一部分特征来确保唯一性，但为了简化且高效，我们主要依赖选择器
         const blockRegex = new RegExp(`([^{]*${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
-        let found = false;
         const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
-            // 简单的防误触：如果已经修改过了就不再修改（假设文件里有重复选择器）
-            // 这里的逻辑可以优化，但通常够用
-            
-            // 替换属性值
             const propRegex = new RegExp(`(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
             
             const newContent = content.replace(propRegex, (m, pPrefix, pValue, pSuffix) => {
