@@ -1,18 +1,18 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 定义扩展的HTML结构
+// 扩展面板 HTML
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
         <div class="vce-buttons-left">
-            <button id="vce-btn-refresh" class="vce-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
+            <button id="vce-btn-refresh" class="vce-btn" title="Refresh Panel"><i class="fa-solid fa-rotate-right"></i></button>
             <button id="vce-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
             <button id="vce-btn-scroll" class="vce-btn" title="Scroll Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
             <button id="vce-btn-collapse" class="vce-btn" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
         </div>
         <div class="vce-search-wrapper">
             <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="Search..." autocomplete="off">
+            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="Search items..." autocomplete="off">
             <div id="vce-search-dropdown" class="vce-search-dropdown"></div>
         </div>
     </div>
@@ -22,34 +22,70 @@ const EXTENSION_HTML = `
 </div>
 `;
 
+// 原生 CSS 区域辅助工具栏 HTML
+const NATIVE_TOOLBAR_HTML = `
+<div id="native-css-toolbar" class="native-css-toolbar">
+    <div class="vce-search-wrapper native-search-wrapper">
+        <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
+        <input type="text" id="native-css-search" class="vce-search-input" placeholder="Find in CSS code... (Enter for next)" autocomplete="off">
+        <span id="native-search-count" class="native-search-count"></span>
+    </div>
+    <div class="vce-buttons-left">
+        <button id="native-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
+        <button id="native-btn-scroll" class="vce-btn" title="Scroll Code Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
+    </div>
+</div>
+`;
+
 const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
 const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
+let nativeScrollDirection = 'down';
+let lastSearchQuery = '';
+let searchCursor = 0; // 原生搜索光标位置
 
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 初次加载读取一次
+    // 1. 初次加载：自动读取一次
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 【修改点 1】 移除了 SETTINGS_UPDATED 的监听器
-    // 现在 CSS 文本框的变动不会反向触发面板更新，必须手动点击刷新按钮
+    // 2. 切换美化主题后：自动读取一次
+    if (eventSource && event_types) {
+        eventSource.on(event_types.SETTINGS_UPDATED, () => {
+            // 延迟确保 #customCSS 里的值已经变了
+            setTimeout(() => readAndRenderCSS(), 200);
+        });
+    }
 });
 
 function initUI() {
-    const targetArea = $('#CustomCSS-textAreaBlock');
-    if (targetArea.length && $('#visual-css-editor').length === 0) {
-        targetArea.after(EXTENSION_HTML);
+    const cssBlock = $('#CustomCSS-block');
+    const textAreaBlock = $('#CustomCSS-textAreaBlock');
+
+    // 注入扩展面板 (在文本框下方)
+    if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
+        textAreaBlock.after(EXTENSION_HTML);
+    }
+
+    // 注入原生辅助工具栏 (在标题下方，文本框上方)
+    // 通常结构是 CustomCSS-block -> h4标题 -> CustomCSS-textAreaBlock
+    if (cssBlock.length && $('#native-css-toolbar').length === 0) {
+        // 找到文本框容器，插在它前面
+        textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 }
 
 function bindEvents() {
+    // ===========================
+    //      扩展面板功能绑定
+    // ===========================
+
     // 刷新
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
-        // 清空搜索状态
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
         
@@ -58,16 +94,17 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存
-    $('#vce-btn-save').on('click', () => {
+    // 保存 (通用逻辑)
+    const triggerSave = () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
         } else {
             saveSettingsDebounced();
-            toastr.warning('Native theme save button not found. Saved to browser settings only.', 'Visual CSS Editor');
+            toastr.warning('Native theme save button not found. Saved to browser settings.', 'Visual CSS Editor');
         }
-    });
+    };
+    $('#vce-btn-save').on('click', triggerSave);
 
     // 回顶/回底
     $('#vce-btn-scroll').on('click', function() {
@@ -100,12 +137,12 @@ function bindEvents() {
         }
     });
 
-    // --- 搜索功能 ---
+    // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    searchInput.on('input', function() {
-        const query = $(this).val().trim();
+    const handleSearch = () => {
+        const query = searchInput.val().trim();
         dropdown.empty();
 
         if (!query) {
@@ -122,43 +159,38 @@ function bindEvents() {
             
             if (fullText.toLowerCase().includes(query.toLowerCase())) {
                 hasResults = true;
-                
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
-
                 const item = $(`<div class="vce-search-item" data-idx="${index}">${highlightedHtml}</div>`);
                 dropdown.append(item);
             }
         });
 
-        if (hasResults) {
-            dropdown.show();
-        } else {
-            dropdown.hide();
+        hasResults ? dropdown.show() : dropdown.hide();
+    };
+
+    searchInput.on('input', handleSearch);
+    
+    // 【修改点】点击/聚焦时，如果有内容，直接显示下拉
+    searchInput.on('focus click', function() {
+        if ($(this).val().trim()) {
+            handleSearch();
         }
     });
 
-    // 点击搜索结果跳转
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
         const content = $('#vce-content');
 
         if (targetCard.length) {
-            // 【修改点 3】 精准滚动定位
-            // content.scrollTop() 是当前滚动条位置
-            // targetCard.position().top 是元素相对于容器可见顶部的距离
-            // 两者相加就是元素在该容器内的绝对滚动坐标
             const scrollPos = content.scrollTop() + targetCard.position().top;
-            
             content.stop().animate({ scrollTop: scrollPos }, 300, 'swing', () => {
-                // 【修改点 4】 触发高亮闪烁动画
                 targetCard.addClass('vce-flash-highlight');
                 setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
             });
         }
-        
         dropdown.hide();
     });
 
@@ -167,6 +199,84 @@ function bindEvents() {
             dropdown.hide();
         }
     });
+
+    // ===========================
+    //      原生区域辅助功能绑定
+    // ===========================
+
+    // 原生保存
+    $('#native-btn-save').on('click', triggerSave);
+
+    // 原生回顶/回底
+    $('#native-btn-scroll').on('click', function() {
+        const textarea = $('#customCSS');
+        const icon = $(this).find('i');
+        
+        if (nativeScrollDirection === 'down') {
+            textarea.scrollTop(textarea[0].scrollHeight);
+            nativeScrollDirection = 'up';
+            icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
+        } else {
+            textarea.scrollTop(0);
+            nativeScrollDirection = 'down';
+            icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
+        }
+    });
+
+    // 原生查找功能 (Find Next)
+    const nativeSearchInput = $('#native-css-search');
+    
+    const performNativeSearch = () => {
+        const query = nativeSearchInput.val();
+        const textarea = $('#customCSS')[0];
+        const text = textarea.value;
+
+        if (!query) return;
+
+        // 如果关键词变了，重置游标
+        if (query !== lastSearchQuery) {
+            searchCursor = -1;
+            lastSearchQuery = query;
+        }
+
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        
+        // 从当前光标位置开始查找
+        let nextIndex = lowerText.indexOf(lowerQuery, searchCursor + 1);
+
+        // 如果到底了，循环回到顶部
+        if (nextIndex === -1) {
+            nextIndex = lowerText.indexOf(lowerQuery, 0);
+            // 给个视觉提示：循环了
+            toastr.info('Search wrapped to top', '', { timeOut: 1000, preventDuplicates: true });
+        }
+
+        if (nextIndex !== -1) {
+            // 选中文字并滚动到视野
+            textarea.focus();
+            textarea.setSelectionRange(nextIndex, nextIndex + query.length);
+            
+            // 计算行号，大概估算滚动位置，或者依赖浏览器的默认focus滚动行为
+            // setSelectionRange通常会自动滚动，如果不行可以使用 blur/focus hack
+            textarea.blur();
+            textarea.focus();
+            
+            searchCursor = nextIndex;
+        } else {
+            toastr.warning('Text not found in CSS', '', { timeOut: 2000 });
+        }
+    };
+
+    nativeSearchInput.on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performNativeSearch();
+        }
+    });
+    
+    // 点击放大镜也可以搜索
+    nativeSearchInput.siblings('.vce-search-icon').on('click', performNativeSearch);
 }
 
 function readAndRenderCSS() {
@@ -299,8 +409,6 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         let cssText = $('#customCSS').val();
         
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // 匹配规则块
         const blockRegex = new RegExp(`([^{]*${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
