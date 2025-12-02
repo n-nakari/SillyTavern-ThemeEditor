@@ -87,10 +87,10 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        // 触发 input 事件以同步内存
+        const nativeSaveBtn = $('#ui-preset-update-button');
+        // 触发 input 事件以同步内存，但不触发自动保存逻辑（依赖原生按钮行为）
         $('#customCSS').trigger('input');
 
-        const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
         } else {
@@ -100,19 +100,20 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 扩展面板：回顶/回底
+    // 【修改点：扩展面板回顶/回底】增加平滑过渡
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content');
         const icon = $(this).find('i');
-        // 强制移除 CSS 平滑滚动干扰，由 JS 接管
-        content.css('scroll-behavior', 'auto');
+        const scrollHeight = content[0].scrollHeight;
         
+        // stop(true, false) 清除积压的动画
+        // duration 设为 600ms 确保肉眼可见
         if (scrollDirection === 'down') {
-            content.stop().animate({ scrollTop: content[0].scrollHeight }, 600, 'swing');
+            content.stop(true, false).animate({ scrollTop: scrollHeight }, 600);
             scrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            content.stop().animate({ scrollTop: 0 }, 600, 'swing');
+            content.stop(true, false).animate({ scrollTop: 0 }, 600);
             scrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -169,20 +170,17 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
-    // 扩展面板：跳转 + 过渡效果
+    // 【修改点：扩展面板搜索跳转】增加平滑过渡
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
         const content = $('#vce-content');
 
         if (targetCard.length) {
-            content.css('scroll-behavior', 'auto');
-            
-            // 精确计算相对位置
+            // 计算相对位置：当前滚动 + 元素相对位置
             const scrollPos = content.scrollTop() + targetCard.position().top;
             
-            // 600ms 平滑滚动
-            content.stop().animate({ scrollTop: scrollPos }, 600, 'swing', () => {
+            content.stop(true, false).animate({ scrollTop: scrollPos }, 500, 'swing', () => {
                 targetCard.addClass('vce-flash-highlight');
                 setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
             });
@@ -196,20 +194,17 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
-    // 原生面板：回顶/回底
+    // 【修改点：原生 CSS 回顶/回底】增加平滑过渡
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS');
         const icon = $(this).find('i');
         
-        // 强制移除 CSS 平滑滚动干扰
-        textarea.css('scroll-behavior', 'auto');
-        
         if (nativeScrollDirection === 'down') {
-            textarea.stop().animate({ scrollTop: textarea[0].scrollHeight }, 600, 'swing');
+            textarea.stop(true, false).animate({ scrollTop: textarea[0].scrollHeight }, 600);
             nativeScrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            textarea.stop().animate({ scrollTop: 0 }, 600, 'swing');
+            textarea.stop(true, false).animate({ scrollTop: 0 }, 600);
             nativeScrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -263,7 +258,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    // 原生面板：跳转 + 过渡效果
+    // 【修改点：原生 CSS 搜索跳转】增加平滑过渡
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -282,16 +277,13 @@ function bindEvents() {
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
-        // 计算精准位置
+        // 计算精准像素位置
         const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        // 强制移除 CSS 平滑滚动干扰
-        textarea.css('scroll-behavior', 'auto');
-        
-        // 600ms 平滑滚动
-        textarea.stop().animate({ scrollTop: pixelTop - paddingTop }, 600, 'swing');
+        // 使用动画滚动
+        textarea.stop(true, false).animate({ scrollTop: pixelTop - paddingTop }, 500, 'swing');
 
         nativeDropdown.hide();
     });
@@ -304,6 +296,7 @@ function bindEvents() {
     });
 }
 
+// 影子模拟算法：用于获取光标精准像素位置
 function getCaretCoordinates(element, position) {
     const div = document.createElement('div');
     const style = window.getComputedStyle(element);
@@ -453,6 +446,7 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
+    // 交互锁：默认只读
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -466,6 +460,7 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
     wrapper.append(picker);
     wrapper.append(input);
 
+    // 解锁交互
     const unlock = () => { allowUpdate = true; };
     wrapper.on('mousedown', unlock);
     wrapper.on('click', unlock);
@@ -499,10 +494,9 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            // 更新值但不触发保存
             $('#customCSS').val(newCss);
             
-            // 实时视觉更新
+            // 仅视觉更新预览，不触发 input 事件以免自动保存到配置
             let style = document.getElementById('custom-style');
             if (style) {
                 style.textContent = newCss;
