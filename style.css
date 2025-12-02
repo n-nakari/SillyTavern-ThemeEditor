@@ -149,7 +149,7 @@ input.vce-search-input {
     display: none;
     padding: 6px 0;
     scrollbar-width: thin !important;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent !important;
 }
 
 .vce-container .vce-search-dropdown {
@@ -323,7 +323,10 @@ input.vce-color-input {
     font-size: 10px;
     font-weight: bold;
     color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-    margin: 0 5px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 3px 0;
+    width: 20px;
+    height: 17px;
     border-radius: 50%;
+    text-align: center;
 }
