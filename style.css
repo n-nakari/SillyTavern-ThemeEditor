@@ -3,6 +3,7 @@
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
     --css-button-bg: rgba(255, 255, 255, 0.5);
+    --card-bg: rgba(255, 255, 255, 0.2);
 }
 
 /* 整体样式 */
@@ -198,21 +199,22 @@ input.vce-search-input {
     padding: 0 2px;
 }
 
-/* --- 内容区域 --- */
+/* 内容区域 */
 .vce-content {
-    height: 550px; 
+    height: 450px;
     overflow-y: auto;
-    padding: 16px;
+    padding: 10px;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.15) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
     position: relative;
 }
 
 .vce-content::-webkit-scrollbar {
     width: 5px;
 }
+
 .vce-content::-webkit-scrollbar-thumb {
-    background-color: rgba(255,255,255,0.15);
+    background-color: rgba(255, 255, 255, 0.15);
     border-radius: 10px;
 }
 
@@ -226,58 +228,56 @@ input.vce-search-input {
 
 /* 卡片样式 */
 .vce-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--card-bg);
     border-radius: 14px;
-    margin-bottom: 16px;
-    padding: 14px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    margin-bottom: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
     position: relative;
     transition: background 0.2s;
-    z-index: 1; /* 基础层级 */
+    z-index: 1;
 }
 
 .vce-card:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* 【关键修正】悬停或聚焦卡片内容时，极大提升卡片层级，确保弹窗不被下方卡片遮挡 */
-.vce-card:hover,
-.vce-card:focus-within {
+.vce-card:hover, .vce-card:focus-within {
     z-index: 1000;
 }
 
+/* 跳转条目闪烁 */
 @keyframes vce-flash {
-    0% { 
-        background-color: rgba(255, 255, 255, 0.4); 
-        box-shadow: 0 0 20px rgba(255,255,255,0.3);
+    0% {
+        background-color: rgba(255, 255, 255, 0.5);
         transform: scale(1.02);
     }
-    100% { 
-        background-color: rgba(255, 255, 255, 0.04); 
-        box-shadow: none;
+    100% {
+        background-color: rgba(255, 255, 255, 0.2);
         transform: scale(1);
     }
 }
 
 .vce-flash-highlight {
     animation: vce-flash 1.2s ease-out forwards;
-    z-index: 1001; /* 闪烁时层级也需要够高 */
+    z-index: 1001;
 }
 
 .vce-card-header {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
-    color: var(--SmartThemeBodyColor, #fff);
-    letter-spacing: 0.3px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(130, 130, 130, 1);
+    letter-spacing: 0.5px;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     opacity: 0.9;
+    line-height: 1.5;
 }
 
 .vce-prop-row {
-    margin-bottom: 12px;
+    margin-bottom: 15px;
 }
 
 .vce-prop-row:last-child {
@@ -285,86 +285,39 @@ input.vce-search-input {
 }
 
 .vce-prop-name {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.35);
-    margin-bottom: 6px;
-    letter-spacing: 0.8px;
+    color: rgba(170, 170, 170, 1);
+    margin-bottom: 5px;
+    letter-spacing: 1px;
 }
 
 /* 颜色胶囊包裹层 */
 .vce-color-wrapper {
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 24px;
-    padding: 4px;
-    margin-bottom: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 4px 10px;
     transition: all 0.2s;
     position: relative;
-    z-index: 1; /* 包裹层内部层级 */
+    z-index: 1;
     outline: none;
 }
 
-.vce-color-wrapper:hover,
-.vce-color-wrapper:focus-within {
-    border-color: rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.35);
-    z-index: 2; /* 在卡片内部提升 */
+.vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
+    background: rgba(0, 0, 0, 0.2);
+    z-index: 2;
 }
 
-.vce-color-idx {
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.3);
-    margin-left: 8px;
-    margin-right: 2px;
-    font-family: monospace;
-    font-weight: bold;
-    user-select: none;
-    min-width: 12px;
-}
-
-.vce-picker {
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 50% !important;
-    margin-left: 4px;
-    margin-right: 10px;
-    flex-shrink: 0;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    padding: 0 !important;
-    background: none !important;
-    border: none !important;
-}
-
-toolcool-color-picker::part(button) {
-    border-radius: 50% !important;
-    width: 26px !important;
-    height: 26px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    box-sizing: border-box !important;
-    box-shadow: none !important;
-    background-color: transparent !important;
-}
-
-.vce-color-input {
+input.vce-color-input {
     flex-grow: 1;
-    background: transparent;
-    border: none;
-    color: var(--SmartThemeBodyColor, #ddd);
-    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 12px;
-    outline: none;
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    outline: none !important;
     width: 100%;
-    padding-right: 10px;
-    letter-spacing: 0.5px;
-}
-
-.vce-color-input:focus {
-    color: #fff;
+    letter-spacing: 1px;
 }
