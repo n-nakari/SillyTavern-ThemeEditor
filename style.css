@@ -46,7 +46,7 @@
     border-bottom-color: transparent;
 }
 
-/* 原生 CSS 区域工具栏样式 (继承基础风格) */
+/* 原生 CSS 区域工具栏样式 */
 .native-css-toolbar {
     display: flex;
     align-items: center;
@@ -54,7 +54,7 @@
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     padding: 8px 16px;
-    margin-bottom: 8px; /* 与下方文本框的间距 */
+    margin-bottom: 8px;
     margin-top: 4px;
     border-radius: 12px;
 }
@@ -99,6 +99,7 @@
     width: auto;
     flex-grow: 1;
     margin-right: 15px;
+    position: relative; /* 确保下拉菜单定位相对于此 */
 }
 
 .vce-search-icon {
@@ -134,7 +135,8 @@
     position: absolute;
     top: 38px;
     right: 0;
-    width: 260px;
+    left: 0; /* 在原生框中可以撑满 */
+    max-width: 100%;
     max-height: 300px;
     overflow-y: auto;
     background: rgba(20, 20, 20, 0.95);
@@ -144,6 +146,12 @@
     z-index: 10000;
     display: none;
     padding: 6px 0;
+}
+
+/* 扩展面板中的下拉宽度限制一下 */
+.vce-container .vce-search-dropdown {
+    left: auto;
+    width: 260px;
 }
 
 .vce-search-dropdown::-webkit-scrollbar {
@@ -163,6 +171,8 @@
     transition: background 0.1s;
     line-height: 1.4;
     word-break: break-all;
+    display: flex;
+    align-items: center;
 }
 
 .vce-search-item:last-child {
@@ -172,6 +182,16 @@
 .vce-search-item:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
+}
+
+/* 原生搜索里的行号 */
+.vce-line-num {
+    font-family: monospace;
+    color: rgba(255,255,255,0.3);
+    margin-right: 8px;
+    font-size: 11px;
+    min-width: 30px;
+    text-align: right;
 }
 
 .vce-highlight-text {
