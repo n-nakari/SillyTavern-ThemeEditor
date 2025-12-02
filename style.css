@@ -17,6 +17,7 @@
     opacity: 1;
     display: flex;
     flex-direction: column;
+    backdrop-filter: blur(3px) !important;
 }
 
 /* 折叠状态 */
@@ -67,6 +68,7 @@
     justify-content: center;
     transition: all 0.2s ease;
     font-size: 14px;
+    backdrop-filter: blur(3px) !important;
 }
 
 .vce-btn:hover {
@@ -80,6 +82,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    opacity: 1;
     transition: opacity 0.2s ease, visibility 0.2s;
 }
 
@@ -105,23 +108,26 @@
     z-index: 2;
 }
 
-.vce-search-input {
+input.vce-search-input {
     width: 100%;
     height: 32px;
-    border-radius: 16px;
-    border: 1px solid var(--SmartThemeBodyColor);
-    background: transparent;
-    padding: 0 12px 0 32px;
-    color: var(--SmartThemeBodyColor);
-    font-size: 14px;
-    outline: none;
+    border-radius: 16px !important;
+    border: 1px solid var(--SmartThemeBodyColor) !important;
+    background: transparent !important;
+    padding: 0 12px 0 32px !important;
+    color: var(--SmartThemeBodyColor) !important;
+    font-size: 14px !important;
+    outline: none !important;
+    box-shadow: none !important;
     box-sizing: border-box;
     transition: background 0.2s ease, border-color 0.2s ease;
+    font-family: Calisto MT, Noto Serif SC !important;
+    backdrop-filter: blur(3px) !important;
 }
 
 .vce-search-input:focus {
-    background: var(--css-button-bg);
-    border: none;
+    background: var(--css-button-bg) !important;
+    border: none !important;
 }
 
 /* 下拉菜单 */
@@ -130,11 +136,9 @@
     top: 38px;
     right: 0;
     left: 0;
-    max-width: 100%;
     max-height: 300px;
     overflow-y: auto;
     background: rgba(20, 20, 20, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 10000;
@@ -144,7 +148,7 @@
 
 .vce-container .vce-search-dropdown {
     left: auto;
-    width: 260px;
+    width: 300px;
 }
 
 .vce-search-dropdown::-webkit-scrollbar {
