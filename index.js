@@ -89,16 +89,13 @@ function bindEvents() {
 
     // 保存按钮：先同步数据，再触发原生保存
     const triggerSave = () => {
-        // 1. 关键步骤：触发 input 事件，让 ST 将 textarea 的最新内容同步到内存变量 (power_user.custom_css)
-        // 这样点击原生保存时，写入文件的才是最新修改后的内容
+        // 触发 input 事件，同步内存，但不依赖此事件进行视觉更新
         $('#customCSS').trigger('input');
 
-        // 2. 触发原生保存按钮
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
         } else {
-            // 如果原生按钮不可见，则只保存到浏览器设置
             saveSettingsDebounced();
             toastr.warning('Native theme save button not found. Saved to browser settings.', 'Visual CSS Editor');
         }
@@ -198,12 +195,13 @@ function bindEvents() {
         const textarea = $('#customCSS');
         const icon = $(this).find('i');
         
+        // 【新增】使用 animate 实现平滑滚动
         if (nativeScrollDirection === 'down') {
-            textarea.scrollTop(textarea[0].scrollHeight);
+            textarea.stop().animate({ scrollTop: textarea[0].scrollHeight }, 500, 'swing');
             nativeScrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            textarea.scrollTop(0);
+            textarea.stop().animate({ scrollTop: 0 }, 500, 'swing');
             nativeScrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -279,7 +277,8 @@ function bindEvents() {
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        textarea.animate({ scrollTop: pixelTop - paddingTop }, 300);
+        // 【新增】搜索跳转也使用动画
+        textarea.stop().animate({ scrollTop: pixelTop - paddingTop }, 300, 'swing');
 
         nativeDropdown.hide();
     });
@@ -494,13 +493,11 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
             $('#customCSS').val(newCss);
             
             // 2. 手动更新 ST 的预览样式块，实现视觉上的实时更新
-            // ST 通常使用 #custom-style 这个 ID
             let style = document.getElementById('custom-style');
             if (style) {
                 style.textContent = newCss;
             } else {
-                // 防御性：如果找不到，尝试触发 input (会保存，但能保证视觉更新)
-                // 但理论上 #custom-style 一定存在
+                // 回退机制
                 $('#customCSS').trigger('input');
             }
         }
