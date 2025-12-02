@@ -47,7 +47,7 @@ jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载：读取一次 (此时绝对不会修改CSS)
+    // 1. 初次加载：只读取，不修改
     setTimeout(() => readAndRenderCSS(), 500);
 
     // 2. 仅在切换美化主题下拉框时读取一次
@@ -74,7 +74,7 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新按钮：只读操作
+    // 刷新按钮：纯读取操作
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -83,13 +83,22 @@ function bindEvents() {
         const icon = $('#vce-btn-refresh i');
         icon.addClass('fa-spin');
         setTimeout(() => icon.removeClass('fa-spin'), 500);
+        
+        toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
+    // 保存按钮：先同步数据，再触发原生保存
     const triggerSave = () => {
+        // 1. 关键步骤：触发 input 事件，让 ST 将 textarea 的最新内容同步到内存变量 (power_user.custom_css)
+        // 这样点击原生保存时，写入文件的才是最新修改后的内容
+        $('#customCSS').trigger('input');
+
+        // 2. 触发原生保存按钮
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
         } else {
+            // 如果原生按钮不可见，则只保存到浏览器设置
             saveSettingsDebounced();
             toastr.warning('Native theme save button not found. Saved to browser settings.', 'Visual CSS Editor');
         }
@@ -200,7 +209,6 @@ function bindEvents() {
         }
     });
 
-    // --- 原生文本搜索 ---
     const nativeSearchInput = $('#native-css-search');
     const nativeDropdown = $('#native-search-dropdown');
 
@@ -433,7 +441,7 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
-    // 【交互锁状态】 默认 false (锁定)，防止初始化时自动修改 CSS
+    // 交互锁：防止初始化或自动格式化导致 CSS 变化
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -447,14 +455,14 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
     wrapper.append(picker);
     wrapper.append(input);
 
-    // 【解锁机制】 只有用户与控件发生交互（点击/聚焦）时，才允许写入
+    // 只有用户实际点击/交互后，才解锁更新功能
     const unlock = () => { allowUpdate = true; };
     wrapper.on('mousedown', unlock);
     wrapper.on('click', unlock);
     input.on('focus', unlock);
 
     const updateCSS = (newColor) => {
-        // 如果未解锁，直接返回，绝不修改 CSS
+        // 如果没有交互过，拒绝修改 CSS
         if (!allowUpdate) return;
 
         let cssText = $('#customCSS').val();
@@ -482,7 +490,19 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            $('#customCSS').val(newCss).trigger('input');
+            // 1. 更新文本框的值 (不触发 input 事件，防止 ST 自动保存)
+            $('#customCSS').val(newCss);
+            
+            // 2. 手动更新 ST 的预览样式块，实现视觉上的实时更新
+            // ST 通常使用 #custom-style 这个 ID
+            let style = document.getElementById('custom-style');
+            if (style) {
+                style.textContent = newCss;
+            } else {
+                // 防御性：如果找不到，尝试触发 input (会保存，但能保证视觉更新)
+                // 但理论上 #custom-style 一定存在
+                $('#customCSS').trigger('input');
+            }
         }
     };
 
