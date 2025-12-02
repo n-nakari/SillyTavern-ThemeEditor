@@ -22,13 +22,13 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML
+// 原生 CSS 区域辅助工具栏 HTML (增加下拉栏容器)
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
         <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-        <input type="text" id="native-css-search" class="vce-search-input" placeholder="Find in CSS code... (Enter for next)" autocomplete="off">
-        <span id="native-search-count" class="native-search-count"></span>
+        <input type="text" id="native-css-search" class="vce-search-input" placeholder="Find in CSS... (Click to jump)" autocomplete="off">
+        <div id="native-search-dropdown" class="vce-search-dropdown"></div>
     </div>
     <div class="vce-buttons-left">
         <button id="native-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
@@ -42,38 +42,32 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
-let lastSearchQuery = '';
-let searchCursor = 0; // 原生搜索光标位置
 
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载：自动读取一次
+    // 1. 初次加载：读取一次
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 2. 切换美化主题后：自动读取一次
-    if (eventSource && event_types) {
-        eventSource.on(event_types.SETTINGS_UPDATED, () => {
-            // 延迟确保 #customCSS 里的值已经变了
-            setTimeout(() => readAndRenderCSS(), 200);
-        });
-    }
+    // 2. 仅在切换美化主题下拉框时读取一次 (不再监听 SETTINGS_UPDATED 防止 autosave 触发)
+    $(document).on('change', '#themes', () => {
+        // 延迟一点等待 ST 载入新主题的 CSS 内容
+        setTimeout(() => readAndRenderCSS(), 300);
+    });
 });
 
 function initUI() {
     const cssBlock = $('#CustomCSS-block');
     const textAreaBlock = $('#CustomCSS-textAreaBlock');
 
-    // 注入扩展面板 (在文本框下方)
+    // 注入扩展面板
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
     }
 
-    // 注入原生辅助工具栏 (在标题下方，文本框上方)
-    // 通常结构是 CustomCSS-block -> h4标题 -> CustomCSS-textAreaBlock
+    // 注入原生辅助工具栏
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
-        // 找到文本框容器，插在它前面
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 }
@@ -94,7 +88,7 @@ function bindEvents() {
         setTimeout(() => icon.removeClass('fa-spin'), 500);
     });
 
-    // 保存 (通用逻辑)
+    // 保存
     const triggerSave = () => {
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
@@ -141,7 +135,7 @@ function bindEvents() {
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    const handleSearch = () => {
+    const handleExtensionSearch = () => {
         const query = searchInput.val().trim();
         dropdown.empty();
 
@@ -170,13 +164,9 @@ function bindEvents() {
         hasResults ? dropdown.show() : dropdown.hide();
     };
 
-    searchInput.on('input', handleSearch);
-    
-    // 【修改点】点击/聚焦时，如果有内容，直接显示下拉
+    searchInput.on('input', handleExtensionSearch);
     searchInput.on('focus click', function() {
-        if ($(this).val().trim()) {
-            handleSearch();
-        }
+        if ($(this).val().trim()) handleExtensionSearch();
     });
 
     dropdown.on('click', '.vce-search-item', function() {
@@ -194,14 +184,8 @@ function bindEvents() {
         dropdown.hide();
     });
 
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('.vce-search-wrapper').length) {
-            dropdown.hide();
-        }
-    });
-
     // ===========================
-    //      原生区域辅助功能绑定
+    //      原生区域辅助功能
     // ===========================
 
     // 原生保存
@@ -223,60 +207,106 @@ function bindEvents() {
         }
     });
 
-    // 原生查找功能 (Find Next)
+    // --- 原生文本搜索 (下拉栏版) ---
     const nativeSearchInput = $('#native-css-search');
-    
-    const performNativeSearch = () => {
+    const nativeDropdown = $('#native-search-dropdown');
+
+    const handleNativeSearch = () => {
         const query = nativeSearchInput.val();
         const textarea = $('#customCSS')[0];
-        const text = textarea.value;
+        const fullText = textarea.value;
+        nativeDropdown.empty();
 
-        if (!query) return;
-
-        // 如果关键词变了，重置游标
-        if (query !== lastSearchQuery) {
-            searchCursor = -1;
-            lastSearchQuery = query;
+        if (!query) {
+            nativeDropdown.hide();
+            return;
         }
 
-        const lowerText = text.toLowerCase();
+        const lines = fullText.split('\n');
+        let hasResults = false;
         const lowerQuery = query.toLowerCase();
-        
-        // 从当前光标位置开始查找
-        let nextIndex = lowerText.indexOf(lowerQuery, searchCursor + 1);
 
-        // 如果到底了，循环回到顶部
-        if (nextIndex === -1) {
-            nextIndex = lowerText.indexOf(lowerQuery, 0);
-            // 给个视觉提示：循环了
-            toastr.info('Search wrapped to top', '', { timeOut: 1000, preventDuplicates: true });
+        // 遍历每一行查找匹配
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.toLowerCase().includes(lowerQuery)) {
+                hasResults = true;
+                
+                // 计算该行在全文中的起始索引 (大致估算用于跳转)
+                // 精确做法是累加长度，这里为了性能简化，点击时再精确计算
+                
+                const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${safeQuery})`, 'gi');
+                
+                // 截取代码片段，防止过长
+                let displayLine = line.trim();
+                if (displayLine.length > 50) {
+                    displayLine = displayLine.substring(0, 50) + '...';
+                }
+                
+                const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
+                
+                // data-line 存储行号
+                const item = $(`
+                    <div class="vce-search-item native-item" data-line="${i}">
+                        <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
+                    </div>
+                `);
+                nativeDropdown.append(item);
+                
+                // 限制下拉栏显示数量，防止卡顿
+                if (nativeDropdown.children().length >= 100) break;
+            }
         }
 
-        if (nextIndex !== -1) {
-            // 选中文字并滚动到视野
-            textarea.focus();
-            textarea.setSelectionRange(nextIndex, nextIndex + query.length);
-            
-            // 计算行号，大概估算滚动位置，或者依赖浏览器的默认focus滚动行为
-            // setSelectionRange通常会自动滚动，如果不行可以使用 blur/focus hack
-            textarea.blur();
-            textarea.focus();
-            
-            searchCursor = nextIndex;
-        } else {
-            toastr.warning('Text not found in CSS', '', { timeOut: 2000 });
-        }
+        hasResults ? nativeDropdown.show() : nativeDropdown.hide();
     };
 
-    nativeSearchInput.on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            performNativeSearch();
+    nativeSearchInput.on('input', handleNativeSearch);
+    nativeSearchInput.on('focus click', function() {
+        if ($(this).val()) handleNativeSearch();
+    });
+
+    nativeDropdown.on('click', '.vce-search-item', function() {
+        const lineNum = parseInt($(this).data('line'));
+        const textarea = $('#customCSS');
+        const rawTextarea = textarea[0];
+        const lines = rawTextarea.value.split('\n');
+        const query = nativeSearchInput.val();
+
+        // 计算目标行的起始位置
+        let pos = 0;
+        for (let i = 0; i < lineNum; i++) {
+            pos += lines[i].length + 1; // +1 是换行符
+        }
+
+        // 在该行内找到匹配文字的位置
+        const matchIndex = lines[lineNum].toLowerCase().indexOf(query.toLowerCase());
+        const finalPos = pos + (matchIndex !== -1 ? matchIndex : 0);
+
+        // 选中文字并跳转
+        rawTextarea.focus();
+        rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
+        
+        // 滚动到光标位置 (利用 blur/focus hack 或 scrollIntoView)
+        // 简单计算滚动高度
+        const lineHeight = 20; // 估算行高
+        const scrollAmount = lineNum * lineHeight;
+        
+        // 尝试居中显示
+        const textAreaHeight = textarea.height();
+        textarea.scrollTop(scrollAmount - textAreaHeight / 2);
+
+        nativeDropdown.hide();
+    });
+
+    // 点击外部关闭所有下拉
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.vce-search-wrapper').length) {
+            dropdown.hide();
+            nativeDropdown.hide();
         }
     });
-    
-    // 点击放大镜也可以搜索
-    nativeSearchInput.siblings('.vce-search-icon').on('click', performNativeSearch);
 }
 
 function readAndRenderCSS() {
