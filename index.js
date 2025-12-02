@@ -149,6 +149,7 @@ function bindEvents() {
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
+                // title属性用于hover显示完整文本
                 const item = $(`<div class="vce-search-item" data-idx="${index}" title="${fullText}">${highlightedHtml}</div>`);
                 dropdown.append(item);
             }
@@ -168,6 +169,7 @@ function bindEvents() {
         const content = $('#vce-content');
 
         if (targetCard.length) {
+            // 扩展面板里的跳转，保留原来的置顶逻辑
             const scrollPos = content.scrollTop() + targetCard.position().top;
             content.stop().animate({ scrollTop: scrollPos }, 300, 'swing', () => {
                 targetCard.addClass('vce-flash-highlight');
@@ -198,7 +200,7 @@ function bindEvents() {
         }
     });
 
-    // --- 原生文本搜索 (下拉栏版) ---
+    // --- 原生文本搜索 (Shadow Clone 精准定位版) ---
     const nativeSearchInput = $('#native-css-search');
     const nativeDropdown = $('#native-search-dropdown');
 
@@ -225,10 +227,10 @@ function bindEvents() {
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 
-                // 去除 JS 截断，改用 CSS 控制
                 let displayLine = line.trim();
                 const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
                 
+                // 存储行号 i
                 const item = $(`
                     <div class="vce-search-item native-item" data-line="${i}" title="${displayLine}">
                         <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
@@ -248,7 +250,6 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    // 原生跳转逻辑优化：精准计算位置并居中
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -256,30 +257,31 @@ function bindEvents() {
         const lines = rawTextarea.value.split('\n');
         const query = nativeSearchInput.val();
 
+        // 1. 计算字符索引
         let pos = 0;
         for (let i = 0; i < lineNum; i++) {
-            pos += lines[i].length + 1;
+            // 每行长度 + 换行符
+            pos += lines[i].length + 1; 
         }
-
+        
+        // 2. 找到匹配词在这一行的位置
         const matchIndex = lines[lineNum].toLowerCase().indexOf(query.toLowerCase());
         const finalPos = pos + (matchIndex !== -1 ? matchIndex : 0);
 
+        // 3. 选中文字
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
         
-        // 动态获取行高，计算精准滚动位置
-        const computedStyle = window.getComputedStyle(rawTextarea);
-        let lineHeight = parseInt(computedStyle.lineHeight);
-        if (isNaN(lineHeight)) lineHeight = parseInt(computedStyle.fontSize) * 1.2; // Fallback
-
-        // 计算目标行距离顶部的像素值
-        const targetPixel = lineNum * lineHeight;
+        // 4. 使用 Shadow Clone 算法计算精准像素位置
+        const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
         
-        // 让目标行显示在视口中间
-        const halfViewHeight = textarea.height() / 2;
-        const scrollTarget = Math.max(0, targetPixel - halfViewHeight);
-
-        textarea.scrollTop(scrollTarget);
+        // 5. 滚动到顶部 (无需减去 textarea 高度的一半，直接设为 Top)
+        // 减去 padding 确保文字紧贴边缘
+        const styles = window.getComputedStyle(rawTextarea);
+        const paddingTop = parseInt(styles.paddingTop) || 0;
+        
+        // 动画滚动
+        textarea.animate({ scrollTop: pixelTop - paddingTop }, 300);
 
         nativeDropdown.hide();
     });
@@ -290,6 +292,51 @@ function bindEvents() {
             nativeDropdown.hide();
         }
     });
+}
+
+/**
+ * 影子模拟算法：
+ * 创建一个不可见的 div，完全复制 textarea 的样式。
+ * 将目标文字前的所有内容填入，然后在末尾加个 span。
+ * span 的 offsetTop 就是光标的精准像素位置，无论是否自动换行。
+ */
+function getCaretCoordinates(element, position) {
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(element);
+    
+    // 复制所有影响布局的 CSS 属性
+    const props = [
+        'box-sizing', 'width', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
+        'border-width', 'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing',
+        'line-height', 'text-transform', 'word-spacing', 'text-indent', 'white-space', 'word-wrap', 'word-break'
+    ];
+
+    props.forEach(prop => {
+        div.style[prop] = style.getPropertyValue(prop);
+    });
+
+    // 隐藏并定位
+    div.style.position = 'absolute';
+    div.style.top = '0px';
+    div.style.left = '-9999px';
+    div.style.visibility = 'hidden';
+    div.style.overflow = 'hidden'; // 防止滚动条影响计算
+    
+    // 放入内容（直至光标位置）
+    // 注意：pre-wrap 能够正确处理 textarea 中的换行和空格
+    div.textContent = element.value.substring(0, position);
+    div.style.whiteSpace = 'pre-wrap'; 
+
+    // 添加标记元素
+    const span = document.createElement('span');
+    span.textContent = '|'; // 占位符
+    div.appendChild(span);
+
+    document.body.appendChild(div);
+    const top = span.offsetTop;
+    document.body.removeChild(div);
+
+    return top;
 }
 
 function readAndRenderCSS() {
