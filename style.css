@@ -14,6 +14,7 @@
     border: 1px solid var(--whole-border);
     overflow: visible;
     font-family: Calisto MT, Noto Serif SC;
+    max-height: 1200px;
     transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
     opacity: 1;
     display: flex;
