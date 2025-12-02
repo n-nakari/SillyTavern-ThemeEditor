@@ -69,6 +69,34 @@ function initUI() {
     }
 }
 
+/**
+ * 智能滚动函数：瞬移 + 短滑
+ * @param {HTMLElement} container 滚动容器
+ * @param {number} targetPos 目标 scrollTop 值
+ */
+function smartScroll(container, targetPos) {
+    const currentPos = container.scrollTop;
+    const diff = targetPos - currentPos;
+    const threshold = 400; // 超过400px则触发瞬移
+
+    // 如果距离太远，先瞬间跳到目标附近
+    if (Math.abs(diff) > threshold) {
+        // 如果是向下滚，跳到目标上方 threshold 处
+        // 如果是向上滚，跳到目标下方 threshold 处
+        const jumpTo = diff > 0 
+            ? targetPos - threshold 
+            : targetPos + threshold;
+        
+        container.scrollTop = jumpTo;
+    }
+
+    // 剩下的短距离使用平滑滚动
+    container.scrollTo({
+        top: targetPos,
+        behavior: 'smooth'
+    });
+}
+
 function bindEvents() {
     // ===========================
     //      扩展面板功能绑定
@@ -98,22 +126,17 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
+    // 扩展回顶/回底 - 使用 smartScroll
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content')[0];
         const icon = $(this).find('i');
         
         if (scrollDirection === 'down') {
-            content.scrollTo({
-                top: content.scrollHeight,
-                behavior: 'smooth'
-            });
+            smartScroll(content, content.scrollHeight);
             scrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            content.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+            smartScroll(content, 0);
             scrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -170,6 +193,7 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
+    // 扩展搜索跳转 - 使用 smartScroll
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
@@ -180,10 +204,7 @@ function bindEvents() {
             const targetEl = targetCard[0];
             const topPos = targetEl.offsetTop;
 
-            contentEl.scrollTo({
-                top: topPos,
-                behavior: 'smooth'
-            });
+            smartScroll(contentEl, topPos);
 
             targetCard.addClass('vce-flash-highlight');
             setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
@@ -197,22 +218,17 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
+    // 原生回顶/回底 - 使用 smartScroll
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
         
         if (nativeScrollDirection === 'down') {
-            textarea.scrollTo({
-                top: textarea.scrollHeight,
-                behavior: 'smooth'
-            });
+            smartScroll(textarea, textarea.scrollHeight);
             nativeScrollDirection = 'up';
             icon.removeClass('fa-arrow-down').addClass('fa-arrow-up');
         } else {
-            textarea.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
+            smartScroll(textarea, 0);
             nativeScrollDirection = 'down';
             icon.removeClass('fa-arrow-up').addClass('fa-arrow-down');
         }
@@ -266,6 +282,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
+    // 原生搜索跳转 - 使用 smartScroll
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -288,10 +305,7 @@ function bindEvents() {
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        rawTextarea.scrollTo({
-            top: pixelTop - paddingTop,
-            behavior: 'smooth'
-        });
+        smartScroll(rawTextarea, pixelTop - paddingTop);
 
         nativeDropdown.hide();
     });
@@ -370,7 +384,6 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
-                // 【修改点：清理注释中的装饰符】
                 // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
                 const cleanComment = commentText
                     .replace(/^\/\*+|\*+\/$/g, '')
