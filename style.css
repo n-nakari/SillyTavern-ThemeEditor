@@ -92,6 +92,13 @@
     align-items: center;
     width: 200px;
     flex-shrink: 0;
+    transition: opacity 0.2s ease; /* 增加透明度过渡 */
+}
+
+/* 折叠时隐藏搜索框 */
+.vce-container.collapsed .vce-search-wrapper {
+    display: none;
+    pointer-events: none;
 }
 
 .native-search-wrapper {
@@ -129,7 +136,7 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* 下拉菜单 (单行截断逻辑在这里) */
+/* 下拉菜单 */
 .vce-search-dropdown {
     position: absolute;
     top: 38px;
@@ -168,9 +175,8 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     transition: background 0.1s;
     line-height: 1.4;
-    display: block; /* 必须是block以便计算宽度 */
+    display: block;
     
-    /* 单行截断关键属性 */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
