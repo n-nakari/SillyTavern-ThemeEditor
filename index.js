@@ -47,7 +47,7 @@ jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载：读取一次
+    // 1. 初次加载：读取一次 (此时绝对不会修改CSS)
     setTimeout(() => readAndRenderCSS(), 500);
 
     // 2. 仅在切换美化主题下拉框时读取一次
@@ -74,7 +74,7 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新按钮：只读操作，重新渲染面板
+    // 刷新按钮：只读操作
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -83,8 +83,6 @@ function bindEvents() {
         const icon = $('#vce-btn-refresh i');
         icon.addClass('fa-spin');
         setTimeout(() => icon.removeClass('fa-spin'), 500);
-        
-        toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
     const triggerSave = () => {
@@ -202,6 +200,7 @@ function bindEvents() {
         }
     });
 
+    // --- 原生文本搜索 ---
     const nativeSearchInput = $('#native-css-search');
     const nativeDropdown = $('#native-search-dropdown');
 
@@ -434,6 +433,9 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
+    // 【交互锁状态】 默认 false (锁定)，防止初始化时自动修改 CSS
+    let allowUpdate = false;
+
     if (displayIndex !== null) {
         wrapper.append(`<span class="vce-color-idx">${displayIndex}</span>`);
     }
@@ -445,7 +447,16 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
     wrapper.append(picker);
     wrapper.append(input);
 
+    // 【解锁机制】 只有用户与控件发生交互（点击/聚焦）时，才允许写入
+    const unlock = () => { allowUpdate = true; };
+    wrapper.on('mousedown', unlock);
+    wrapper.on('click', unlock);
+    input.on('focus', unlock);
+
     const updateCSS = (newColor) => {
+        // 如果未解锁，直接返回，绝不修改 CSS
+        if (!allowUpdate) return;
+
         let cssText = $('#customCSS').val();
         
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -475,8 +486,6 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         }
     };
 
-    // 为防止初始化时自动触发 change 事件导致 CSS 被修改
-    // 我们做一个简单的检查，确保颜色真的发生了变化
     picker.on('change', (evt) => {
         const col = evt.detail.rgba;
         if (col !== input.val()) {
