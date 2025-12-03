@@ -63,10 +63,10 @@ function initUI() {
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
+        // 【修改点】将模式类名应用到 Body，实现全局生效
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
-            $('#visual-css-editor').addClass('vce-dark-mode');
-            $('#native-css-toolbar').addClass('vce-dark-mode');
+            $('body').addClass('vce-dark-mode');
         }
     }
 
@@ -95,7 +95,6 @@ function smartScroll(container, targetPos) {
 }
 
 function clearLivePatches() {
-    // 移除不再需要的补丁函数，因为现在使用原生更新机制
     $('#vce-live-patch').text('');
 }
 
@@ -118,7 +117,6 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        // 确保 ST 内部状态同步
         $('#customCSS').trigger('input');
 
         const nativeSaveBtn = $('#ui-preset-update-button');
@@ -159,7 +157,7 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 (含指令逻辑) ---
+    // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
@@ -169,19 +167,17 @@ function bindEvents() {
         const query = $(this).val().trim().toLowerCase();
         
         if (query === '/dark' || query === '/light') {
-            const container = $('#visual-css-editor');
-            const nativeToolbar = $('#native-css-toolbar');
+            // 【修改点】直接在 Body 上切换类名，影响全局
+            const body = $('body');
 
             if (query === '/dark') {
-                container.addClass('vce-dark-mode');
-                nativeToolbar.addClass('vce-dark-mode');
+                body.addClass('vce-dark-mode');
                 localStorage.setItem('vce-theme-mode', 'dark');
                 $(this).val(''); 
                 dropdown.hide();
                 toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
             } else if (query === '/light') {
-                container.removeClass('vce-dark-mode');
-                nativeToolbar.removeClass('vce-dark-mode');
+                body.removeClass('vce-dark-mode');
                 localStorage.setItem('vce-theme-mode', 'light');
                 $(this).val('');
                 dropdown.hide();
@@ -395,7 +391,6 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
-        // 清理注释内的颜色
         const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
 
         let displayTitle = '';
@@ -515,7 +510,6 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
-    // 交互锁：防止初始化导致的自动保存
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -562,14 +556,14 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            // 【核心修正】
-            // 使用 trigger('input')，这会：
-            // 1. 更新 ST 内存中的 power_user.custom_css (刷新后持久化)
-            // 2. 更新 settings.json (自动保存 debounce)
-            // 3. 自动应用样式到页面 (实时预览)
-            // 4. 但不覆盖主题文件 (除非点击保存)
-            // 由于有 allowUpdate 锁，初始化加载时绝不会误触此逻辑
-            $('#customCSS').val(newCss).trigger('input');
+            $('#customCSS').val(newCss);
+            
+            let style = document.getElementById('custom-style');
+            if (style) {
+                style.textContent = newCss;
+            } else {
+                $('#customCSS').trigger('input');
+            }
         }
     };
 
