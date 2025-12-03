@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML
+// 扩展面板 HTML (修改: type="search" 以适配移动端键盘)
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -12,7 +12,7 @@ const EXTENSION_HTML = `
         </div>
         <div class="vce-search-wrapper">
             <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-            <input type="text" id="vce-search-input" class="vce-search-input" placeholder="" autocomplete="off">
+            <input type="search" id="vce-search-input" class="vce-search-input" placeholder="" autocomplete="off">
             <div id="vce-search-dropdown" class="vce-search-dropdown"></div>
         </div>
     </div>
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML
+// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -63,11 +63,11 @@ function initUI() {
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
-        // 初始化时应用保存的主题模式 (同时应用到扩展面板和原生工具栏)
+        // 初始化时应用保存的主题模式
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
             $('#visual-css-editor').addClass('vce-dark-mode');
-            $('#native-css-toolbar').addClass('vce-dark-mode'); // 【修复】同时给原生栏加类名
+            $('#native-css-toolbar').addClass('vce-dark-mode');
         }
     }
 
@@ -80,9 +80,6 @@ function initUI() {
     }
 }
 
-/**
- * 智能滚动函数：瞬移 + 短滑
- */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
@@ -111,7 +108,6 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
         clearLivePatches();
         readAndRenderCSS();
@@ -171,35 +167,39 @@ function bindEvents() {
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    // 【修改点】监听回车键 (兼容移动端 keyCode 13)
-    searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter' || e.keyCode === 13) {
-            const query = $(this).val().trim().toLowerCase();
+    // 【修改点】同时监听 keydown 和 search 事件，适配移动端
+    searchInput.on('keydown search', function(e) {
+        // 如果是按键事件，但不是回车，忽略
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.keyCode !== 13) return;
+        
+        // 移动端点"搜索"或电脑点"回车"
+        const query = $(this).val().trim().toLowerCase();
+        
+        // 只有当输入指令时才处理，普通搜索不需要回车
+        if (query === '/dark' || query === '/light') {
             const container = $('#visual-css-editor');
             const nativeToolbar = $('#native-css-toolbar');
 
             if (query === '/dark') {
                 container.addClass('vce-dark-mode');
-                nativeToolbar.addClass('vce-dark-mode'); // 【修复】同步切换原生栏
+                nativeToolbar.addClass('vce-dark-mode');
                 localStorage.setItem('vce-theme-mode', 'dark');
                 $(this).val(''); 
                 dropdown.hide();
                 toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
-                // 阻止默认提交行为（如果是表单内）
-                e.preventDefault();
-                return;
-            }
-            
-            if (query === '/light') {
+            } else if (query === '/light') {
                 container.removeClass('vce-dark-mode');
-                nativeToolbar.removeClass('vce-dark-mode'); // 【修复】同步切换原生栏
+                nativeToolbar.removeClass('vce-dark-mode');
                 localStorage.setItem('vce-theme-mode', 'light');
                 $(this).val('');
                 dropdown.hide();
                 toastr.success('Switched to Light Mode', 'Visual CSS Editor');
-                e.preventDefault();
-                return;
             }
+            
+            // 阻止默认行为（如表单提交）
+            e.preventDefault();
+            // 在 search 事件中阻止冒泡可能有助于防止键盘收起（视浏览器而定）
+            return false;
         }
     });
 
@@ -428,6 +428,7 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
+                // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
                 const cleanComment = commentText
                     .replace(/^\/\*+|\*+\/$/g, '')
                     .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
@@ -449,8 +450,7 @@ function readAndRenderCSS() {
 
         if (!selector) continue;
 
-        const properties = parseProperties(cleanBody); // 使用清理后的 body
-        // 【修改点】移除了 !p.key.startsWith('--') 的过滤，允许显示变量
+        const properties = parseProperties(cleanBody); 
         const colorProperties = properties.filter(p => hasColor(p.value));
 
         if (colorProperties.length > 0) {
@@ -474,6 +474,9 @@ function parseProperties(bodyStr) {
         if (firstColon === -1) return;
         
         let key = line.substring(0, firstColon).trim();
+        // 使用正则移除 key 中的注释
+        key = key.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+        
         const value = line.substring(firstColon + 1).trim();
         
         if (key && value) {
@@ -497,7 +500,7 @@ function createCard(title, properties, selector) {
     
     properties.forEach(prop => {
         const propRow = $('<div class="vce-prop-row"></div>');
-        const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); // 使用 key 即可，CSS变量会直接显示
+        const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); 
         propRow.append(propName);
 
         const regex = new RegExp(COLOR_REGEX);
@@ -565,7 +568,6 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     return matchColor;
                 });
                 
-                // 实时补丁 (可选，这里只应用了文本框)
                 const patchRule = `${propKey}: ${newValue} !important`;
                 $('#vce-live-patch').append(`${selector} { ${patchRule} }\n`);
                 
