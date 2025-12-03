@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML
+// 扩展面板 HTML (移除 placeholder)
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML
+// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -43,20 +43,15 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
 
-// 用于存储实时补丁的字典 { selector: ruleBody }
-let livePatches = {};
-
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载
+    // 1. 初次加载：只读取，不修改
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 2. 切换主题时重置
+    // 2. 仅在切换美化主题下拉框时读取一次
     $(document).on('change', '#themes', () => {
-        // 清空补丁，因为加载了新文件
-        clearLivePatches();
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -72,22 +67,22 @@ function initUI() {
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
-
-    // 初始化补丁样式标签
-    if ($('#vce-live-patch').length === 0) {
-        $('head').append('<style id="vce-live-patch"></style>');
-    }
 }
 
 /**
  * 智能滚动函数：瞬移 + 短滑
+ * @param {HTMLElement} container 滚动容器
+ * @param {number} targetPos 目标 scrollTop 值
  */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
-    const threshold = 400;
+    const threshold = 400; // 超过400px则触发瞬移
 
+    // 如果距离太远，先瞬间跳到目标附近
     if (Math.abs(diff) > threshold) {
+        // 如果是向下滚，跳到目标上方 threshold 处
+        // 如果是向上滚，跳到目标下方 threshold 处
         const jumpTo = diff > 0 
             ? targetPos - threshold 
             : targetPos + threshold;
@@ -95,37 +90,19 @@ function smartScroll(container, targetPos) {
         container.scrollTop = jumpTo;
     }
 
+    // 剩下的短距离使用平滑滚动
     container.scrollTo({
         top: targetPos,
         behavior: 'smooth'
     });
 }
 
-/**
- * 清空并移除实时补丁（在保存或刷新时调用）
- */
-function clearLivePatches() {
-    livePatches = {};
-    $('#vce-live-patch').text('');
-}
-
-/**
- * 应用实时补丁
- * 将所有修改过的规则聚合到一个 style 标签中，覆盖原生样式，避免重绘整个 CSS
- */
-function applyLivePatches() {
-    let patchCss = '';
-    for (const [sel, body] of Object.entries(livePatches)) {
-        patchCss += `${sel} { ${body} } \n`;
-    }
-    $('#vce-live-patch').text(patchCss);
-}
-
 function bindEvents() {
-    // 刷新按钮
+    // ===========================
+    //      扩展面板功能绑定
+    // ===========================
+
     $('#vce-btn-refresh').on('click', () => {
-        // 刷新时清空补丁，重新读取文本框的真实内容
-        clearLivePatches();
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -137,14 +114,8 @@ function bindEvents() {
         toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
-    // 保存按钮
     const triggerSave = () => {
-        // 1. 触发 input 事件，让 ST 能够感知到 textarea 的变化并准备保存
         $('#customCSS').trigger('input');
-        
-        // 2. 清空补丁（因为 ST 保存后会重新加载 #custom-style，补丁不再需要）
-        clearLivePatches();
-
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
@@ -155,7 +126,7 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 扩展回顶/回底
+    // 扩展回顶/回底 - 使用 smartScroll
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content')[0];
         const icon = $(this).find('i');
@@ -222,6 +193,7 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
+    // 扩展搜索跳转 - 使用 smartScroll
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
@@ -246,6 +218,7 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
+    // 原生回顶/回底 - 使用 smartScroll
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
@@ -309,6 +282,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
+    // 原生搜索跳转 - 使用 smartScroll
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -391,52 +365,25 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
-        let displayTitle = '';
-        let selector = '';
-
-        const commentRegex = /\/\*([\s\S]*?)\*\//g;
-        let lastCommentMatch = null;
-        let tempMatch;
-        while ((tempMatch = commentRegex.exec(rawHeader)) !== null) {
-            lastCommentMatch = tempMatch;
-        }
-
-        if (lastCommentMatch) {
-            const commentText = lastCommentMatch[1].trim();
-            const commentEndIndex = lastCommentMatch.index + lastCommentMatch[0].length;
-            const afterComment = rawHeader.substring(commentEndIndex);
-            const newLineCount = (afterComment.match(/\n/g) || []).length;
-            
-            selector = afterComment.trim();
-
-            if (newLineCount < 2 && selector) {
-                const cleanComment = commentText
-                    .replace(/^\/\*+|\*+\/$/g, '')
-                    .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
-                    .trim();
-                
-                if (cleanComment) {
-                    displayTitle = `${cleanComment} | ${selector}`;
-                } else {
-                    displayTitle = selector;
-                }
-            } else {
-                displayTitle = selector;
-            }
-        } else {
-            selector = rawHeader.split('\n').pop().trim();
-            if (!selector) selector = rawHeader.trim();
-            displayTitle = selector;
-        }
-
+        // --- 核心修改：只取类名，不取注释 ---
+        // 我们不再解析注释，直接寻找选择器
+        // 清除原始 Header 中可能包含的注释部分，保留选择器
+        let selector = rawHeader.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+        
+        // 某些情况下 rawHeader 可能只包含注释，导致 selector 为空，过滤掉
         if (!selector) continue;
+
+        // 如果选择器包含换行，取最后一行（通常是类名）
+        const lines = selector.split('\n');
+        selector = lines[lines.length - 1].trim();
 
         const properties = parseProperties(body);
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
-            const card = createCard(displayTitle, colorProperties, selector);
+            // 直接传递选择器作为标题，实现"只需写类名即可"
+            const card = createCard(selector, colorProperties, selector);
             container.append(card);
         }
     }
@@ -541,40 +488,21 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
-                
-                // 【核心逻辑】将修改后的整条规则添加到实时补丁中
-                const ruleBody = newValue;
-                // 注意：这里我们提取了修改后的整个属性行，但我们需要整个 block 的内容吗？
-                // 简化起见，我们将这个特定属性的修改推送到补丁中。
-                // 格式： selector { propKey: newValue !important; }
-                const patchRule = `${propKey}: ${newValue} !important`;
-                
-                // 更新全局补丁对象
-                if (!livePatches[selector]) {
-                    livePatches[selector] = '';
-                }
-                // 这里有个小问题，简单的追加会导致重复。
-                // 更好的方式是每次重新生成该 selector 下的所有补丁。
-                // 简单起见，我们假设用户每次只改一个属性。为了更稳健，我们应该重建该 selector 的补丁块。
-                // 但由于我们是在 replace 回调里，我们其实拿到了完整的 newContent (该块内的所有属性)。
-                // 我们可以把 newContent 直接作为补丁体！这样最完美！
-                
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
-            
-            // 此时 newContent 是该块 {...} 内部的所有文本
-            // 我们将其更新到补丁中
-            livePatches[selector] = newContent;
             
             return `${prefix}${newContent}${suffix}`;
         });
 
         if (newCss !== cssText) {
-            // 1. 更新文本框 (这是为了让用户看到代码变了)
             $('#customCSS').val(newCss);
             
-            // 2. 应用实时补丁 (这是为了让浏览器渲染新样式而不重载整个 style 标签)
-            applyLivePatches();
+            let style = document.getElementById('custom-style');
+            if (style) {
+                style.textContent = newCss;
+            } else {
+                $('#customCSS').trigger('input');
+            }
         }
     };
 
