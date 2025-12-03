@@ -43,7 +43,7 @@
 }
 
 body.vce-dark-mode {
-    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.2);
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
     
     --whole-bg: rgba(30, 30, 30, 0.6);
     --whole-border: rgba(255, 255, 255, 0.15);
@@ -55,8 +55,8 @@ body.vce-dark-mode {
     --css-button-shadow: rgba(255, 255, 255, 0.05);
     
     --card-bg: rgba(255, 255, 255, 0.05);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --card-hover-bg: rgba(255, 255, 255, 0.08);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --card-hover-bg: rgba(255, 255, 255, 0.1);
     --card-hover-border: rgba(255, 255, 255, 0.2);
     --card-header-text: rgba(220, 220, 220, 1);
     --card-header-border: rgba(255, 255, 255, 0.1);
@@ -64,7 +64,7 @@ body.vce-dark-mode {
     
     --color-wrapper-bg: rgba(0, 0, 0, 0.3);
     --color-wrapper-hover: rgba(0, 0, 0, 0.5);
-    --input-text-color: #eee;
+    --input-text-color: #ddd;
     --index-bg: rgba(255, 255, 255, 0.1);
     --index-text: #ddd;
     
@@ -120,7 +120,7 @@ body.no-blur .vce-container, .vce-container {
 }
 
 /* CSS工具栏样式 */
-.native-css-toolbar {
+body.no-blur .native-css-toolbar, .native-css-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
