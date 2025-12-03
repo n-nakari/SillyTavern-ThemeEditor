@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML
+// 扩展面板 HTML (移除 placeholder)
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML
+// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -42,18 +42,16 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
-let livePatches = {};
 
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载
+    // 1. 初次加载：只读取，不修改
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 2. 切换主题时重置
+    // 2. 仅在切换美化主题下拉框时读取一次
     $(document).on('change', '#themes', () => {
-        clearLivePatches();
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -64,22 +62,30 @@ function initUI() {
 
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
+        
+        // 【新增】初始化时读取本地存储的主题偏好
+        const savedMode = localStorage.getItem('vce-theme-mode');
+        if (savedMode === 'dark') {
+            $('#visual-css-editor').addClass('vce-dark-mode');
+        }
     }
 
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
-
-    if ($('#vce-live-patch').length === 0) {
-        $('head').append('<style id="vce-live-patch"></style>');
-    }
 }
 
+/**
+ * 智能滚动函数：瞬移 + 短滑
+ * @param {HTMLElement} container 滚动容器
+ * @param {number} targetPos 目标 scrollTop 值
+ */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
-    const threshold = 400;
+    const threshold = 400; // 超过400px则触发瞬移
 
+    // 如果距离太远，先瞬间跳到目标附近
     if (Math.abs(diff) > threshold) {
         const jumpTo = diff > 0 
             ? targetPos - threshold 
@@ -88,29 +94,19 @@ function smartScroll(container, targetPos) {
         container.scrollTop = jumpTo;
     }
 
+    // 剩下的短距离使用平滑滚动
     container.scrollTo({
         top: targetPos,
         behavior: 'smooth'
     });
 }
 
-function clearLivePatches() {
-    livePatches = {};
-    $('#vce-live-patch').text('');
-}
-
-function applyLivePatches() {
-    let patchCss = '';
-    for (const [sel, body] of Object.entries(livePatches)) {
-        patchCss += `${sel} { ${body} } \n`;
-    }
-    $('#vce-live-patch').text(patchCss);
-}
-
 function bindEvents() {
-    // 刷新按钮
+    // ===========================
+    //      扩展面板功能绑定
+    // ===========================
+
     $('#vce-btn-refresh').on('click', () => {
-        clearLivePatches();
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -122,11 +118,8 @@ function bindEvents() {
         toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
-    // 保存按钮
     const triggerSave = () => {
         $('#customCSS').trigger('input');
-        clearLivePatches();
-
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
@@ -137,8 +130,9 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
+    // 扩展回顶/回底 - 使用 smartScroll
     $('#vce-btn-scroll').on('click', function() {
-        const content = $('#vce-content')[0];
+        const content = $('#vce-content')[0]; // 获取原生 DOM 元素
         const icon = $(this).find('i');
         
         if (scrollDirection === 'down') {
@@ -165,28 +159,42 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 (含指令逻辑) ---
+    // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
+    // 【新增】监听回车键进行指令切换
+    searchInput.on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const query = $(this).val().trim().toLowerCase();
+            const container = $('#visual-css-editor');
+
+            if (query === '/dark') {
+                container.addClass('vce-dark-mode');
+                localStorage.setItem('vce-theme-mode', 'dark');
+                $(this).val(''); // 清空输入框
+                dropdown.hide();
+                toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
+                return;
+            }
+            
+            if (query === '/light') {
+                container.removeClass('vce-dark-mode');
+                localStorage.setItem('vce-theme-mode', 'light');
+                $(this).val(''); // 清空输入框
+                dropdown.hide();
+                toastr.success('Switched to Light Mode', 'Visual CSS Editor');
+                return;
+            }
+        }
+    });
+
     const handleExtensionSearch = () => {
         const query = searchInput.val().trim();
-        const container = $('#visual-css-editor');
         dropdown.empty();
 
-        // 【新增】指令检测
-        if (query === '/深色') {
-            container.removeClass('vce-light-mode');
-            dropdown.hide();
-            return;
-        }
-        if (query === '/浅色') {
-            container.addClass('vce-light-mode');
-            dropdown.hide();
-            return;
-        }
-
-        if (!query) {
+        // 忽略指令输入，不显示下拉
+        if (!query || query.startsWith('/')) {
             dropdown.hide();
             return;
         }
@@ -216,6 +224,7 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
+    // 扩展搜索跳转 - 使用 smartScroll
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
@@ -240,6 +249,7 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
+    // 原生回顶/回底 - 使用 smartScroll
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
@@ -303,6 +313,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
+    // 原生搜索跳转 - 使用 smartScroll
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -404,6 +415,7 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
+                // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
                 const cleanComment = commentText
                     .replace(/^\/\*+|\*+\/$/g, '')
                     .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
@@ -440,7 +452,6 @@ function readAndRenderCSS() {
     }
 }
 
-// 【修改点】优化属性解析，彻底清除 key 中的注释
 function parseProperties(bodyStr) {
     const props = [];
     const lines = bodyStr.split(';');
@@ -448,16 +459,9 @@ function parseProperties(bodyStr) {
         if (!line.trim()) return;
         const firstColon = line.indexOf(':');
         if (firstColon === -1) return;
-        
-        let key = line.substring(0, firstColon).trim();
-        // 使用正则移除所有注释 /* ... */
-        key = key.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-        
+        const key = line.substring(0, firstColon).trim();
         const value = line.substring(firstColon + 1).trim();
-        
-        if (key && value) {
-            props.push({ key, value });
-        }
+        props.push({ key, value });
     });
     return props;
 }
@@ -543,24 +547,21 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
-                
-                // 实时补丁逻辑
-                const patchRule = newValue; 
-                // 更新全局补丁字典
-                // 注意：这里简单假设一个属性，完整逻辑应重建整个块
-                // 但利用现有 replace 逻辑，我们其实可以获取整个块的新内容
-                // 在这里 return 之前，newValue 是单个属性值
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
             
-            // newContent 是整个块 {...} 里的内容
-            livePatches[selector] = newContent;
             return `${prefix}${newContent}${suffix}`;
         });
 
         if (newCss !== cssText) {
             $('#customCSS').val(newCss);
-            applyLivePatches();
+            
+            let style = document.getElementById('custom-style');
+            if (style) {
+                style.textContent = newCss;
+            } else {
+                $('#customCSS').trigger('input');
+            }
         }
     };
 
