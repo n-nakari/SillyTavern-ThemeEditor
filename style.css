@@ -1,7 +1,4 @@
 :root {
-    /* =========================================
-       默认浅色模式变量
-       ========================================= */
     --tool-cool-color-picker-btn-border-color-inner: rgba(0, 0, 0, 0.5);
     
     --whole-bg: rgba(170, 170, 170, 0.3);
@@ -43,7 +40,9 @@
     --flash-start: rgba(255, 255, 255, 0.5);
     --flash-end: rgba(255, 255, 255, 0.2);
     --empty-state-text: rgba(255, 255, 255, 0.3);
+}
 
+:root {
     .vce-container.vce-dark-mode, .native-css-toolbar.vce-dark-mode {
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.2);
     
@@ -82,9 +81,7 @@
     }
 }
 
-/* =========================================
-   整体样式 (使用变量)
-   ========================================= */
+/* 整体样式 */
 body.no-blur .vce-container, .vce-container {
     margin-top: 10px;
     border-radius: 18px;
