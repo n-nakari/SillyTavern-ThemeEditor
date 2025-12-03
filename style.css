@@ -1,19 +1,18 @@
 :root {
+    /* =========================================
+       默认浅色模式变量
+       ========================================= */
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
-
-    /* 容器背景与边框 */
+    
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
-
-    /* 工具栏背景 */
+    
     --toolbar-bg: rgba(70, 70, 70, 0.1);
-
-    /* 按钮相关 */
+    
     --css-button-bg: rgba(255, 255, 255, 0.7);
-    --css-button-hover: rgba(255, 255, 255, 0.4);
+    --css-button-hover: rgba(255, 255, 255, 0.7);
     --css-button-shadow: rgb(255, 255, 255, 1);
-
-    /* 卡片相关 */
+    
     --card-bg: rgba(255, 255, 255, 0.4);
     --card-border: rgba(255, 255, 255, 0.7);
     --card-hover-bg: rgba(255, 255, 255, 0.1);
@@ -21,19 +20,16 @@
     --card-header-text: rgba(110, 110, 110, 1);
     --card-header-border: rgba(0, 0, 0, 0.05);
     --prop-name-text: rgba(150, 150, 150, 1);
-
-    /* 颜色胶囊 */
+    
     --color-wrapper-bg: rgba(0, 0, 0, 0.15);
     --color-wrapper-hover: rgba(0, 0, 0, 0.2);
     --input-text-color: #fff;
     --index-bg: rgba(255, 255, 255, 0.2);
     --index-text: #fff;
-
-    /* 滚动条 */
+    
     --scrollbar-thumb: rgba(255, 255, 255, 0.15);
     --scrollbar-track: rgba(0, 0, 0, 0.1);
-
-    /* 搜索下拉 */
+    
     --dropdown-bg: rgba(20, 20, 20, 0.95);
     --dropdown-shadow: rgba(0, 0, 0, 0.4);
     --dropdown-scrollbar: rgba(255, 255, 255, 0.3);
@@ -43,15 +39,17 @@
     --line-num-color: rgba(255, 255, 255, 0.4);
     --highlight-bg: rgba(255, 255, 255, 0.3);
     --highlight-text: #fff;
-
-    /* 动画 */
+    
     --flash-start: rgba(255, 255, 255, 0.5);
     --flash-end: rgba(255, 255, 255, 0.2);
     --empty-state-text: rgba(255, 255, 255, 0.3);
 }
 
-/* 深色模式覆盖 */
-.vce-container.vce-dark-mode {
+/* =========================================
+   深色模式覆盖 (同时应用于面板和原生工具栏)
+   ========================================= */
+.vce-container.vce-dark-mode,
+.native-css-toolbar.vce-dark-mode {
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.2);
     
     --whole-bg: rgba(30, 30, 30, 0.6);
@@ -59,7 +57,7 @@
     
     --toolbar-bg: rgba(0, 0, 0, 0.3);
     
-    --css-button-bg: rgba(255, 255, 255, 0.2);
+    --css-button-bg: rgba(255, 255, 255, 0.1);
     --css-button-hover: rgba(255, 255, 255, 0.2);
     --css-button-shadow: rgba(255, 255, 255, 0.05);
     
@@ -80,7 +78,6 @@
     --scrollbar-thumb: rgba(255, 255, 255, 0.1);
     --scrollbar-track: rgba(0, 0, 0, 0.2);
     
-    /* 下拉保持深色，微调 */
     --dropdown-bg: rgba(10, 10, 10, 0.95);
     --dropdown-shadow: rgba(0, 0, 0, 0.6);
     
@@ -89,7 +86,9 @@
     --empty-state-text: rgba(255, 255, 255, 0.2);
 }
 
-/* 整体样式 */
+/* =========================================
+   整体样式 (使用变量)
+   ========================================= */
 body.no-blur .vce-container, .vce-container {
     margin-top: 10px;
     border-radius: 18px;
@@ -135,6 +134,13 @@ body.no-blur .vce-container, .vce-container {
     align-items: center;
     justify-content: space-between;
     margin: 5px 0 10px;
+    /* 继承容器的背景和模糊效果以便一致，或者直接使用变量 */
+    background: var(--whole-bg); 
+    border: 1px solid var(--whole-border);
+    border-radius: 12px;
+    padding: 8px 16px;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
 }
 
 .vce-buttons-left {
@@ -160,7 +166,7 @@ body.no-blur .vce-btn, .vce-btn {
 }
 
 .vce-btn:hover {
-    background: var(--css-button-hover) !important;
+    background: var(--css-button-hover);
     transform: translateY(-1px);
 }
 
@@ -196,6 +202,7 @@ body.no-blur .vce-btn, .vce-btn {
     pointer-events: none;
     z-index: 2;
     padding: 0 !important;
+    color: var(--card-header-text);
 }
 
 body input.vce-search-input {
@@ -286,7 +293,7 @@ body input.vce-search-input {
     overflow-y: auto;
     padding: 10px;
     scrollbar-width: thin !important;
-    scrollbar-color: var(--scrollbar-thumb) transparent !important;
+    scrollbar-color: var(--scrollbar-track) transparent !important;
     position: relative;
 }
 
@@ -297,10 +304,6 @@ body input.vce-search-input {
 .vce-content::-webkit-scrollbar-thumb {
     background-color: var(--scrollbar-thumb);
     border-radius: 10px;
-}
-
-.vce-content::-webkit-scrollbar-track {
-    background-color: var(--scrollbar-track);
 }
 
 .vce-empty-state {
