@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML (移除 placeholder)
+// 扩展面板 HTML
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
+// 原生 CSS 区域辅助工具栏 HTML
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -42,16 +42,18 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
+let livePatches = {};
 
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载：只读取，不修改
+    // 1. 初次加载
     setTimeout(() => readAndRenderCSS(), 500);
 
-    // 2. 仅在切换美化主题下拉框时读取一次
+    // 2. 切换主题时重置
     $(document).on('change', '#themes', () => {
+        clearLivePatches();
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -67,22 +69,18 @@ function initUI() {
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
+
+    if ($('#vce-live-patch').length === 0) {
+        $('head').append('<style id="vce-live-patch"></style>');
+    }
 }
 
-/**
- * 智能滚动函数：瞬移 + 短滑
- * @param {HTMLElement} container 滚动容器
- * @param {number} targetPos 目标 scrollTop 值
- */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
-    const threshold = 400; // 超过400px则触发瞬移
+    const threshold = 400;
 
-    // 如果距离太远，先瞬间跳到目标附近
     if (Math.abs(diff) > threshold) {
-        // 如果是向下滚，跳到目标上方 threshold 处
-        // 如果是向上滚，跳到目标下方 threshold 处
         const jumpTo = diff > 0 
             ? targetPos - threshold 
             : targetPos + threshold;
@@ -90,19 +88,29 @@ function smartScroll(container, targetPos) {
         container.scrollTop = jumpTo;
     }
 
-    // 剩下的短距离使用平滑滚动
     container.scrollTo({
         top: targetPos,
         behavior: 'smooth'
     });
 }
 
-function bindEvents() {
-    // ===========================
-    //      扩展面板功能绑定
-    // ===========================
+function clearLivePatches() {
+    livePatches = {};
+    $('#vce-live-patch').text('');
+}
 
+function applyLivePatches() {
+    let patchCss = '';
+    for (const [sel, body] of Object.entries(livePatches)) {
+        patchCss += `${sel} { ${body} } \n`;
+    }
+    $('#vce-live-patch').text(patchCss);
+}
+
+function bindEvents() {
+    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
+        clearLivePatches();
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -114,8 +122,11 @@ function bindEvents() {
         toastr.info('Panel refreshed from CSS code', 'Visual CSS Editor');
     });
 
+    // 保存按钮
     const triggerSave = () => {
         $('#customCSS').trigger('input');
+        clearLivePatches();
+
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
@@ -126,7 +137,6 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 扩展回顶/回底 - 使用 smartScroll
     $('#vce-btn-scroll').on('click', function() {
         const content = $('#vce-content')[0];
         const icon = $(this).find('i');
@@ -155,13 +165,26 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 ---
+    // --- 扩展面板搜索 (含指令逻辑) ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
     const handleExtensionSearch = () => {
         const query = searchInput.val().trim();
+        const container = $('#visual-css-editor');
         dropdown.empty();
+
+        // 【新增】指令检测
+        if (query === '/深色') {
+            container.removeClass('vce-light-mode');
+            dropdown.hide();
+            return;
+        }
+        if (query === '/浅色') {
+            container.addClass('vce-light-mode');
+            dropdown.hide();
+            return;
+        }
 
         if (!query) {
             dropdown.hide();
@@ -193,7 +216,6 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
-    // 扩展搜索跳转 - 使用 smartScroll
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
@@ -218,7 +240,6 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
-    // 原生回顶/回底 - 使用 smartScroll
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
@@ -282,7 +303,6 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    // 原生搜索跳转 - 使用 smartScroll
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -365,25 +385,52 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
-        // --- 核心修改：只取类名，不取注释 ---
-        // 我们不再解析注释，直接寻找选择器
-        // 清除原始 Header 中可能包含的注释部分，保留选择器
-        let selector = rawHeader.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-        
-        // 某些情况下 rawHeader 可能只包含注释，导致 selector 为空，过滤掉
-        if (!selector) continue;
+        let displayTitle = '';
+        let selector = '';
 
-        // 如果选择器包含换行，取最后一行（通常是类名）
-        const lines = selector.split('\n');
-        selector = lines[lines.length - 1].trim();
+        const commentRegex = /\/\*([\s\S]*?)\*\//g;
+        let lastCommentMatch = null;
+        let tempMatch;
+        while ((tempMatch = commentRegex.exec(rawHeader)) !== null) {
+            lastCommentMatch = tempMatch;
+        }
+
+        if (lastCommentMatch) {
+            const commentText = lastCommentMatch[1].trim();
+            const commentEndIndex = lastCommentMatch.index + lastCommentMatch[0].length;
+            const afterComment = rawHeader.substring(commentEndIndex);
+            const newLineCount = (afterComment.match(/\n/g) || []).length;
+            
+            selector = afterComment.trim();
+
+            if (newLineCount < 2 && selector) {
+                const cleanComment = commentText
+                    .replace(/^\/\*+|\*+\/$/g, '')
+                    .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
+                    .trim();
+                
+                if (cleanComment) {
+                    displayTitle = `${cleanComment} | ${selector}`;
+                } else {
+                    displayTitle = selector;
+                }
+            } else {
+                displayTitle = selector;
+            }
+        } else {
+            selector = rawHeader.split('\n').pop().trim();
+            if (!selector) selector = rawHeader.trim();
+            displayTitle = selector;
+        }
+
+        if (!selector) continue;
 
         const properties = parseProperties(body);
         const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
-            // 直接传递选择器作为标题，实现"只需写类名即可"
-            const card = createCard(selector, colorProperties, selector);
+            const card = createCard(displayTitle, colorProperties, selector);
             container.append(card);
         }
     }
@@ -393,6 +440,7 @@ function readAndRenderCSS() {
     }
 }
 
+// 【修改点】优化属性解析，彻底清除 key 中的注释
 function parseProperties(bodyStr) {
     const props = [];
     const lines = bodyStr.split(';');
@@ -400,9 +448,16 @@ function parseProperties(bodyStr) {
         if (!line.trim()) return;
         const firstColon = line.indexOf(':');
         if (firstColon === -1) return;
-        const key = line.substring(0, firstColon).trim();
+        
+        let key = line.substring(0, firstColon).trim();
+        // 使用正则移除所有注释 /* ... */
+        key = key.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+        
         const value = line.substring(firstColon + 1).trim();
-        props.push({ key, value });
+        
+        if (key && value) {
+            props.push({ key, value });
+        }
     });
     return props;
 }
@@ -488,21 +543,24 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
+                
+                // 实时补丁逻辑
+                const patchRule = newValue; 
+                // 更新全局补丁字典
+                // 注意：这里简单假设一个属性，完整逻辑应重建整个块
+                // 但利用现有 replace 逻辑，我们其实可以获取整个块的新内容
+                // 在这里 return 之前，newValue 是单个属性值
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
             
+            // newContent 是整个块 {...} 里的内容
+            livePatches[selector] = newContent;
             return `${prefix}${newContent}${suffix}`;
         });
 
         if (newCss !== cssText) {
             $('#customCSS').val(newCss);
-            
-            let style = document.getElementById('custom-style');
-            if (style) {
-                style.textContent = newCss;
-            } else {
-                $('#customCSS').trigger('input');
-            }
+            applyLivePatches();
         }
     };
 
