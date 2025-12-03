@@ -42,7 +42,7 @@
     --empty-state-text: rgba(255, 255, 255, 0.3);
 }
 
-.vce-container.vce-dark-mode, .native-css-toolbar.vce-dark-mode {
+body.vce-dark-mode {
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.2);
     
     --whole-bg: rgba(30, 30, 30, 0.6);
