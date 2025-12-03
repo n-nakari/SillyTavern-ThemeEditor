@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML (移除 placeholder)
+// 扩展面板 HTML
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
+// 原生 CSS 区域辅助工具栏 HTML
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -63,29 +63,31 @@ function initUI() {
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
-        // 【新增】初始化时读取本地存储的主题偏好
+        // 初始化时应用保存的主题模式 (同时应用到扩展面板和原生工具栏)
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
             $('#visual-css-editor').addClass('vce-dark-mode');
+            $('#native-css-toolbar').addClass('vce-dark-mode'); // 【修复】同时给原生栏加类名
         }
     }
 
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
+
+    if ($('#vce-live-patch').length === 0) {
+        $('head').append('<style id="vce-live-patch"></style>');
+    }
 }
 
 /**
  * 智能滚动函数：瞬移 + 短滑
- * @param {HTMLElement} container 滚动容器
- * @param {number} targetPos 目标 scrollTop 值
  */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
-    const threshold = 400; // 超过400px则触发瞬移
+    const threshold = 400;
 
-    // 如果距离太远，先瞬间跳到目标附近
     if (Math.abs(diff) > threshold) {
         const jumpTo = diff > 0 
             ? targetPos - threshold 
@@ -94,11 +96,14 @@ function smartScroll(container, targetPos) {
         container.scrollTop = jumpTo;
     }
 
-    // 剩下的短距离使用平滑滚动
     container.scrollTo({
         top: targetPos,
         behavior: 'smooth'
     });
+}
+
+function clearLivePatches() {
+    $('#vce-live-patch').text('');
 }
 
 function bindEvents() {
@@ -106,7 +111,9 @@ function bindEvents() {
     //      扩展面板功能绑定
     // ===========================
 
+    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
+        clearLivePatches();
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -120,6 +127,8 @@ function bindEvents() {
 
     const triggerSave = () => {
         $('#customCSS').trigger('input');
+        clearLivePatches();
+
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
             nativeSaveBtn.trigger('click');
@@ -130,9 +139,8 @@ function bindEvents() {
     };
     $('#vce-btn-save').on('click', triggerSave);
 
-    // 扩展回顶/回底 - 使用 smartScroll
     $('#vce-btn-scroll').on('click', function() {
-        const content = $('#vce-content')[0]; // 获取原生 DOM 元素
+        const content = $('#vce-content')[0];
         const icon = $(this).find('i');
         
         if (scrollDirection === 'down') {
@@ -159,31 +167,37 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 ---
+    // --- 扩展面板搜索 (含指令逻辑) ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    // 【新增】监听回车键进行指令切换
+    // 【修改点】监听回车键 (兼容移动端 keyCode 13)
     searchInput.on('keydown', function(e) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.keyCode === 13) {
             const query = $(this).val().trim().toLowerCase();
             const container = $('#visual-css-editor');
+            const nativeToolbar = $('#native-css-toolbar');
 
             if (query === '/dark') {
                 container.addClass('vce-dark-mode');
+                nativeToolbar.addClass('vce-dark-mode'); // 【修复】同步切换原生栏
                 localStorage.setItem('vce-theme-mode', 'dark');
-                $(this).val(''); // 清空输入框
+                $(this).val(''); 
                 dropdown.hide();
                 toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
+                // 阻止默认提交行为（如果是表单内）
+                e.preventDefault();
                 return;
             }
             
             if (query === '/light') {
                 container.removeClass('vce-dark-mode');
+                nativeToolbar.removeClass('vce-dark-mode'); // 【修复】同步切换原生栏
                 localStorage.setItem('vce-theme-mode', 'light');
-                $(this).val(''); // 清空输入框
+                $(this).val('');
                 dropdown.hide();
                 toastr.success('Switched to Light Mode', 'Visual CSS Editor');
+                e.preventDefault();
                 return;
             }
         }
@@ -193,7 +207,6 @@ function bindEvents() {
         const query = searchInput.val().trim();
         dropdown.empty();
 
-        // 忽略指令输入，不显示下拉
         if (!query || query.startsWith('/')) {
             dropdown.hide();
             return;
@@ -224,7 +237,6 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
-    // 扩展搜索跳转 - 使用 smartScroll
     dropdown.on('click', '.vce-search-item', function() {
         const idx = $(this).data('idx');
         const targetCard = $('.vce-card').eq(idx);
@@ -249,7 +261,6 @@ function bindEvents() {
 
     $('#native-btn-save').on('click', triggerSave);
 
-    // 原生回顶/回底 - 使用 smartScroll
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
@@ -313,7 +324,6 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    // 原生搜索跳转 - 使用 smartScroll
     nativeDropdown.on('click', '.vce-search-item', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
@@ -396,6 +406,9 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
+        // 【修改点】先清理 body 内的注释，防止提取到注释里的颜色
+        const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
+
         let displayTitle = '';
         let selector = '';
 
@@ -415,7 +428,6 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
-                // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
                 const cleanComment = commentText
                     .replace(/^\/\*+|\*+\/$/g, '')
                     .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
@@ -437,8 +449,9 @@ function readAndRenderCSS() {
 
         if (!selector) continue;
 
-        const properties = parseProperties(body);
-        const colorProperties = properties.filter(p => !p.key.startsWith('--') && hasColor(p.value));
+        const properties = parseProperties(cleanBody); // 使用清理后的 body
+        // 【修改点】移除了 !p.key.startsWith('--') 的过滤，允许显示变量
+        const colorProperties = properties.filter(p => hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
@@ -459,9 +472,13 @@ function parseProperties(bodyStr) {
         if (!line.trim()) return;
         const firstColon = line.indexOf(':');
         if (firstColon === -1) return;
-        const key = line.substring(0, firstColon).trim();
+        
+        let key = line.substring(0, firstColon).trim();
         const value = line.substring(firstColon + 1).trim();
-        props.push({ key, value });
+        
+        if (key && value) {
+            props.push({ key, value });
+        }
     });
     return props;
 }
@@ -480,7 +497,7 @@ function createCard(title, properties, selector) {
     
     properties.forEach(prop => {
         const propRow = $('<div class="vce-prop-row"></div>');
-        const propName = $(`<div class="vce-prop-name">${prop.key.toUpperCase()}</div>`);
+        const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); // 使用 key 即可，CSS变量会直接显示
         propRow.append(propName);
 
         const regex = new RegExp(COLOR_REGEX);
@@ -547,6 +564,11 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
+                
+                // 实时补丁 (可选，这里只应用了文本框)
+                const patchRule = `${propKey}: ${newValue} !important`;
+                $('#vce-live-patch').append(`${selector} { ${patchRule} }\n`);
+                
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
             
@@ -555,13 +577,6 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
 
         if (newCss !== cssText) {
             $('#customCSS').val(newCss);
-            
-            let style = document.getElementById('custom-style');
-            if (style) {
-                style.textContent = newCss;
-            } else {
-                $('#customCSS').trigger('input');
-            }
         }
     };
 
