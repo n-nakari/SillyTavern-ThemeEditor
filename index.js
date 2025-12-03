@@ -1,6 +1,6 @@
 import { saveSettingsDebounced, eventSource, event_types } from "../../../../script.js";
 
-// 扩展面板 HTML (修改: type="search" 以适配移动端键盘)
+// 扩展面板 HTML
 const EXTENSION_HTML = `
 <div id="visual-css-editor" class="vce-container">
     <div class="vce-toolbar">
@@ -22,7 +22,7 @@ const EXTENSION_HTML = `
 </div>
 `;
 
-// 原生 CSS 区域辅助工具栏 HTML (移除 placeholder)
+// 原生 CSS 区域辅助工具栏 HTML
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar" class="native-css-toolbar">
     <div class="vce-search-wrapper native-search-wrapper">
@@ -43,15 +43,20 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
 
+// 【新增】实时补丁存储对象
+// 结构: { "选择器": { "属性名": "属性值" } }
+let livePatches = {};
+
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载：只读取，不修改
+    // 1. 初次加载
     setTimeout(() => readAndRenderCSS(), 500);
 
     // 2. 仅在切换美化主题下拉框时读取一次
     $(document).on('change', '#themes', () => {
+        clearLivePatches(); // 切换主题清空补丁
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -63,7 +68,6 @@ function initUI() {
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
-        // 初始化时应用保存的主题模式
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
             $('#visual-css-editor').addClass('vce-dark-mode');
@@ -75,11 +79,15 @@ function initUI() {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 
+    // 初始化实时预览用的 style 标签
     if ($('#vce-live-patch').length === 0) {
         $('head').append('<style id="vce-live-patch"></style>');
     }
 }
 
+/**
+ * 智能滚动函数：瞬移 + 短滑
+ */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
@@ -99,17 +107,37 @@ function smartScroll(container, targetPos) {
     });
 }
 
+/**
+ * 清空实时预览补丁
+ */
 function clearLivePatches() {
+    livePatches = {};
     $('#vce-live-patch').text('');
 }
 
-function bindEvents() {
-    // ===========================
-    //      扩展面板功能绑定
-    // ===========================
+/**
+ * 应用实时预览补丁
+ * 将字典对象转换为 CSS 字符串并写入 style 标签
+ */
+function applyLivePatches() {
+    let cssString = '';
+    for (const [selector, props] of Object.entries(livePatches)) {
+        if (Object.keys(props).length > 0) {
+            cssString += `${selector} {\n`;
+            for (const [prop, val] of Object.entries(props)) {
+                // 添加 !important 确保预览生效，覆盖原有样式
+                cssString += `    ${prop}: ${val} !important;\n`;
+            }
+            cssString += `}\n`;
+        }
+    }
+    $('#vce-live-patch').text(cssString);
+}
 
+function bindEvents() {
+    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
-        clearLivePatches();
+        clearLivePatches(); // 刷新时清空预览，回归文本框真实状态
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -122,7 +150,9 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
+        // 1. 将文本框的静默修改提交给 ST
         $('#customCSS').trigger('input');
+        // 2. 保存后，ST 会重载主 CSS，此时不再需要预览补丁，清空它
         clearLivePatches();
 
         const nativeSaveBtn = $('#ui-preset-update-button');
@@ -163,19 +193,15 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 (含指令逻辑) ---
+    // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
-    // 【修改点】同时监听 keydown 和 search 事件，适配移动端
     searchInput.on('keydown search', function(e) {
-        // 如果是按键事件，但不是回车，忽略
         if (e.type === 'keydown' && e.key !== 'Enter' && e.keyCode !== 13) return;
         
-        // 移动端点"搜索"或电脑点"回车"
         const query = $(this).val().trim().toLowerCase();
         
-        // 只有当输入指令时才处理，普通搜索不需要回车
         if (query === '/dark' || query === '/light') {
             const container = $('#visual-css-editor');
             const nativeToolbar = $('#native-css-toolbar');
@@ -195,10 +221,7 @@ function bindEvents() {
                 dropdown.hide();
                 toastr.success('Switched to Light Mode', 'Visual CSS Editor');
             }
-            
-            // 阻止默认行为（如表单提交）
             e.preventDefault();
-            // 在 search 事件中阻止冒泡可能有助于防止键盘收起（视浏览器而定）
             return false;
         }
     });
@@ -406,7 +429,7 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
-        // 【修改点】先清理 body 内的注释，防止提取到注释里的颜色
+        // 清理 body 内的注释
         const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
 
         let displayTitle = '';
@@ -428,7 +451,6 @@ function readAndRenderCSS() {
             selector = afterComment.trim();
 
             if (newLineCount < 2 && selector) {
-                // 去除 /* 和 */，然后去除开头或结尾的 =, -, ~, 空格
                 const cleanComment = commentText
                     .replace(/^\/\*+|\*+\/$/g, '')
                     .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
@@ -474,7 +496,6 @@ function parseProperties(bodyStr) {
         if (firstColon === -1) return;
         
         let key = line.substring(0, firstColon).trim();
-        // 使用正则移除 key 中的注释
         key = key.replace(/\/\*[\s\S]*?\*\//g, '').trim();
         
         const value = line.substring(firstColon + 1).trim();
@@ -568,8 +589,9 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     return matchColor;
                 });
                 
-                const patchRule = `${propKey}: ${newValue} !important`;
-                $('#vce-live-patch').append(`${selector} { ${patchRule} }\n`);
+                // 【核心修改】更新补丁对象
+                if (!livePatches[selector]) livePatches[selector] = {};
+                livePatches[selector][propKey] = newValue;
                 
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
@@ -577,9 +599,13 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
             return `${prefix}${newContent}${suffix}`;
         });
 
+        // 1. 静默更新文本框 (不保存)
         if (newCss !== cssText) {
             $('#customCSS').val(newCss);
         }
+        
+        // 2. 应用实时预览
+        applyLivePatches();
     };
 
     picker.on('change', (evt) => {
