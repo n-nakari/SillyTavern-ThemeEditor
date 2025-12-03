@@ -73,8 +73,6 @@ function initUI() {
     if (cssBlock.length && $('#native-css-toolbar').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
-
-    // 这里不再需要 vce-live-patch，因为我们直接修改原生 custom-style
 }
 
 function smartScroll(container, targetPos) {
@@ -96,11 +94,17 @@ function smartScroll(container, targetPos) {
     });
 }
 
+function clearLivePatches() {
+    // 移除不再需要的补丁函数，因为现在使用原生更新机制
+    $('#vce-live-patch').text('');
+}
+
 function bindEvents() {
     // ===========================
     //      扩展面板功能绑定
     // ===========================
 
+    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -114,7 +118,7 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        // 触发 input 事件以真正保存
+        // 确保 ST 内部状态同步
         $('#customCSS').trigger('input');
 
         const nativeSaveBtn = $('#ui-preset-update-button');
@@ -155,7 +159,7 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 ---
+    // --- 扩展面板搜索 (含指令逻辑) ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
@@ -391,6 +395,7 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
+        // 清理注释内的颜色
         const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
 
         let displayTitle = '';
@@ -510,6 +515,7 @@ function createCard(title, properties, selector) {
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
     
+    // 交互锁：防止初始化导致的自动保存
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -556,15 +562,14 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            // 1. 更新文本框的值（用于后续保存）
-            $('#customCSS').val(newCss);
-            
-            // 2. 【核心修复】直接修改 DOM 中的 style 标签实现实时预览
-            // 这跳过了 saveSettingsDebounced 的触发，因此不会保存到文件
-            let style = document.getElementById('custom-style');
-            if (style) {
-                style.textContent = newCss;
-            }
+            // 【核心修正】
+            // 使用 trigger('input')，这会：
+            // 1. 更新 ST 内存中的 power_user.custom_css (刷新后持久化)
+            // 2. 更新 settings.json (自动保存 debounce)
+            // 3. 自动应用样式到页面 (实时预览)
+            // 4. 但不覆盖主题文件 (除非点击保存)
+            // 由于有 allowUpdate 锁，初始化加载时绝不会误触此逻辑
+            $('#customCSS').val(newCss).trigger('input');
         }
     };
 
