@@ -43,20 +43,15 @@ const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 let scrollDirection = 'down';
 let nativeScrollDirection = 'down';
 
-// 【新增】实时补丁存储对象
-// 结构: { "选择器": { "属性名": "属性值" } }
-let livePatches = {};
-
 jQuery(async () => {
     initUI();
     bindEvents();
     
-    // 1. 初次加载
+    // 1. 初次加载：只读取，不修改
     setTimeout(() => readAndRenderCSS(), 500);
 
     // 2. 仅在切换美化主题下拉框时读取一次
     $(document).on('change', '#themes', () => {
-        clearLivePatches(); // 切换主题清空补丁
         setTimeout(() => readAndRenderCSS(), 300);
     });
 });
@@ -79,15 +74,9 @@ function initUI() {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 
-    // 初始化实时预览用的 style 标签
-    if ($('#vce-live-patch').length === 0) {
-        $('head').append('<style id="vce-live-patch"></style>');
-    }
+    // 这里不再需要 vce-live-patch，因为我们直接修改原生 custom-style
 }
 
-/**
- * 智能滚动函数：瞬移 + 短滑
- */
 function smartScroll(container, targetPos) {
     const currentPos = container.scrollTop;
     const diff = targetPos - currentPos;
@@ -107,37 +96,12 @@ function smartScroll(container, targetPos) {
     });
 }
 
-/**
- * 清空实时预览补丁
- */
-function clearLivePatches() {
-    livePatches = {};
-    $('#vce-live-patch').text('');
-}
-
-/**
- * 应用实时预览补丁
- * 将字典对象转换为 CSS 字符串并写入 style 标签
- */
-function applyLivePatches() {
-    let cssString = '';
-    for (const [selector, props] of Object.entries(livePatches)) {
-        if (Object.keys(props).length > 0) {
-            cssString += `${selector} {\n`;
-            for (const [prop, val] of Object.entries(props)) {
-                // 添加 !important 确保预览生效，覆盖原有样式
-                cssString += `    ${prop}: ${val} !important;\n`;
-            }
-            cssString += `}\n`;
-        }
-    }
-    $('#vce-live-patch').text(cssString);
-}
-
 function bindEvents() {
-    // 刷新按钮
+    // ===========================
+    //      扩展面板功能绑定
+    // ===========================
+
     $('#vce-btn-refresh').on('click', () => {
-        clearLivePatches(); // 刷新时清空预览，回归文本框真实状态
         readAndRenderCSS();
         $('#vce-search-input').val('');
         $('#vce-search-dropdown').hide();
@@ -150,10 +114,8 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        // 1. 将文本框的静默修改提交给 ST
+        // 触发 input 事件以真正保存
         $('#customCSS').trigger('input');
-        // 2. 保存后，ST 会重载主 CSS，此时不再需要预览补丁，清空它
-        clearLivePatches();
 
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
@@ -429,7 +391,6 @@ function readAndRenderCSS() {
         const rawHeader = match[1];
         const body = match[2];
 
-        // 清理 body 内的注释
         const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
 
         let displayTitle = '';
@@ -588,24 +549,23 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
-                
-                // 【核心修改】更新补丁对象
-                if (!livePatches[selector]) livePatches[selector] = {};
-                livePatches[selector][propKey] = newValue;
-                
                 return `${pPrefix}${newValue}${pSuffix}`;
             });
             
             return `${prefix}${newContent}${suffix}`;
         });
 
-        // 1. 静默更新文本框 (不保存)
         if (newCss !== cssText) {
+            // 1. 更新文本框的值（用于后续保存）
             $('#customCSS').val(newCss);
+            
+            // 2. 【核心修复】直接修改 DOM 中的 style 标签实现实时预览
+            // 这跳过了 saveSettingsDebounced 的触发，因此不会保存到文件
+            let style = document.getElementById('custom-style');
+            if (style) {
+                style.textContent = newCss;
+            }
         }
-        
-        // 2. 应用实时预览
-        applyLivePatches();
     };
 
     picker.on('change', (evt) => {
