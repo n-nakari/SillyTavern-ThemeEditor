@@ -1,12 +1,102 @@
 :root {
+    /* =========================================
+       默认浅色模式变量 (提取自您的原文件)
+       ========================================= */
     --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
+    
+    /* 容器背景与边框 */
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
+    
+    /* 工具栏背景 */
+    --toolbar-bg: rgba(70, 70, 70, 0.1);
+    
+    /* 按钮相关 */
     --css-button-bg: rgba(255, 255, 255, 0.7);
+    --css-button-hover: rgba(255, 255, 255, 0.7); /* 原文件hover也是这个颜色 */
+    --css-button-shadow: rgb(255, 255, 255, 1);
+    
+    /* 卡片相关 */
     --card-bg: rgba(255, 255, 255, 0.4);
+    --card-border: rgba(255, 255, 255, 0.7);
+    --card-hover-bg: rgba(255, 255, 255, 0.1);
+    --card-hover-border: rgba(255, 255, 255, 0.2);
+    --card-header-text: rgba(110, 110, 110, 1);
+    --card-header-border: rgba(0, 0, 0, 0.05);
+    --prop-name-text: rgba(150, 150, 150, 1);
+    
+    /* 颜色胶囊 */
+    --color-wrapper-bg: rgba(0, 0, 0, 0.15);
+    --color-wrapper-hover: rgba(0, 0, 0, 0.2);
+    --input-text-color: #fff;
+    --index-bg: rgba(255, 255, 255, 0.2);
+    --index-text: #fff;
+    
+    /* 滚动条 */
+    --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+    --scrollbar-track: rgba(0, 0, 0, 0.1);
+    
+    /* 搜索下拉 (原文件使用的是深色背景，此处保留原样) */
+    --dropdown-bg: rgba(20, 20, 20, 0.95);
+    --dropdown-shadow: rgba(0, 0, 0, 0.4);
+    --dropdown-scrollbar: rgba(255, 255, 255, 0.3);
+    --search-item-text: #ccc;
+    --search-item-hover: rgba(255, 255, 255, 0.2);
+    --search-item-hover-text: #fff;
+    --line-num-color: rgba(255, 255, 255, 0.4);
+    --highlight-bg: rgba(255, 255, 255, 0.3);
+    --highlight-text: #fff;
+    
+    /* 动画 */
+    --flash-start: rgba(255, 255, 255, 0.5);
+    --flash-end: rgba(255, 255, 255, 0.2);
+    --empty-state-text: rgba(255, 255, 255, 0.3);
 }
 
-/* 整体样式 */
+/* =========================================
+   深色模式覆盖 (Dark Mode Overrides)
+   ========================================= */
+.vce-container.vce-dark-mode {
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.2);
+    
+    --whole-bg: rgba(30, 30, 30, 0.6);
+    --whole-border: rgba(255, 255, 255, 0.15);
+    
+    --toolbar-bg: rgba(0, 0, 0, 0.3);
+    
+    --css-button-bg: rgba(255, 255, 255, 0.1);
+    --css-button-hover: rgba(255, 255, 255, 0.2);
+    --css-button-shadow: rgba(255, 255, 255, 0.05);
+    
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(255, 255, 255, 0.08);
+    --card-hover-border: rgba(255, 255, 255, 0.2);
+    --card-header-text: rgba(220, 220, 220, 1);
+    --card-header-border: rgba(255, 255, 255, 0.1);
+    --prop-name-text: rgba(180, 180, 180, 1);
+    
+    --color-wrapper-bg: rgba(0, 0, 0, 0.3);
+    --color-wrapper-hover: rgba(0, 0, 0, 0.5);
+    --input-text-color: #eee;
+    --index-bg: rgba(255, 255, 255, 0.1);
+    --index-text: #ddd;
+    
+    --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+    --scrollbar-track: rgba(0, 0, 0, 0.2);
+    
+    /* 下拉保持深色，微调 */
+    --dropdown-bg: rgba(10, 10, 10, 0.95);
+    --dropdown-shadow: rgba(0, 0, 0, 0.6);
+    
+    --flash-start: rgba(255, 255, 255, 0.2);
+    --flash-end: rgba(255, 255, 255, 0.05);
+    --empty-state-text: rgba(255, 255, 255, 0.2);
+}
+
+/* =========================================
+   整体样式 (使用变量)
+   ========================================= */
 body.no-blur .vce-container, .vce-container {
     margin-top: 10px;
     border-radius: 18px;
@@ -35,7 +125,7 @@ body.no-blur .vce-container, .vce-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(70, 70, 70, 0.1);
+    background: var(--toolbar-bg);
     border-radius: 18px 18px 0 0;
     flex-shrink: 0;
     transition: border-radius 0.4s ease;
@@ -73,11 +163,11 @@ body.no-blur .vce-btn, .vce-btn {
     font-size: 14px;
     backdrop-filter: blur(3px) !important;
     -webkit-backdrop-filter: blur(3px) !important;
-    box-shadow: inset -1px 0 0 rgb(255, 255, 255, 1) !important;
+    box-shadow: inset -1px 0 0 var(--css-button-shadow) !important;
 }
 
 .vce-btn:hover {
-    background: rgba(255, 255, 255, 0.7);
+    background: var(--css-button-hover);
     transform: translateY(-1px);
 }
 
@@ -113,6 +203,7 @@ body.no-blur .vce-btn, .vce-btn {
     pointer-events: none;
     z-index: 2;
     padding: 0 !important;
+    color: var(--card-header-text); /* 适配图标颜色 */
 }
 
 body input.vce-search-input {
@@ -148,14 +239,14 @@ body input.vce-search-input {
     left: 0;
     max-height: 300px;
     overflow-y: auto;
-    background: rgba(20, 20, 20, 0.95);
+    background: var(--dropdown-bg);
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 20px var(--dropdown-shadow);
     z-index: 10000;
     display: none;
     padding: 6px 0;
     scrollbar-width: thin !important;
-    scrollbar-color: rgba(255, 255, 255, 0.3) transparent !important;
+    scrollbar-color: var(--dropdown-scrollbar) transparent !important;
 }
 
 .vce-container .vce-search-dropdown {
@@ -166,7 +257,7 @@ body input.vce-search-input {
 .vce-search-item {
     padding: 8px 12px;
     font-size: 14px;
-    color: #ccc;
+    color: var(--search-item-text);
     cursor: pointer;
     transition: background 0.1s;
     line-height: 1.4;
@@ -177,13 +268,13 @@ body input.vce-search-input {
 }
 
 .vce-search-item:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: var(--search-item-hover);
+    color: var(--search-item-hover-text);
 }
 
 .vce-line-num {
     font-family: monospace;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--line-num-color);
     font-size: 11px;
     min-width: 20px;
     display: inline-block;
@@ -191,8 +282,8 @@ body input.vce-search-input {
 }
 
 .vce-highlight-text {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.3);
+    color: var(--highlight-text);
+    background: var(--highlight-bg);
     border-radius: 2px;
     padding: 0 2px;
 }
@@ -203,7 +294,7 @@ body input.vce-search-input {
     overflow-y: auto;
     padding: 10px;
     scrollbar-width: thin !important;
-    scrollbar-color: rgba(0, 0, 0, 0.1) transparent !important;
+    scrollbar-color: var(--scrollbar-thumb) transparent !important;
     position: relative;
 }
 
@@ -212,14 +303,18 @@ body input.vce-search-input {
 }
 
 .vce-content::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--scrollbar-thumb);
     border-radius: 10px;
+}
+
+.vce-content::-webkit-scrollbar-track {
+    background-color: var(--scrollbar-track);
 }
 
 .vce-empty-state {
     text-align: center;
     padding: 40px;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--empty-state-text);
     font-size: 13px;
     font-weight: 300;
 }
@@ -230,15 +325,15 @@ body input.vce-search-input {
     border-radius: 14px;
     margin-bottom: 10px;
     padding: 15px 15px 0;
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--card-border);
     position: relative;
     transition: background 0.2s;
     z-index: 1;
 }
 
 .vce-card:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--card-hover-bg);
+    border-color: var(--card-hover-border);
 }
 
 .vce-card:hover, .vce-card:focus-within {
@@ -248,11 +343,11 @@ body input.vce-search-input {
 /* 跳转条目闪烁 */
 @keyframes vce-flash {
     0% {
-        background-color: rgba(255, 255, 255, 0.5);
+        background-color: var(--flash-start);
         transform: scale(1.02);
     }
     100% {
-        background-color: rgba(255, 255, 255, 0.2);
+        background-color: var(--flash-end);
         transform: scale(1);
     }
 }
@@ -265,11 +360,11 @@ body input.vce-search-input {
 .vce-card-header {
     font-size: 15px;
     font-weight: 600;
-    color: rgba(110, 110, 110, 1);
+    color: var(--card-header-text);
     letter-spacing: 0.5px;
     margin-bottom: 15px;
     padding-bottom: 5px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid var(--card-header-border);
     opacity: 0.9;
     line-height: 1.5;
     word-wrap: break-word;
@@ -287,7 +382,7 @@ body input.vce-search-input {
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    color: rgba(150, 150, 150, 1);
+    color: var(--prop-name-text);
     margin-bottom: 5px;
     letter-spacing: 1px;
 }
@@ -296,7 +391,7 @@ body input.vce-search-input {
 .vce-color-wrapper {
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--color-wrapper-bg);
     border-radius: 24px;
     padding: 4px 10px;
     transition: all 0.2s;
@@ -307,7 +402,7 @@ body input.vce-search-input {
 }
 
 .vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-wrapper-hover);
     z-index: 2;
 }
 
@@ -315,7 +410,7 @@ body input.vce-color-input {
     flex-grow: 1;
     background: transparent !important;
     border: none !important;
-    color: #fff !important;
+    color: var(--input-text-color) !important;
     font-size: 12px !important;
     outline: none !important;
     width: 100%;
@@ -328,8 +423,8 @@ body input.vce-color-input {
 .vce-color-idx {
     font-size: 10px;
     font-weight: bold;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.2);
+    color: var(--index-text);
+    background: var(--index-bg);
     padding: 3px 0;
     width: 25px;
     border-radius: 50%;
