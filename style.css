@@ -3,7 +3,7 @@
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
     --css-button-bg: rgba(255, 255, 255, 0.5);
-    --card-bg: rgba(255, 255, 255, 0.2);
+    --card-bg: rgba(255, 255, 255, 0.4);
 }
 
 /* 整体样式 */
@@ -229,7 +229,7 @@ body input.vce-search-input {
     border-radius: 14px;
     margin-bottom: 10px;
     padding: 15px 15px 0;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.7);
     position: relative;
     transition: background 0.2s;
     z-index: 1;
@@ -264,7 +264,7 @@ body input.vce-search-input {
 .vce-card-header {
     font-size: 15px;
     font-weight: 600;
-    color: rgba(130, 130, 130, 1);
+    color: rgba(110, 110, 110, 1);
     letter-spacing: 0.5px;
     margin-bottom: 15px;
     padding-bottom: 5px;
@@ -286,7 +286,7 @@ body input.vce-search-input {
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    color: rgba(170, 170, 170, 1);
+    color: rgba(150, 150, 150, 1);
     margin-bottom: 5px;
     letter-spacing: 1px;
 }
