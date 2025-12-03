@@ -73,6 +73,7 @@ body.no-blur .vce-btn, .vce-btn {
     font-size: 14px;
     backdrop-filter: blur(3px) !important;
     -webkit-backdrop-filter: blur(3px) !important;
+    box-shadow: inset -1px 0 0 rgb(255, 255, 255, 0.7) !important;
 }
 
 .vce-btn:hover {
