@@ -386,7 +386,6 @@ body input.vce-search-input {
     z-index: 1;
     outline: none;
     margin-bottom: 15px;
-    width: calc(100% - 30px);
 }
 
 .vce-color-wrapper:hover {
@@ -413,6 +412,12 @@ body input.vce-color-input {
     padding: 0 !important;
     border-radius: 0 !important;
     margin-left: 10px;
+}
+
+@media (max-width: 700px) {
+    body input.vce-color-input {
+        margin-right: 100px;
+    }
 }
 
 .vce-color-idx {
