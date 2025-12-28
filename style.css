@@ -22,7 +22,7 @@
     --color-wrapper-hover: rgba(0, 0, 0, 0.1);
     --input-text-color: rgba(0, 0, 0, 0.5);
     --index-bg: rgba(255, 255, 255, 0.2);
-    --index-text: rgba(0, 0, 0, 0.5);
+    --index-text: #fff;
     
     --scrollbar-thumb: rgba(255, 255, 255, 0.15);
     --scrollbar-track: rgba(0, 0, 0, 0.1);
