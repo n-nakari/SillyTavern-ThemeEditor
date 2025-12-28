@@ -37,7 +37,7 @@ const NATIVE_TOOLBAR_HTML = `
 </div>
 `;
 
-const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey)/gi;
+const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey|orange|pink|purple|brown|silver|gold|navy|olive|teal)/gi;
 const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
@@ -63,7 +63,6 @@ function initUI() {
     if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
-        // 【修改点】将模式类名应用到 Body，实现全局生效
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
             $('body').addClass('vce-dark-mode');
@@ -117,7 +116,9 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        $('#customCSS').trigger('input');
+        const textarea = $('#customCSS');
+        textarea.trigger('input');
+        textarea.trigger('change');
 
         const nativeSaveBtn = $('#ui-preset-update-button');
         if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
@@ -167,7 +168,6 @@ function bindEvents() {
         const query = $(this).val().trim().toLowerCase();
         
         if (query === '/dark' || query === '/light') {
-            // 【修改点】直接在 Body 上切换类名，影响全局
             const body = $('body');
 
             if (query === '/dark') {
@@ -404,41 +404,32 @@ function readAndRenderCSS() {
         }
 
         if (lastCommentMatch) {
-            const commentText = lastCommentMatch[1].trim();
-            const commentEndIndex = lastCommentMatch.index + lastCommentMatch[0].length;
-            const afterComment = rawHeader.substring(commentEndIndex);
-            const newLineCount = (afterComment.match(/\n/g) || []).length;
+            const commentText = lastCommentMatch[1]
+                .replace(/^\/\*+|\*+\/$/g, '')
+                .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
+                .trim();
             
-            selector = afterComment.trim();
+            const afterComment = rawHeader.substring(lastCommentMatch.index + lastCommentMatch[0].length);
+            selector = afterComment.trim().replace(/\s+/g, ' ');
 
-            if (newLineCount < 2 && selector) {
-                const cleanComment = commentText
-                    .replace(/^\/\*+|\*+\/$/g, '')
-                    .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
-                    .trim();
-                
-                if (cleanComment) {
-                    displayTitle = `${cleanComment} | ${selector}`;
-                } else {
-                    displayTitle = selector;
-                }
+            if (commentText) {
+                displayTitle = selector ? `${commentText} | ${selector}` : commentText;
             } else {
-                displayTitle = selector;
+                displayTitle = selector || 'Unknown Selector';
             }
         } else {
-            selector = rawHeader.split('\n').pop().trim();
-            if (!selector) selector = rawHeader.trim();
+            selector = rawHeader.trim().replace(/\s+/g, ' ');
             displayTitle = selector;
         }
 
-        if (!selector) continue;
+        if (!selector && !displayTitle) continue;
 
         const properties = parseProperties(cleanBody); 
         const colorProperties = properties.filter(p => hasColor(p.value));
 
         if (colorProperties.length > 0) {
             hasContent = true;
-            const card = createCard(displayTitle, colorProperties, selector);
+            const card = createCard(displayTitle, colorProperties, rawHeader.trim());
             container.append(card);
         }
     }
@@ -469,8 +460,8 @@ function parseProperties(bodyStr) {
 }
 
 function hasColor(val) {
-    COLOR_REGEX.lastIndex = 0;
-    return COLOR_REGEX.test(val);
+    const tempRegex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
+    return tempRegex.test(val);
 }
 
 function createCard(title, properties, selector) {
@@ -485,7 +476,7 @@ function createCard(title, properties, selector) {
         const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); 
         propRow.append(propName);
 
-        const regex = new RegExp(COLOR_REGEX);
+        const regex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
         let match;
         const colorsFound = [];
         
@@ -532,16 +523,16 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         if (!allowUpdate) return;
 
         let cssText = $('#customCSS').val();
-        
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const blockRegex = new RegExp(`([^{]*${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
+        const blockRegex = new RegExp(`(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
-            const propRegex = new RegExp(`(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
+            const propRegex = new RegExp(`(^|[;\\{\\s])(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
             
-            const newContent = content.replace(propRegex, (m, pPrefix, pValue, pSuffix) => {
+            const newContent = content.replace(propRegex, (m, pStart, pPrefix, pValue, pSuffix) => {
                 let currentIdx = 0;
-                const newValue = pValue.replace(new RegExp(COLOR_REGEX), (matchColor) => {
+                const localColorRegex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
+                const newValue = pValue.replace(localColorRegex, (matchColor) => {
                     if (currentIdx === colorIndex) {
                         currentIdx++;
                         return newColor;
@@ -549,20 +540,22 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                     currentIdx++;
                     return matchColor;
                 });
-                return `${pPrefix}${newValue}${pSuffix}`;
+                return `${pStart}${pPrefix}${newValue}${pSuffix}`;
             });
             
             return `${prefix}${newContent}${suffix}`;
         });
 
         if (newCss !== cssText) {
-            $('#customCSS').val(newCss);
+            const textarea = $('#customCSS');
+            textarea.val(newCss);
             
             let style = document.getElementById('custom-style');
             if (style) {
                 style.textContent = newCss;
             } else {
-                $('#customCSS').trigger('input');
+                textarea.trigger('input');
+                textarea.trigger('change');
             }
         }
     };
