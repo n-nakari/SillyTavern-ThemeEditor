@@ -37,7 +37,7 @@ const NATIVE_TOOLBAR_HTML = `
 </div>
 `;
 
-const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey|orange|pink|purple|brown|silver|gold|navy|olive|teal)/gi;
+const COLOR_REGEX = /(#[0-9a-fA-F]{3,8}|rgba?\([\d\s,.\/%]+\)|hsla?\([\d\s,.\/%]+\)|transparent|white|black|red|green|blue|yellow|cyan|magenta|gray|grey|orange|pink|purple|brown|gold|silver|navy|olive|teal|lime|aqua|fuchsia)/gi;
 const CSS_BLOCK_REGEX = /([^{]+)\{([^}]+)\}/g;
 
 let scrollDirection = 'down';
@@ -93,16 +93,11 @@ function smartScroll(container, targetPos) {
     });
 }
 
-function clearLivePatches() {
-    $('#vce-live-patch').text('');
-}
-
 function bindEvents() {
     // ===========================
     //      扩展面板功能绑定
     // ===========================
 
-    // 刷新按钮
     $('#vce-btn-refresh').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input').val('');
@@ -116,16 +111,17 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        const textarea = $('#customCSS');
-        textarea.trigger('input');
-        textarea.trigger('change');
+        // 先手动触发表单变更事件，确保 SillyTavern 检测到数据
+        $('#customCSS').trigger('input').trigger('change');
 
-        const nativeSaveBtn = $('#ui-preset-update-button');
-        if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
-            nativeSaveBtn.trigger('click');
+        // 查找并模拟点击原生的保存按钮
+        const nativeSaveBtn = document.querySelector("#ui-preset-update-button");
+        if (nativeSaveBtn && nativeSaveBtn.offsetParent !== null) {
+            nativeSaveBtn.click();
         } else {
+            // 如果原生按钮不可见或不存在，则调用内部保存逻辑
             saveSettingsDebounced();
-            toastr.warning('Native theme save button not found. Saved to browser settings.', 'Visual CSS Editor');
+            toastr.warning('Native save button not triggered. Saved to browser settings.', 'Visual CSS Editor');
         }
     };
     $('#vce-btn-save').on('click', triggerSave);
@@ -158,7 +154,6 @@ function bindEvents() {
         }
     });
 
-    // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input');
     const dropdown = $('#vce-search-dropdown');
 
@@ -169,7 +164,6 @@ function bindEvents() {
         
         if (query === '/dark' || query === '/light') {
             const body = $('body');
-
             if (query === '/dark') {
                 body.addClass('vce-dark-mode');
                 localStorage.setItem('vce-theme-mode', 'dark');
@@ -191,19 +185,15 @@ function bindEvents() {
     const handleExtensionSearch = () => {
         const query = searchInput.val().trim();
         dropdown.empty();
-
         if (!query || query.startsWith('/')) {
             dropdown.hide();
             return;
         }
-
         const cards = $('.vce-card');
         let hasResults = false;
-
         cards.each(function(index) {
             const header = $(this).find('.vce-card-header');
             const fullText = header.text();
-            
             if (fullText.toLowerCase().includes(query.toLowerCase())) {
                 hasResults = true;
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -213,7 +203,6 @@ function bindEvents() {
                 dropdown.append(item);
             }
         });
-
         hasResults ? dropdown.show() : dropdown.hide();
     };
 
@@ -227,13 +216,10 @@ function bindEvents() {
         const targetCard = $('.vce-card').eq(idx);
         const content = $('#vce-content');
         const contentEl = content[0];
-
         if (targetCard.length) {
             const targetEl = targetCard[0];
             const topPos = targetEl.offsetTop;
-
             smartScroll(contentEl, topPos);
-
             targetCard.addClass('vce-flash-highlight');
             setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
         }
@@ -249,7 +235,6 @@ function bindEvents() {
     $('#native-btn-scroll').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
-        
         if (nativeScrollDirection === 'down') {
             smartScroll(textarea, textarea.scrollHeight);
             nativeScrollDirection = 'up';
@@ -269,38 +254,30 @@ function bindEvents() {
         const textarea = $('#customCSS')[0];
         const fullText = textarea.value;
         nativeDropdown.empty();
-
         if (!query) {
             nativeDropdown.hide();
             return;
         }
-
         const lines = fullText.split('\n');
         let hasResults = false;
         const lowerQuery = query.toLowerCase();
-
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             if (line.toLowerCase().includes(lowerQuery)) {
                 hasResults = true;
-                
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
-                
                 let displayLine = line.trim();
                 const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
-                
                 const item = $(`
                     <div class="vce-search-item native-item" data-line="${i}" title="${displayLine}">
                         <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
                     </div>
                 `);
                 nativeDropdown.append(item);
-                
                 if (nativeDropdown.children().length >= 100) break;
             }
         }
-
         hasResults ? nativeDropdown.show() : nativeDropdown.hide();
     };
 
@@ -315,24 +292,18 @@ function bindEvents() {
         const rawTextarea = textarea[0];
         const lines = rawTextarea.value.split('\n');
         const query = nativeSearchInput.val();
-
         let pos = 0;
         for (let i = 0; i < lineNum; i++) {
             pos += lines[i].length + 1;
         }
-        
         const matchIndex = lines[lineNum].toLowerCase().indexOf(query.toLowerCase());
         const finalPos = pos + (matchIndex !== -1 ? matchIndex : 0);
-
         rawTextarea.focus();
         rawTextarea.setSelectionRange(finalPos, finalPos + query.length);
-        
         const pixelTop = getCaretCoordinates(rawTextarea, finalPos);
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
-        
         smartScroll(rawTextarea, pixelTop - paddingTop);
-
         nativeDropdown.hide();
     });
 
@@ -347,34 +318,27 @@ function bindEvents() {
 function getCaretCoordinates(element, position) {
     const div = document.createElement('div');
     const style = window.getComputedStyle(element);
-    
     const props = [
         'box-sizing', 'width', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
         'border-width', 'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing',
         'line-height', 'text-transform', 'word-spacing', 'text-indent', 'white-space', 'word-wrap', 'word-break'
     ];
-
     props.forEach(prop => {
         div.style[prop] = style.getPropertyValue(prop);
     });
-
     div.style.position = 'absolute';
     div.style.top = '0px';
     div.style.left = '-9999px';
     div.style.visibility = 'hidden';
     div.style.overflow = 'hidden'; 
-    
     div.textContent = element.value.substring(0, position);
     div.style.whiteSpace = 'pre-wrap'; 
-
     const span = document.createElement('span');
     span.textContent = '|'; 
     div.appendChild(span);
-
     document.body.appendChild(div);
     const top = span.offsetTop;
     document.body.removeChild(div);
-
     return top;
 }
 
@@ -390,7 +354,6 @@ function readAndRenderCSS() {
     while ((match = CSS_BLOCK_REGEX.exec(cssText)) !== null) {
         const rawHeader = match[1];
         const body = match[2];
-
         const cleanBody = body.replace(/\/\*[\s\S]*?\*\//g, '');
 
         let displayTitle = '';
@@ -408,21 +371,15 @@ function readAndRenderCSS() {
                 .replace(/^\/\*+|\*+\/$/g, '')
                 .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
                 .trim();
-            
             const afterComment = rawHeader.substring(lastCommentMatch.index + lastCommentMatch[0].length);
-            selector = afterComment.trim().replace(/\s+/g, ' ');
-
-            if (commentText) {
-                displayTitle = selector ? `${commentText} | ${selector}` : commentText;
-            } else {
-                displayTitle = selector || 'Unknown Selector';
-            }
+            selector = afterComment.trim();
+            displayTitle = commentText ? `${commentText} | ${selector.replace(/\s+/g, ' ')}` : selector;
         } else {
-            selector = rawHeader.trim().replace(/\s+/g, ' ');
-            displayTitle = selector;
+            selector = rawHeader.trim();
+            displayTitle = selector.replace(/\s+/g, ' ');
         }
 
-        if (!selector && !displayTitle) continue;
+        if (!selector) continue;
 
         const properties = parseProperties(cleanBody); 
         const colorProperties = properties.filter(p => hasColor(p.value));
@@ -446,12 +403,9 @@ function parseProperties(bodyStr) {
         if (!line.trim()) return;
         const firstColon = line.indexOf(':');
         if (firstColon === -1) return;
-        
         let key = line.substring(0, firstColon).trim();
         key = key.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-        
         const value = line.substring(firstColon + 1).trim();
-        
         if (key && value) {
             props.push({ key, value });
         }
@@ -470,7 +424,6 @@ function createCard(title, properties, selector) {
     card.append(header);
 
     const propsList = $('<div class="vce-props-list"></div>');
-    
     properties.forEach(prop => {
         const propRow = $('<div class="vce-prop-row"></div>');
         const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); 
@@ -479,18 +432,15 @@ function createCard(title, properties, selector) {
         const regex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
         let match;
         const colorsFound = [];
-        
         while ((match = regex.exec(prop.value)) !== null) {
             colorsFound.push(match[0]);
         }
 
         const showIndex = colorsFound.length > 1;
-
         colorsFound.forEach((color, idx) => {
-            const control = createColorControl(selector, prop.key, color, idx, showIndex ? idx + 1 : null);
+            const control = createColorControl(selector, prop.key, color, idx, showIndex ? idx + 1 : null, card);
             propRow.append(control);
         });
-
         propsList.append(propRow);
     });
 
@@ -498,9 +448,8 @@ function createCard(title, properties, selector) {
     return card;
 }
 
-function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
+function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex, $card) {
     const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
-    
     let allowUpdate = false;
 
     if (displayIndex !== null) {
@@ -519,16 +468,19 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
     wrapper.on('click', unlock);
     input.on('focus', unlock);
 
+    // 监听颜色选择器的状态，动态提升卡片层级
+    picker.on('open', () => $card.addClass('vce-card-open'));
+    picker.on('close', () => $card.removeClass('vce-card-open'));
+
     const updateCSS = (newColor) => {
         if (!allowUpdate) return;
-
         let cssText = $('#customCSS').val();
         const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // 改进正则：确保只匹配确切的属性名，防止 color 影响 background-color
         const blockRegex = new RegExp(`(${escapedSelector}\\s*\\{)([^}]+)(\\})`, 'g');
         
         const newCss = cssText.replace(blockRegex, (match, prefix, content, suffix) => {
             const propRegex = new RegExp(`(^|[;\\{\\s])(${propKey}\\s*:\\s*)([^;]+)(;?)`, 'gi');
-            
             const newContent = content.replace(propRegex, (m, pStart, pPrefix, pValue, pSuffix) => {
                 let currentIdx = 0;
                 const localColorRegex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
@@ -542,7 +494,6 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
                 });
                 return `${pStart}${pPrefix}${newValue}${pSuffix}`;
             });
-            
             return `${prefix}${newContent}${suffix}`;
         });
 
@@ -554,8 +505,7 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
             if (style) {
                 style.textContent = newCss;
             } else {
-                textarea.trigger('input');
-                textarea.trigger('change');
+                textarea.trigger('input').trigger('change');
             }
         }
     };
