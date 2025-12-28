@@ -116,12 +116,18 @@ function bindEvents() {
     });
 
     const triggerSave = () => {
-        const nativeSaveBtn = $('#ui-preset-update-button');
-        if (nativeSaveBtn.length && nativeSaveBtn.is(':visible')) {
-            nativeSaveBtn.trigger('click');
+        const textarea = document.querySelector('#customCSS');
+        if (textarea) {
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const nativeSaveBtn = document.querySelector('#ui-preset-update-button');
+        if (nativeSaveBtn && window.getComputedStyle(nativeSaveBtn).display !== 'none') {
+            nativeSaveBtn.click();
         } else {
             saveSettingsDebounced();
-            toastr.warning('Native save button is hidden. Saved to browser settings.', 'Visual CSS Editor');
+            toastr.warning('Native theme save button not found or hidden. Saved to browser settings.', 'Visual CSS Editor');
         }
     };
     $('#vce-btn-save').on('click', triggerSave);
@@ -405,7 +411,9 @@ function readAndRenderCSS() {
                 .replace(/^[=\-~\s]+|[=\-~\s]+$/g, '')
                 .trim();
             
-            const afterComment = rawHeader.substring(lastCommentMatch.index + lastCommentMatch[0].length);
+            const commentEndIndex = lastCommentMatch.index + lastCommentMatch[0].length;
+            const afterComment = rawHeader.substring(commentEndIndex);
+            
             selector = afterComment.trim().replace(/\s+/g, ' ');
 
             if (commentText) {
@@ -543,16 +551,16 @@ function createColorControl(selector, propKey, initialColor, colorIndex, display
         });
 
         if (newCss !== cssText) {
-            const textarea = $('#customCSS');
-            textarea.val(newCss);
+            const textarea = document.querySelector('#customCSS');
+            if (textarea) {
+                textarea.value = newCss;
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                textarea.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             
             let style = document.getElementById('custom-style');
             if (style) {
                 style.textContent = newCss;
-            } else {
-                textarea.trigger('input');
-                textarea[0].dispatchEvent(new Event('input', { bubbles: true }));
-                textarea[0].dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
     };
