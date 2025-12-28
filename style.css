@@ -411,13 +411,7 @@ body input.vce-color-input {
     font-family: Calisto MT !important;
     padding: 0 !important;
     border-radius: 0 !important;
-    margin-left: 10px;
-}
-
-@media (max-width: 700px) {
-    body input.vce-color-input {
-        margin-right: 100px;
-    }
+    margin: 0 70px 0 10px !important;
 }
 
 .vce-color-idx {
@@ -426,7 +420,7 @@ body input.vce-color-input {
     color: var(--index-text);
     background: var(--index-bg);
     padding: 3px 0;
-    width: 25px;
+    width: 30px;
     border-radius: 50%;
     text-align: center;
     transform: none !important;
