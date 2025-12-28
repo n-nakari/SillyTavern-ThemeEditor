@@ -12,8 +12,8 @@
     
     --card-bg: rgba(255, 255, 255, 0.4);
     --card-border: rgba(255, 255, 255, 0.7);
-    --card-hover-bg: rgba(255, 255, 255, 0.2);
-    --card-hover-border: rgba(255, 255, 255, 0.5);
+    --card-hover-bg: rgba(255, 255, 255, 0.4);
+    --card-hover-border: rgba(255, 255, 255, 0.7);
     --card-header-text: rgba(110, 110, 110, 1);
     --card-header-border: rgba(0, 0, 0, 0.05);
     --prop-name-text: rgba(150, 150, 150, 1);
@@ -56,8 +56,8 @@ body.vce-dark-mode {
     
     --card-bg: rgba(255, 255, 255, 0.05);
     --card-border: rgba(255, 255, 255, 0.1);
-    --card-hover-bg: rgba(255, 255, 255, 0.1);
-    --card-hover-border: rgba(255, 255, 255, 0.2);
+    --card-hover-bg: rgba(255, 255, 255, 0.05);
+    --card-hover-border: rgba(255, 255, 255, 0.1);
     --card-header-text: rgba(220, 220, 220, 1);
     --card-header-border: rgba(255, 255, 255, 0.1);
     --prop-name-text: rgba(180, 180, 180, 1);
@@ -125,7 +125,6 @@ body.no-blur .native-css-toolbar, .native-css-toolbar {
     align-items: center;
     justify-content: space-between;
     margin: 5px 0 10px;
-    /* 继承容器的背景和模糊效果以便一致，或者直接使用变量 */
     background: var(--whole-bg); 
     border: 1px solid var(--whole-border);
     border-radius: 12px;
@@ -314,13 +313,7 @@ body input.vce-search-input {
     padding: 15px 15px 0;
     border: 1px solid var(--card-border);
     position: relative;
-    transition: background 0.2s;
     z-index: 1;
-}
-
-.vce-card:hover {
-    background: var(--card-hover-bg);
-    border-color: var(--card-hover-border);
 }
 
 .vce-card:hover, .vce-card:focus-within {
@@ -386,6 +379,7 @@ body input.vce-search-input {
     z-index: 1;
     outline: none;
     margin-bottom: 15px;
+    width: calc(100% - 30px);
 }
 
 .vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
@@ -405,6 +399,8 @@ body input.vce-color-input {
     box-shadow: none !important;
     font-family: Calisto MT !important;
     padding: 0 !important;
+    border-radius: 0 !important;
+    margin-left: 10px;
 }
 
 .vce-color-idx {
