@@ -12,8 +12,8 @@
     
     --card-bg: rgba(255, 255, 255, 0.4);
     --card-border: rgba(255, 255, 255, 0.7);
-    --card-hover-bg: rgba(255, 255, 255, 0.4);
-    --card-hover-border: rgba(255, 255, 255, 0.7);
+    --card-hover-bg: rgba(255, 255, 255, 0.2);
+    --card-hover-border: rgba(255, 255, 255, 0.5);
     --card-header-text: rgba(110, 110, 110, 1);
     --card-header-border: rgba(0, 0, 0, 0.05);
     --prop-name-text: rgba(150, 150, 150, 1);
@@ -56,8 +56,8 @@ body.vce-dark-mode {
     
     --card-bg: rgba(255, 255, 255, 0.05);
     --card-border: rgba(255, 255, 255, 0.1);
-    --card-hover-bg: rgba(255, 255, 255, 0.05);
-    --card-hover-border: rgba(255, 255, 255, 0.1);
+    --card-hover-bg: rgba(255, 255, 255, 0.1);
+    --card-hover-border: rgba(255, 255, 255, 0.2);
     --card-header-text: rgba(220, 220, 220, 1);
     --card-header-border: rgba(255, 255, 255, 0.1);
     --prop-name-text: rgba(180, 180, 180, 1);
@@ -313,11 +313,18 @@ body input.vce-search-input {
     padding: 15px 15px 0;
     border: 1px solid var(--card-border);
     position: relative;
+    transition: background 0.2s, border-color 0.2s;
     z-index: 1;
 }
 
-.vce-card:hover, .vce-card:focus-within {
-    z-index: 1000;
+.vce-card:hover {
+    background: var(--card-hover-bg);
+    border-color: var(--card-hover-border);
+}
+
+/* 当颜色选择器打开或处于焦点时，卡片层级最高 */
+.vce-card:hover, .vce-card:focus-within, .vce-card.vce-card-open {
+    z-index: 1000 !important;
 }
 
 /* 跳转条目闪烁 */
