@@ -419,7 +419,7 @@ body input.vce-color-input {
     font-weight: bold;
     color: var(--index-text);
     background: var(--index-bg);
-    padding: 3px 0;
+    padding: 2px 0;
     width: 30px;
     border-radius: 50%;
     text-align: center;
