@@ -322,7 +322,7 @@ body input.vce-search-input {
     border-color: var(--card-hover-border);
 }
 
-/* 强效锁定：当调色盘打开或正在输入时，卡片必须处于最高层 */
+/* 强效锁定：当卡片内任何元素获得焦点，卡片处于最高层 */
 .vce-card:focus-within {
     z-index: 10000 !important;
 }
@@ -389,8 +389,14 @@ body input.vce-search-input {
     width: calc(100% - 30px);
 }
 
-.vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
+.vce-color-wrapper:hover {
     background: var(--color-wrapper-hover);
+}
+
+/* 修复同卡片内多条目遮挡：当前激活的包裹层必须高于同一卡片内的其他包裹层 */
+.vce-color-wrapper:focus-within {
+    background: var(--color-wrapper-hover);
+    z-index: 100 !important;
 }
 
 body input.vce-color-input {
