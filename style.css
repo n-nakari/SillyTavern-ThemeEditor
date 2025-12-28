@@ -313,18 +313,18 @@ body input.vce-search-input {
     padding: 15px 15px 0;
     border: 1px solid var(--card-border);
     position: relative;
-    transition: background 0.2s;
+    transition: background 0.2s, border-color 0.2s;
     z-index: 1;
 }
 
 .vce-card:hover {
     background: var(--card-hover-bg);
     border-color: var(--card-hover-border);
-    z-index: 1000;
 }
 
+/* 强效锁定：当调色盘打开或正在输入时，卡片必须处于最高层 */
 .vce-card:focus-within {
-    z-index: 1100 !important;
+    z-index: 10000 !important;
 }
 
 /* 跳转条目闪烁 */
@@ -341,7 +341,7 @@ body input.vce-search-input {
 
 .vce-flash-highlight {
     animation: vce-flash 1.2s ease-out forwards;
-    z-index: 1001;
+    z-index: 10001;
 }
 
 .vce-card-header {
@@ -391,7 +391,6 @@ body input.vce-search-input {
 
 .vce-color-wrapper:hover, .vce-color-wrapper:focus-within {
     background: var(--color-wrapper-hover);
-    z-index: 2;
 }
 
 body input.vce-color-input {
