@@ -425,3 +425,25 @@ body input.vce-color-input {
     text-align: center;
     transform: none !important;
 }
+
+.native-css-toolbar {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+.native-search-wrapper {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+}
+
+.native-css-toolbar .vce-search-input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 50px !important;
+}
+
+.native-css-toolbar .vce-buttons-left {
+    flex-shrink: 0 !important;
+    display: flex !important;
+}
