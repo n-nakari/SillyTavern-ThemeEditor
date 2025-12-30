@@ -429,7 +429,6 @@ body input.vce-color-input {
 .native-css-toolbar {
     box-sizing: border-box !important;
     max-width: 100% !important;
-    overflow: hidden !important;
 }
 
 .native-search-wrapper {
