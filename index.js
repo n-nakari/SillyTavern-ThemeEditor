@@ -2,37 +2,35 @@ import { saveSettingsDebounced, eventSource, event_types } from "../../../../scr
 
 // 扩展面板 HTML
 const EXTENSION_HTML = `
-<div id="visual-css-editor" class="vce-container">
-    <div class="vce-toolbar">
-        <div class="vce-buttons-left">
-            <button id="vce-btn-refresh" class="vce-btn" title="Refresh Panel"><i class="fa-solid fa-rotate-right"></i></button>
-            <button id="vce-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
-            <button id="vce-btn-scroll" class="vce-btn" title="Scroll Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
-            <button id="vce-btn-collapse" class="vce-btn" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
+<div id="visual-css-editor-new" class="vce-container-new">
+    <div class="vce-toolbar-new">
+        <div class="vce-buttons-left-new">
+            <button id="vce-btn-refresh-new" class="vce-btn-new" title="Refresh Panel"><i class="fa-solid fa-rotate-right"></i></button>
+            <button id="vce-btn-save-new" class="vce-btn-new" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
+            <button id="vce-btn-scroll-new" class="vce-btn-new" title="Scroll Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
+            <button id="vce-btn-collapse-new" class="vce-btn-new" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
         </div>
-        <div class="vce-search-wrapper">
-            <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-            <input type="search" id="vce-search-input" class="vce-search-input" placeholder="" autocomplete="off">
-            <div id="vce-search-dropdown" class="vce-search-dropdown"></div>
+        <div class="vce-search-wrapper-new">
+            <input type="search" id="vce-search-input-new" class="vce-search-input-new" placeholder="Search" autocomplete="off">
+            <div id="vce-search-dropdown-new" class="vce-search-dropdown-new"></div>
         </div>
     </div>
-    <div id="vce-content" class="vce-content">
-        <div class="vce-empty-state">Initializing...</div>
+    <div id="vce-content-new" class="vce-content-new">
+        <div class="vce-empty-state-new">Initializing...</div>
     </div>
 </div>
 `;
 
 // 原生 CSS 区域辅助工具栏 HTML
 const NATIVE_TOOLBAR_HTML = `
-<div id="native-css-toolbar" class="native-css-toolbar">
-    <div class="vce-search-wrapper native-search-wrapper">
-        <i class="fa-solid fa-magnifying-glass vce-search-icon"></i>
-        <input type="text" id="native-css-search" class="vce-search-input" placeholder="" autocomplete="off">
-        <div id="native-search-dropdown" class="vce-search-dropdown"></div>
+<div id="native-css-toolbar-new" class="native-css-toolbar-new">
+    <div class="vce-search-wrapper-new native-search-wrapper-new">
+        <input type="text" id="native-css-search-new" class="vce-search-input-new" placeholder="Search" autocomplete="off">
+        <div id="native-search-dropdown-new" class="vce-search-dropdown-new"></div>
     </div>
-    <div class="vce-buttons-left">
-        <button id="native-btn-save" class="vce-btn" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
-        <button id="native-btn-scroll" class="vce-btn" title="Scroll Code Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
+    <div class="vce-buttons-left-new">
+        <button id="native-btn-save-new" class="vce-btn-new" title="Save Theme"><i class="fa-solid fa-floppy-disk"></i></button>
+        <button id="native-btn-scroll-new" class="vce-btn-new" title="Scroll Code Top/Bottom"><i class="fa-solid fa-arrow-down"></i></button>
     </div>
 </div>
 `;
@@ -60,16 +58,16 @@ function initUI() {
     const cssBlock = $('#CustomCSS-block');
     const textAreaBlock = $('#CustomCSS-textAreaBlock');
 
-    if (textAreaBlock.length && $('#visual-css-editor').length === 0) {
+    if (textAreaBlock.length && $('#visual-css-editor-new').length === 0) {
         textAreaBlock.after(EXTENSION_HTML);
         
         const savedMode = localStorage.getItem('vce-theme-mode');
         if (savedMode === 'dark') {
-            $('body').addClass('vce-dark-mode');
+            $('body').addClass('vce-dark-mode-new');
         }
     }
 
-    if (cssBlock.length && $('#native-css-toolbar').length === 0) {
+    if (cssBlock.length && $('#native-css-toolbar-new').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 }
@@ -94,7 +92,7 @@ function smartScroll(container, targetPos) {
 }
 
 function clearLivePatches() {
-    $('#vce-live-patch').text('');
+    $('#vce-live-patch-new').text('');
 }
 
 function bindEvents() {
@@ -103,12 +101,12 @@ function bindEvents() {
     // ===========================
 
     // 刷新按钮
-    $('#vce-btn-refresh').on('click', () => {
+    $('#vce-btn-refresh-new').on('click', () => {
         readAndRenderCSS();
-        $('#vce-search-input').val('');
-        $('#vce-search-dropdown').hide();
+        $('#vce-search-input-new').val('');
+        $('#vce-search-dropdown-new').hide();
         
-        const icon = $('#vce-btn-refresh i');
+        const icon = $('#vce-btn-refresh-new i');
         icon.addClass('fa-spin');
         setTimeout(() => icon.removeClass('fa-spin'), 500);
         
@@ -130,10 +128,10 @@ function bindEvents() {
             toastr.warning('Native theme save button not found or hidden. Saved to browser settings.', 'Visual CSS Editor');
         }
     };
-    $('#vce-btn-save').on('click', triggerSave);
+    $('#vce-btn-save-new').on('click', triggerSave);
 
-    $('#vce-btn-scroll').on('click', function() {
-        const content = $('#vce-content')[0];
+    $('#vce-btn-scroll-new').on('click', function() {
+        const content = $('#vce-content-new')[0];
         const icon = $(this).find('i');
         
         if (scrollDirection === 'down') {
@@ -147,47 +145,53 @@ function bindEvents() {
         }
     });
 
-    $('#vce-btn-collapse').on('click', function() {
-        const container = $('#visual-css-editor');
+    $('#vce-btn-collapse-new').on('click', function() {
+        const container = $('#visual-css-editor-new');
         const icon = $(this).find('i');
         
-        if (container.hasClass('collapsed')) {
-            container.removeClass('collapsed');
+        if (container.hasClass('collapsed-new')) {
+            container.removeClass('collapsed-new');
             icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
         } else {
-            container.addClass('collapsed');
+            container.addClass('collapsed-new');
             icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         }
     });
 
-    // --- 扩展面板搜索 ---
-    const searchInput = $('#vce-search-input');
-    const dropdown = $('#vce-search-dropdown');
-
-    searchInput.on('keydown search', function(e) {
-        if (e.type === 'keydown' && e.key !== 'Enter' && e.keyCode !== 13) return;
+    // --- 主题切换处理逻辑提取 ---
+    const handleThemeToggle = (e, inputObj, dropdownObj) => {
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.keyCode !== 13) return false;
         
-        const query = $(this).val().trim().toLowerCase();
+        const query = inputObj.val().trim().toLowerCase();
         
         if (query === '/dark' || query === '/light') {
             const body = $('body');
 
             if (query === '/dark') {
-                body.addClass('vce-dark-mode');
+                body.addClass('vce-dark-mode-new');
                 localStorage.setItem('vce-theme-mode', 'dark');
-                $(this).val(''); 
-                dropdown.hide();
+                inputObj.val(''); 
+                dropdownObj.hide();
                 toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
             } else if (query === '/light') {
-                body.removeClass('vce-dark-mode');
+                body.removeClass('vce-dark-mode-new');
                 localStorage.setItem('vce-theme-mode', 'light');
-                $(this).val('');
-                dropdown.hide();
+                inputObj.val('');
+                dropdownObj.hide();
                 toastr.success('Switched to Light Mode', 'Visual CSS Editor');
             }
             e.preventDefault();
-            return false;
+            return true;
         }
+        return false;
+    };
+
+    // --- 扩展面板搜索 ---
+    const searchInput = $('#vce-search-input-new');
+    const dropdown = $('#vce-search-dropdown-new');
+
+    searchInput.on('keydown search', function(e) {
+        if (handleThemeToggle(e, $(this), dropdown)) return false;
     });
 
     const handleExtensionSearch = () => {
@@ -199,19 +203,19 @@ function bindEvents() {
             return;
         }
 
-        const cards = $('.vce-card');
+        const cards = $('.vce-card-new');
         let hasResults = false;
 
         cards.each(function(index) {
-            const header = $(this).find('.vce-card-header');
+            const header = $(this).find('.vce-card-header-new');
             const fullText = header.text();
             
             if (fullText.toLowerCase().includes(query.toLowerCase())) {
                 hasResults = true;
                 const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
-                const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text">$1</span>');
-                const item = $(`<div class="vce-search-item" data-idx="${index}" title="${fullText}">${highlightedHtml}</div>`);
+                const highlightedHtml = fullText.replace(regex, '<span class="vce-highlight-text-new">$1</span>');
+                const item = $(`<div class="vce-search-item-new" data-idx="${index}" title="${fullText}">${highlightedHtml}</div>`);
                 dropdown.append(item);
             }
         });
@@ -224,10 +228,10 @@ function bindEvents() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
 
-    dropdown.on('click', '.vce-search-item', function() {
+    dropdown.on('click', '.vce-search-item-new', function() {
         const idx = $(this).data('idx');
-        const targetCard = $('.vce-card').eq(idx);
-        const content = $('#vce-content');
+        const targetCard = $('.vce-card-new').eq(idx);
+        const content = $('#vce-content-new');
         const contentEl = content[0];
 
         if (targetCard.length) {
@@ -236,8 +240,8 @@ function bindEvents() {
 
             smartScroll(contentEl, topPos);
 
-            targetCard.addClass('vce-flash-highlight');
-            setTimeout(() => targetCard.removeClass('vce-flash-highlight'), 1200);
+            targetCard.addClass('vce-flash-highlight-new');
+            setTimeout(() => targetCard.removeClass('vce-flash-highlight-new'), 1200);
         }
         dropdown.hide();
     });
@@ -246,9 +250,9 @@ function bindEvents() {
     //      原生区域辅助功能
     // ===========================
 
-    $('#native-btn-save').on('click', triggerSave);
+    $('#native-btn-save-new').on('click', triggerSave);
 
-    $('#native-btn-scroll').on('click', function() {
+    $('#native-btn-scroll-new').on('click', function() {
         const textarea = $('#customCSS')[0];
         const icon = $(this).find('i');
         
@@ -263,8 +267,12 @@ function bindEvents() {
         }
     });
 
-    const nativeSearchInput = $('#native-css-search');
-    const nativeDropdown = $('#native-search-dropdown');
+    const nativeSearchInput = $('#native-css-search-new');
+    const nativeDropdown = $('#native-search-dropdown-new');
+
+    nativeSearchInput.on('keydown search', function(e) {
+        if (handleThemeToggle(e, $(this), nativeDropdown)) return false;
+    });
 
     const handleNativeSearch = () => {
         const query = nativeSearchInput.val();
@@ -272,7 +280,7 @@ function bindEvents() {
         const fullText = textarea.value;
         nativeDropdown.empty();
 
-        if (!query) {
+        if (!query || query.startsWith('/')) {
             nativeDropdown.hide();
             return;
         }
@@ -290,11 +298,11 @@ function bindEvents() {
                 const regex = new RegExp(`(${safeQuery})`, 'gi');
                 
                 let displayLine = line.trim();
-                const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text">$1</span>');
+                const highlightedHtml = displayLine.replace(regex, '<span class="vce-highlight-text-new">$1</span>');
                 
                 const item = $(`
-                    <div class="vce-search-item native-item" data-line="${i}" title="${displayLine}">
-                        <span class="vce-line-num">${i + 1}:</span> ${highlightedHtml}
+                    <div class="vce-search-item-new native-item-new" data-line="${i}" title="${displayLine}">
+                        <span class="vce-line-num-new">${i + 1}:</span> ${highlightedHtml}
                     </div>
                 `);
                 nativeDropdown.append(item);
@@ -311,7 +319,7 @@ function bindEvents() {
         if ($(this).val()) handleNativeSearch();
     });
 
-    nativeDropdown.on('click', '.vce-search-item', function() {
+    nativeDropdown.on('click', '.vce-search-item-new', function() {
         const lineNum = parseInt($(this).data('line'));
         const textarea = $('#customCSS');
         const rawTextarea = textarea[0];
@@ -339,7 +347,7 @@ function bindEvents() {
     });
 
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('.vce-search-wrapper').length) {
+        if (!$(e.target).closest('.vce-search-wrapper-new').length) {
             dropdown.hide();
             nativeDropdown.hide();
         }
@@ -382,7 +390,7 @@ function getCaretCoordinates(element, position) {
 
 function readAndRenderCSS() {
     const cssText = $('#customCSS').val() || '';
-    const container = $('#vce-content');
+    const container = $('#vce-content-new');
     container.empty();
 
     let match;
@@ -439,7 +447,7 @@ function readAndRenderCSS() {
     }
 
     if (!hasContent) {
-        container.html('<div class="vce-empty-state">No editable colors found.</div>');
+        container.html('<div class="vce-empty-state-new">No editable colors found.</div>');
     }
 }
 
@@ -469,15 +477,15 @@ function hasColor(val) {
 }
 
 function createCard(title, properties, selector) {
-    const card = $('<div class="vce-card"></div>');
-    const header = $(`<div class="vce-card-header">${title}</div>`);
+    const card = $('<div class="vce-card-new"></div>');
+    const header = $(`<div class="vce-card-header-new">${title}</div>`);
     card.append(header);
 
-    const propsList = $('<div class="vce-props-list"></div>');
+    const propsList = $('<div class="vce-props-list-new"></div>');
     
     properties.forEach(prop => {
-        const propRow = $('<div class="vce-prop-row"></div>');
-        const propName = $(`<div class="vce-prop-name">${prop.key}</div>`); 
+        const propRow = $('<div class="vce-prop-row-new"></div>');
+        const propName = $(`<div class="vce-prop-name-new">${prop.key}</div>`); 
         propRow.append(propName);
 
         const regex = new RegExp(COLOR_REGEX.source, COLOR_REGEX.flags);
@@ -503,17 +511,17 @@ function createCard(title, properties, selector) {
 }
 
 function createColorControl(selector, propKey, initialColor, colorIndex, displayIndex) {
-    const wrapper = $('<div class="vce-color-wrapper" tabindex="-1"></div>');
+    const wrapper = $('<div class="vce-color-wrapper-new" tabindex="-1"></div>');
     
     let allowUpdate = false;
 
     if (displayIndex !== null) {
-        wrapper.append(`<span class="vce-color-idx">${displayIndex}</span>`);
+        wrapper.append(`<span class="vce-color-idx-new">${displayIndex}</span>`);
     }
 
-    const pickerId = `vce-picker-${Math.random().toString(36).substr(2, 9)}`;
-    const picker = $(`<toolcool-color-picker id="${pickerId}" color="${initialColor}" class="vce-picker"></toolcool-color-picker>`);
-    const input = $(`<input type="text" class="vce-color-input" value="${initialColor}">`);
+    const pickerId = `vce-picker-new-${Math.random().toString(36).substr(2, 9)}`;
+    const picker = $(`<toolcool-color-picker id="${pickerId}" color="${initialColor}" class="vce-picker-new"></toolcool-color-picker>`);
+    const input = $(`<input type="text" class="vce-color-input-new" value="${initialColor}">`);
 
     wrapper.append(picker);
     wrapper.append(input);
