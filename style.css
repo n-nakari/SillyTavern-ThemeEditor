@@ -1,6 +1,4 @@
 :root {
-    --tool-cool-color-picker-btn-border-color-inner: rgba(0, 0, 0, 0.5);
-    
     --whole-bg: rgba(170, 170, 170, 0.3);
     --whole-border: rgba(255, 255, 255, 1);
     
@@ -43,8 +41,6 @@
 }
 
 body.vce-dark-mode-new {
-    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
-    
     --whole-bg: rgba(30, 30, 30, 0.6);
     --whole-border: rgba(255, 255, 255, 0.15);
     
@@ -92,6 +88,7 @@ body.vce-dark-mode-new {
 
 /* 扩展面板部分嵌套样式 */
 body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
+    --tool-cool-color-picker-btn-border-color-inner: rgba(0, 0, 0, 0.5);
     margin-top: 10px;
     border-radius: 18px;
     background: var(--whole-bg);
@@ -170,6 +167,31 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
         width: 150px;
     }
 
+    .vce-search-icon-new {
+        position: absolute;
+        left: 10px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 2;
+        padding: 0 !important;
+        color: var(--card-header-text);
+    }
+
+    .vce-search-clear-new {
+        position: absolute;
+        right: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        z-index: 2;
+        color: var(--card-header-text);
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+
+    .vce-search-clear-new:hover {
+        opacity: 1;
+    }
+
     input.vce-search-input-new {
         width: 100%;
         height: 32px;
@@ -177,7 +199,7 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
         border: none !important;
         background: transparent !important;
         background-color: var(--css-button-bg) !important;
-        padding: 0 10px !important;
+        padding: 0 28px 0 30px !important;
         color: var(--SmartThemeBodyColor) !important;
         font-size: 14px !important;
         outline: none !important;
@@ -188,6 +210,11 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
         backdrop-filter: blur(3px) !important;
         -webkit-backdrop-filter: blur(3px) !important;
         transform: none !important;
+    }
+
+    input.vce-search-input-new::-webkit-search-cancel-button {
+        display: none;
+        -webkit-appearance: none;
     }
 
     input.vce-search-input-new:focus {
@@ -370,6 +397,10 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
     }
 }
 
+body.vce-dark-mode-new #visual-css-editor-new {
+    --tool-cool-color-picker-btn-border-color-inner: rgba(255, 255, 255, 0.5);
+}
+
 /* 原生CSS区域辅助工具栏嵌套样式 */
 body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
     display: flex;
@@ -432,6 +463,31 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
         flex: 1 1 auto !important;
     }
 
+    .vce-search-icon-new {
+        position: absolute;
+        left: 10px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 2;
+        padding: 0 !important;
+        color: var(--card-header-text);
+    }
+
+    .vce-search-clear-new {
+        position: absolute;
+        right: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        z-index: 2;
+        color: var(--card-header-text);
+        opacity: 0.6;
+        transition: opacity 0.2s;
+    }
+
+    .vce-search-clear-new:hover {
+        opacity: 1;
+    }
+
     input.vce-search-input-new {
         width: 100% !important;
         height: 32px;
@@ -439,7 +495,7 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
         border: none !important;
         background: transparent !important;
         background-color: var(--css-button-bg) !important;
-        padding: 0 10px !important;
+        padding: 0 28px 0 30px !important;
         color: var(--SmartThemeBodyColor) !important;
         font-size: 14px !important;
         outline: none !important;
@@ -451,6 +507,11 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
         -webkit-backdrop-filter: blur(3px) !important;
         transform: none !important;
         min-width: 50px !important;
+    }
+
+    input.vce-search-input-new::-webkit-search-cancel-button {
+        display: none;
+        -webkit-appearance: none;
     }
 
     input.vce-search-input-new:focus {
