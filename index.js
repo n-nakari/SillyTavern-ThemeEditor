@@ -11,7 +11,9 @@ const EXTENSION_HTML = `
             <button id="vce-btn-collapse-new" class="vce-btn-new" title="Collapse/Expand"><i class="fa-solid fa-chevron-up"></i></button>
         </div>
         <div class="vce-search-wrapper-new">
-            <input type="search" id="vce-search-input-new" class="vce-search-input-new" placeholder="Search" autocomplete="off">
+            <i class="fa-solid fa-magnifying-glass vce-search-icon-new"></i>
+            <input type="search" id="vce-search-input-new" class="vce-search-input-new" placeholder="" autocomplete="off">
+            <i class="fa-solid fa-xmark vce-search-clear-new" style="display: none;"></i>
             <div id="vce-search-dropdown-new" class="vce-search-dropdown-new"></div>
         </div>
     </div>
@@ -25,7 +27,9 @@ const EXTENSION_HTML = `
 const NATIVE_TOOLBAR_HTML = `
 <div id="native-css-toolbar-new" class="native-css-toolbar-new">
     <div class="vce-search-wrapper-new native-search-wrapper-new">
-        <input type="text" id="native-css-search-new" class="vce-search-input-new" placeholder="Search" autocomplete="off">
+        <i class="fa-solid fa-magnifying-glass vce-search-icon-new"></i>
+        <input type="text" id="native-css-search-new" class="vce-search-input-new" placeholder="" autocomplete="off">
+        <i class="fa-solid fa-xmark vce-search-clear-new" style="display: none;"></i>
         <div id="native-search-dropdown-new" class="vce-search-dropdown-new"></div>
     </div>
     <div class="vce-buttons-left-new">
@@ -104,6 +108,7 @@ function bindEvents() {
     $('#vce-btn-refresh-new').on('click', () => {
         readAndRenderCSS();
         $('#vce-search-input-new').val('');
+        $('#vce-search-input-new').siblings('.vce-search-clear-new').hide();
         $('#vce-search-dropdown-new').hide();
         
         const icon = $('#vce-btn-refresh-new i');
@@ -171,12 +176,14 @@ function bindEvents() {
                 body.addClass('vce-dark-mode-new');
                 localStorage.setItem('vce-theme-mode', 'dark');
                 inputObj.val(''); 
+                inputObj.siblings('.vce-search-clear-new').hide();
                 dropdownObj.hide();
                 toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
             } else if (query === '/light') {
                 body.removeClass('vce-dark-mode-new');
                 localStorage.setItem('vce-theme-mode', 'light');
                 inputObj.val('');
+                inputObj.siblings('.vce-search-clear-new').hide();
                 dropdownObj.hide();
                 toastr.success('Switched to Light Mode', 'Visual CSS Editor');
             }
@@ -185,6 +192,12 @@ function bindEvents() {
         }
         return false;
     };
+
+    // --- 清空输入框按钮事件 ---
+    $('.vce-search-wrapper-new').on('click', '.vce-search-clear-new', function() {
+        const input = $(this).siblings('.vce-search-input-new');
+        input.val('').trigger('input').focus();
+    });
 
     // --- 扩展面板搜索 ---
     const searchInput = $('#vce-search-input-new');
@@ -223,7 +236,15 @@ function bindEvents() {
         hasResults ? dropdown.show() : dropdown.hide();
     };
 
-    searchInput.on('input', handleExtensionSearch);
+    searchInput.on('input', function() {
+        if ($(this).val().length > 0) {
+            $(this).siblings('.vce-search-clear-new').show();
+        } else {
+            $(this).siblings('.vce-search-clear-new').hide();
+        }
+        handleExtensionSearch();
+    });
+
     searchInput.on('focus click', function() {
         if ($(this).val().trim()) handleExtensionSearch();
     });
@@ -314,7 +335,15 @@ function bindEvents() {
         hasResults ? nativeDropdown.show() : nativeDropdown.hide();
     };
 
-    nativeSearchInput.on('input', handleNativeSearch);
+    nativeSearchInput.on('input', function() {
+        if ($(this).val().length > 0) {
+            $(this).siblings('.vce-search-clear-new').show();
+        } else {
+            $(this).siblings('.vce-search-clear-new').hide();
+        }
+        handleNativeSearch();
+    });
+
     nativeSearchInput.on('focus click', function() {
         if ($(this).val()) handleNativeSearch();
     });
