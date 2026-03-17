@@ -240,7 +240,7 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
         border-radius: 12px !important;
         box-shadow: 0 4px 20px var(--dropdown-shadow) !important;
         z-index: 10000 !important;
-        display: none !important;
+        display: none;
         padding: 6px 0 !important;
         scrollbar-width: thin !important;
         scrollbar-color: var(--dropdown-scrollbar) transparent !important;
