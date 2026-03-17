@@ -592,6 +592,7 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
     #customCSS::-webkit-scrollbar {
         display: initial !important;
         width: 10px !important;
+        background-color: transparent !important;
     }
     #customCSS::-webkit-scrollbar-thumb {
         display: none !important;
