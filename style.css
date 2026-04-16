@@ -103,6 +103,7 @@ body.no-blur #visual-css-editor-new, body #visual-css-editor-new {
     flex-direction: column !important;
     backdrop-filter: blur(3px) !important;
     -webkit-backdrop-filter: blur(3px) !important;
+    z-index: 1 !important;
 
     &.collapsed-new {
         max-height: 45px !important;
@@ -419,7 +420,7 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
     padding: 8px 16px !important;
     backdrop-filter: blur(3px) !important;
     -webkit-backdrop-filter: blur(3px) !important;
-    z-index: 100 !important;
+    z-index: 2 !important;
     box-sizing: border-box !important;
     max-width: 100% !important;
 
@@ -540,7 +541,6 @@ body.no-blur #native-css-toolbar-new, body #native-css-toolbar-new {
         background: var(--dropdown-bg) !important;
         border-radius: 12px !important;
         box-shadow: 0 4px 20px var(--dropdown-shadow) !important;
-        z-index: 10000 !important;
         display: none;
         padding: 6px 0 !important;
         scrollbar-width: thin !important;
