@@ -75,13 +75,25 @@ function initUI() {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 
-    // 插入主题切换按钮到“Custom CSS”文字的正右方，利用 margin-right: auto 把后面的元素挤到最右边
-    const titleSpan = cssBlock.find('h4 span[data-i18n="Custom CSS"]');
-    if (titleSpan.length && $('#vce-theme-toggle').length === 0) {
+    // 插入主题切换按钮和高度注入按钮到原生全屏展开按钮的左侧
+    const maximizeBtn = cssBlock.find('.editor_maximize[data-for="customCSS"]');
+    if (maximizeBtn.length && $('#vce-theme-toggle').length === 0) {
         const isDark = $('body').hasClass('vce-dark-mode-new');
         const iconClass = isDark ? 'fa-sun' : 'fa-moon';
-        const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" style="margin-left: 10px; margin-right: auto;" title="Toggle VCE Dark/Light Mode"></i>`);
-        titleSpan.after(toggleBtn);
+        
+        // 创建新按钮
+        const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" title="Toggle VCE Dark/Light Mode"></i>`);
+        const injectBtn = $(`<i id="vce-css-inject-toggle" class="fa-solid fa-arrows-up-down right_menu_button" title="Toggle 50dvh Custom CSS Height"></i>`);
+        
+        // 使用一个 flex-container 将这三个按钮包裹起来，这样原生 h4 的 space-between 就会把它们整体推向最右侧
+        const btnGroup = $('<div class="flex-container alignitemscenter flexGap10"></div>');
+        maximizeBtn.before(btnGroup);
+        btnGroup.append(toggleBtn, injectBtn, maximizeBtn);
+        
+        // 如果插件重载时发现样式已经注入，还原高亮状态
+        if ($('#vce-custom-css-height-inject').length) {
+            injectBtn.addClass('vce-active-btn');
+        }
     }
 }
 
@@ -129,6 +141,24 @@ function bindEvents() {
             localStorage.setItem('vce-theme-mode', 'dark');
             $(this).removeClass('fa-moon').addClass('fa-sun');
             toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
+        }
+    });
+
+    // 注入 CSS 按钮点击事件
+    $('#vce-css-inject-toggle').on('click', function(e) {
+        e.stopPropagation();
+        const styleId = 'vce-custom-css-height-inject';
+        let styleTag = $(`#${styleId}`);
+        
+        if (styleTag.length) {
+            styleTag.remove();
+            $(this).removeClass('vce-active-btn');
+            toastr.info('Custom CSS height restored', 'Visual CSS Editor');
+        } else {
+            styleTag = $(`<style id="${styleId}">#customCSS { min-height: 50dvh !important; }</style>`);
+            $('head').append(styleTag);
+            $(this).addClass('vce-active-btn');
+            toastr.info('Custom CSS height set to 50dvh', 'Visual CSS Editor');
         }
     });
 
