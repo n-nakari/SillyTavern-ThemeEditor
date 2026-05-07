@@ -75,13 +75,13 @@ function initUI() {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
 
-    // 插入主题切换按钮到原生全屏展开按钮的正左侧
-    const maximizeBtn = cssBlock.find('.editor_maximize[data-for="customCSS"]');
-    if (maximizeBtn.length && $('#vce-theme-toggle').length === 0) {
+    // 插入主题切换按钮到“Custom CSS”文字的正右方，利用 margin-right: auto 把后面的元素挤到最右边
+    const titleSpan = cssBlock.find('h4 span[data-i18n="Custom CSS"]');
+    if (titleSpan.length && $('#vce-theme-toggle').length === 0) {
         const isDark = $('body').hasClass('vce-dark-mode-new');
         const iconClass = isDark ? 'fa-sun' : 'fa-moon';
-        const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" title="Toggle VCE Dark/Light Mode"></i>`);
-        maximizeBtn.before(toggleBtn);
+        const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" style="margin-left: 10px; margin-right: auto;" title="Toggle VCE Dark/Light Mode"></i>`);
+        titleSpan.after(toggleBtn);
     }
 }
 
