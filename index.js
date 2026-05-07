@@ -74,6 +74,15 @@ function initUI() {
     if (cssBlock.length && $('#native-css-toolbar-new').length === 0) {
         textAreaBlock.before(NATIVE_TOOLBAR_HTML);
     }
+
+    // 插入主题切换按钮到原生全屏展开按钮的正左侧
+    const maximizeBtn = cssBlock.find('.editor_maximize[data-for="customCSS"]');
+    if (maximizeBtn.length && $('#vce-theme-toggle').length === 0) {
+        const isDark = $('body').hasClass('vce-dark-mode-new');
+        const iconClass = isDark ? 'fa-sun' : 'fa-moon';
+        const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" title="Toggle VCE Dark/Light Mode"></i>`);
+        maximizeBtn.before(toggleBtn);
+    }
 }
 
 function smartScroll(container, targetPos) {
@@ -103,6 +112,25 @@ function bindEvents() {
     // ===========================
     //      扩展面板功能绑定
     // ===========================
+
+    // 主题切换按钮点击事件
+    $('#vce-theme-toggle').on('click', function(e) {
+        e.stopPropagation();
+        const body = $('body');
+        const isDark = body.hasClass('vce-dark-mode-new');
+        
+        if (isDark) {
+            body.removeClass('vce-dark-mode-new');
+            localStorage.setItem('vce-theme-mode', 'light');
+            $(this).removeClass('fa-sun').addClass('fa-moon');
+            toastr.success('Switched to Light Mode', 'Visual CSS Editor');
+        } else {
+            body.addClass('vce-dark-mode-new');
+            localStorage.setItem('vce-theme-mode', 'dark');
+            $(this).removeClass('fa-moon').addClass('fa-sun');
+            toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
+        }
+    });
 
     // 刷新按钮
     $('#vce-btn-refresh-new').on('click', () => {
@@ -163,36 +191,6 @@ function bindEvents() {
         }
     });
 
-    // --- 主题切换处理逻辑提取 ---
-    const handleThemeToggle = (e, inputObj, dropdownObj) => {
-        if (e.type === 'keydown' && e.key !== 'Enter' && e.keyCode !== 13) return false;
-        
-        const query = inputObj.val().trim().toLowerCase();
-        
-        if (query === '/dark' || query === '/light') {
-            const body = $('body');
-
-            if (query === '/dark') {
-                body.addClass('vce-dark-mode-new');
-                localStorage.setItem('vce-theme-mode', 'dark');
-                inputObj.val(''); 
-                inputObj.siblings('.vce-search-clear-new').hide();
-                dropdownObj.hide();
-                toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
-            } else if (query === '/light') {
-                body.removeClass('vce-dark-mode-new');
-                localStorage.setItem('vce-theme-mode', 'light');
-                inputObj.val('');
-                inputObj.siblings('.vce-search-clear-new').hide();
-                dropdownObj.hide();
-                toastr.success('Switched to Light Mode', 'Visual CSS Editor');
-            }
-            e.preventDefault();
-            return true;
-        }
-        return false;
-    };
-
     // --- 清空输入框按钮事件 ---
     $('.vce-search-wrapper-new').on('click', '.vce-search-clear-new', function() {
         const input = $(this).siblings('.vce-search-input-new');
@@ -203,15 +201,11 @@ function bindEvents() {
     const searchInput = $('#vce-search-input-new');
     const dropdown = $('#vce-search-dropdown-new');
 
-    searchInput.on('keydown search', function(e) {
-        if (handleThemeToggle(e, $(this), dropdown)) return false;
-    });
-
     const handleExtensionSearch = () => {
         const query = searchInput.val().trim();
         dropdown.empty();
 
-        if (!query || query.startsWith('/')) {
+        if (!query) {
             dropdown.hide();
             return;
         }
@@ -291,17 +285,13 @@ function bindEvents() {
     const nativeSearchInput = $('#native-css-search-new');
     const nativeDropdown = $('#native-search-dropdown-new');
 
-    nativeSearchInput.on('keydown search', function(e) {
-        if (handleThemeToggle(e, $(this), nativeDropdown)) return false;
-    });
-
     const handleNativeSearch = () => {
         const query = nativeSearchInput.val();
         const textarea = $('#customCSS')[0];
         const fullText = textarea.value;
         nativeDropdown.empty();
 
-        if (!query || query.startsWith('/')) {
+        if (!query) {
             nativeDropdown.hide();
             return;
         }
