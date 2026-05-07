@@ -83,17 +83,12 @@ function initUI() {
         
         // 创建新按钮
         const toggleBtn = $(`<i id="vce-theme-toggle" class="fa-solid ${iconClass} right_menu_button" title="Toggle VCE Dark/Light Mode"></i>`);
-        const injectBtn = $(`<i id="vce-css-inject-toggle" class="fa-solid fa-arrows-up-down right_menu_button" title="Toggle 50dvh Custom CSS Height"></i>`);
+        const injectBtn = $(`<i id="vce-css-inject-toggle" class="fa-solid fa-arrows-up-down right_menu_button" title="Toggle 60dvh Custom CSS Height"></i>`);
         
-        // 使用一个 flex-container 将这三个按钮包裹起来，这样原生 h4 的 space-between 就会把它们整体推向最右侧
-        const btnGroup = $('<div class="flex-container alignitemscenter flexGap10"></div>');
+        // 使用 flex-container 将这三个按钮包裹起来，并设置 20px 间距
+        const btnGroup = $('<div class="flex-container alignitemscenter" style="gap: 20px;"></div>');
         maximizeBtn.before(btnGroup);
         btnGroup.append(toggleBtn, injectBtn, maximizeBtn);
-        
-        // 如果插件重载时发现样式已经注入，还原高亮状态
-        if ($('#vce-custom-css-height-inject').length) {
-            injectBtn.addClass('vce-active-btn');
-        }
     }
 }
 
@@ -135,12 +130,10 @@ function bindEvents() {
             body.removeClass('vce-dark-mode-new');
             localStorage.setItem('vce-theme-mode', 'light');
             $(this).removeClass('fa-sun').addClass('fa-moon');
-            toastr.success('Switched to Light Mode', 'Visual CSS Editor');
         } else {
             body.addClass('vce-dark-mode-new');
             localStorage.setItem('vce-theme-mode', 'dark');
             $(this).removeClass('fa-moon').addClass('fa-sun');
-            toastr.success('Switched to Dark Mode', 'Visual CSS Editor');
         }
     });
 
@@ -152,13 +145,9 @@ function bindEvents() {
         
         if (styleTag.length) {
             styleTag.remove();
-            $(this).removeClass('vce-active-btn');
-            toastr.info('Custom CSS height restored', 'Visual CSS Editor');
         } else {
-            styleTag = $(`<style id="${styleId}">#customCSS { min-height: 50dvh !important; }</style>`);
+            styleTag = $(`<style id="${styleId}">#customCSS { min-height: 60dvh !important; }</style>`);
             $('head').append(styleTag);
-            $(this).addClass('vce-active-btn');
-            toastr.info('Custom CSS height set to 50dvh', 'Visual CSS Editor');
         }
     });
 
@@ -390,7 +379,8 @@ function bindEvents() {
         const styles = window.getComputedStyle(rawTextarea);
         const paddingTop = parseInt(styles.paddingTop) || 0;
         
-        smartScroll(rawTextarea, pixelTop - paddingTop);
+        // 强制定位，取消平滑滚动，让文本框直接滑动到刚好使该行作为首行的位置
+        rawTextarea.scrollTop = pixelTop - paddingTop;
 
         nativeDropdown.hide();
     });
